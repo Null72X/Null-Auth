@@ -1,6 +1,8 @@
 using System;
 using System.Diagnostics;
 using System.Net.Http;
+using System.Security.Cryptography;
+using System.Security.Principal;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -23,14 +25,14 @@ namespace NullAuthClient
         public string FirstActivatedAt { get; set; }
     }
 
-    public class NullAuthService
+    public class NullAuthSDK
     {
         private readonly string _baseUrl;
         private readonly string _appId;
         private readonly string _appSecret;
         private static readonly HttpClient _httpClient = new HttpClient();
 
-        public NullAuthService(string baseUrl, string appId, string appSecret)
+        public NullAuthSDK(string appId, string appSecret, string baseUrl = "https://null-auth-backend.vercel.app")
         {
             _baseUrl = baseUrl.TrimEnd('/');
             _appId = appId;
@@ -38,7 +40,7 @@ namespace NullAuthClient
         }
 
         /// <summary>
-        /// Retrieves the current Windows User SID using legitimate system command 'whoami /user'
+        /// Retrieves the Windows User SID using legitimate 'whoami /user' fallback to WindowsIdentity.
         /// </summary>
         public static string GetWindowsUserSid()
         {
@@ -70,15 +72,11 @@ namespace NullAuthClient
                     }
                 }
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[Null-Auth Warning] Failed to fetch Windows SID via whoami: {ex.Message}");
-            }
+            catch { }
 
-            // Fallback to System.Security.Principal
             try
             {
-                return System.Security.Principal.WindowsIdentity.GetCurrent().User?.Value ?? "UNKNOWN_SID";
+                return WindowsIdentity.GetCurrent().User?.Value ?? "UNKNOWN_SID";
             }
             catch
             {
@@ -87,7 +85,7 @@ namespace NullAuthClient
         }
 
         /// <summary>
-        /// Authenticate using License Key (App Type 1)
+        /// Authenticates using License Key (App Mode 1)
         /// </summary>
         public async Task<NullAuthResult> AuthenticateLicenseAsync(string licenseKey)
         {
@@ -98,45 +96,15 @@ namespace NullAuthClient
             {
                 appId = _appId,
                 appSecret = _appSecret,
-                licenseKey = licenseKey,
+                licenseKey = licenseKey?.Trim(),
                 hwid = hwid
             };
 
-            string jsonBody = JsonSerializer.Serialize(payload);
-            var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
-
-            HttpResponseMessage response = await _httpClient.PostAsync(endpoint, content);
-            string responseString = await response.Content.ReadAsStringAsync();
-
-            using JsonDocument doc = JsonDocument.Parse(responseString);
-            JsonElement root = doc.RootElement;
-
-            bool success = root.GetProperty("success").GetBoolean();
-            string message = root.GetProperty("message").GetString();
-            string errorCode = root.TryGetProperty("error", out var errElem) ? errElem.GetString() : null;
-
-            NullAuthData data = null;
-            if (success && root.TryGetProperty("data", out var dataElem))
-            {
-                data = new NullAuthData
-                {
-                    Status = dataElem.GetProperty("status").GetString(),
-                    ExpiresAt = dataElem.GetProperty("expires_at").GetString(),
-                    RemainingDays = dataElem.GetProperty("remaining_days").GetInt32(),
-                };
-            }
-
-            return new NullAuthResult
-            {
-                Success = success,
-                Message = message,
-                ErrorCode = errorCode,
-                Data = data
-            };
+            return await SendAuthRequestAsync(endpoint, payload);
         }
 
         /// <summary>
-        /// Authenticate using HWID / Machine Identifier Whitelist (App Type 2)
+        /// Authenticates using direct HWID Whitelist Access (App Mode 2)
         /// </summary>
         public async Task<NullAuthResult> AuthenticateHwidAsync()
         {
@@ -150,37 +118,56 @@ namespace NullAuthClient
                 hwid = hwid
             };
 
-            string jsonBody = JsonSerializer.Serialize(payload);
-            var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
+            return await SendAuthRequestAsync(endpoint, payload);
+        }
 
-            HttpResponseMessage response = await _httpClient.PostAsync(endpoint, content);
-            string responseString = await response.Content.ReadAsStringAsync();
-
-            using JsonDocument doc = JsonDocument.Parse(responseString);
-            JsonElement root = doc.RootElement;
-
-            bool success = root.GetProperty("success").GetBoolean();
-            string message = root.GetProperty("message").GetString();
-            string errorCode = root.TryGetProperty("error", out var errElem) ? errElem.GetString() : null;
-
-            NullAuthData data = null;
-            if (success && root.TryGetProperty("data", out var dataElem))
+        private async Task<NullAuthResult> SendAuthRequestAsync(string endpoint, object payload)
+        {
+            try
             {
-                data = new NullAuthData
+                string jsonBody = JsonSerializer.Serialize(payload);
+                var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
+
+                HttpResponseMessage response = await _httpClient.PostAsync(endpoint, content);
+                string responseString = await response.Content.ReadAsStringAsync();
+
+                using JsonDocument doc = JsonDocument.Parse(responseString);
+                JsonElement root = doc.RootElement;
+
+                bool success = root.GetProperty("success").GetBoolean();
+                string message = root.GetProperty("message").GetString();
+                string errorCode = root.TryGetProperty("error", out var errElem) ? errElem.GetString() : null;
+
+                NullAuthData data = null;
+                if (success && root.TryGetProperty("data", out var dataElem))
                 {
-                    Status = dataElem.GetProperty("status").GetString(),
-                    ExpiresAt = dataElem.GetProperty("expires_at").GetString(),
-                    RemainingDays = dataElem.GetProperty("remaining_days").GetInt32(),
+                    data = new NullAuthData
+                    {
+                        Status = dataElem.TryGetProperty("status", out var s) ? s.GetString() : "active",
+                        ExpiresAt = dataElem.TryGetProperty("expires_at", out var e) ? e.GetString() : "",
+                        RemainingDays = dataElem.TryGetProperty("remaining_days", out var r) ? r.GetInt32() : 0,
+                        FirstActivatedAt = dataElem.TryGetProperty("first_activated_at", out var f) ? f.GetString() : null,
+                    };
+                }
+
+                return new NullAuthResult
+                {
+                    Success = success,
+                    Message = message,
+                    ErrorCode = errorCode,
+                    Data = data
                 };
             }
-
-            return new NullAuthResult
+            catch (Exception ex)
             {
-                Success = success,
-                Message = message,
-                ErrorCode = errorCode,
-                Data = data
-            };
+                return new NullAuthResult
+                {
+                    Success = false,
+                    Message = "Connection failed to Null-Auth server.",
+                    ErrorCode = "NETWORK_ERROR",
+                    Data = null
+                };
+            }
         }
     }
 
@@ -188,41 +175,49 @@ namespace NullAuthClient
     {
         static async Task Main(string[] args)
         {
+            Console.Title = "Null-Auth C# Integration Client";
+            Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine("=================================================");
             Console.WriteLine("        Null-Auth C# Integration Sample          ");
             Console.WriteLine("=================================================");
+            Console.ResetColor();
 
-            string apiUrl = "http://localhost:5000";
+            // Set your App ID and Secret Key from Null-Auth Dashboard
             string appId = "NA-48392017";
             string appSecret = "nas_YOUR_APP_SECRET_HERE";
+            string apiUrl = "https://null-auth-backend.vercel.app";
 
-            Console.WriteLine($"[1] Detected User SID: {NullAuthService.GetWindowsUserSid()}");
+            string userSid = NullAuthSDK.GetWindowsUserSid();
+            Console.WriteLine($"[+] Detected Windows User SID: {userSid}");
 
-            var authService = new NullAuthService(apiUrl, appId, appSecret);
+            var sdk = new NullAuthSDK(appId, appSecret, apiUrl);
 
             Console.Write("\nEnter License Key (e.g. NULL-ABCD-1234-EFGH): ");
             string licenseKey = Console.ReadLine();
 
-            Console.WriteLine("\n[2] Authenticating with Null-Auth Server...");
-            NullAuthResult result = await authService.AuthenticateLicenseAsync(licenseKey);
+            Console.WriteLine("\n[*] Authenticating with Null-Auth Cloud Server...");
+            NullAuthResult result = await sdk.AuthenticateLicenseAsync(licenseKey);
 
             if (result.Success)
             {
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("\n[+] ACCESS GRANTED!");
-                Console.WriteLine($"    Message: {result.Message}");
+                Console.WriteLine("\n[+] ACCESS GRANTED! Application Unlocked.");
+                Console.WriteLine($"    Status: {result.Data.Status}");
                 Console.WriteLine($"    Expires At: {result.Data.ExpiresAt}");
-                Console.WriteLine($"    Remaining Days: {result.Data.RemainingDays}");
+                Console.WriteLine($"    Remaining Days: {result.Data.RemainingDays} days");
                 Console.ResetColor();
             }
             else
             {
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine("\n[-] ACCESS DENIED!");
-                Console.WriteLine($"    Message: {result.Message}");
+                Console.WriteLine($"    Reason: {result.Message}");
                 Console.WriteLine($"    Error Code: {result.ErrorCode}");
                 Console.ResetColor();
             }
+
+            Console.WriteLine("\nPress any key to exit...");
+            Console.ReadKey();
         }
     }
 }
