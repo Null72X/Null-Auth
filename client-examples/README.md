@@ -1,17 +1,34 @@
-# Null-Auth Client SDK Examples
+# Null-Auth Client SDKs & Console Application Samples
 
 This directory contains production-ready integration examples for embedding **Null-Auth** private authentication & licensing in desktop applications.
 
-Available Clients:
-- **C# (`/csharp/NullAuthClient.cs`)**: C# .NET implementation with Windows SID retrieval (`whoami /user` fallback to `WindowsIdentity.GetCurrent()`), JSON serialization, and HTTP client requests.
-- **C++ (`/cpp/NullAuthClient.cpp`)**: Native Windows C++ implementation using WinINet API and command line SID extraction.
-- **Python (`/python/null_auth_client.py`)**: Zero-dependency Python 3 client using standard library `subprocess` and `urllib`.
+For every language (**Python**, **C#**, and **C++**), the SDK directory is split into **2 clean files**:
+1. **Core SDK Library**: Reusable SDK class supporting BOTH Auth Methods.
+2. **Console Application Sample**: Runnable console application demonstrating interactive user authentication for BOTH Auth Methods.
 
 ---
 
-## 1. Authentication Modes
+## 📁 Directory Structure
 
-### Mode 1: License Key + Bound HWID
+```
+client-examples/
+├── python/
+│   ├── null_auth_sdk.py       # File 1: Core Python 3 SDK Library
+│   └── auth_console_app.py    # File 2: Console Application Sample (Both Methods)
+├── csharp/
+│   ├── NullAuthSDK.cs         # File 1: Core C# .NET SDK Library
+│   └── AuthConsoleApp.cs      # File 2: Console Application Sample (Both Methods)
+├── cpp/
+│   ├── NullAuthSDK.hpp        # File 1: Core C++ WinINet SDK Library Header
+│   └── AuthConsoleApp.cpp     # File 2: Console Application Sample (Both Methods)
+└── README.md
+```
+
+---
+
+## 🔑 Authentication Modes Supported in Both Files
+
+### Method 1: License Key + Bound Machine SID
 - **Endpoint**: `POST /api/v1/client/license/authenticate`
 - **Request Body**:
 ```json
@@ -22,9 +39,8 @@ Available Clients:
   "hwid": "S-1-5-21-38294-..."
 }
 ```
-- **Behavior**: On first activation, the license is bound to the provided HWID. Subsequent authentications from different HWIDs will be rejected (`HWID_MISMATCH`).
 
-### Mode 2: HWID Direct Whitelist Access
+### Method 2: HWID Direct Whitelist Access
 - **Endpoint**: `POST /api/v1/client/hwid/authenticate`
 - **Request Body**:
 ```json
@@ -34,13 +50,11 @@ Available Clients:
   "hwid": "S-1-5-21-38294-..."
 }
 ```
-- **Behavior**: Verifies that the client's HWID is explicitly listed on the application's authorized whitelist.
 
 ---
 
-## 2. Standardized API Responses
+## ⚡ Standardized API Response
 
-### Success Response (`200 OK`)
 ```json
 {
   "success": true,
@@ -48,31 +62,7 @@ Available Clients:
   "data": {
     "status": "active",
     "expires_at": "2027-01-01T00:00:00.000Z",
-    "remaining_days": 365,
-    "first_activated_at": "2026-08-25T07:20:00.000Z"
+    "remaining_days": 365
   }
 }
 ```
-
-### Error Response (`401 / 403 / 404`)
-```json
-{
-  "success": false,
-  "message": "License key has expired",
-  "error": "LICENSE_EXPIRED"
-}
-```
-
-Possible Error Codes:
-- `APPLICATION_NOT_FOUND`
-- `INVALID_APP_CREDENTIALS`
-- `APPLICATION_DISABLED`
-- `LICENSE_NOT_FOUND`
-- `LICENSE_PAUSED`
-- `LICENSE_BANNED`
-- `LICENSE_EXPIRED`
-- `HWID_MISMATCH`
-- `IDENTIFIER_NOT_FOUND`
-- `IDENTIFIER_PAUSED`
-- `IDENTIFIER_BANNED`
-- `IDENTIFIER_EXPIRED`

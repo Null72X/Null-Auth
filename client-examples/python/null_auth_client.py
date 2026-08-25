@@ -93,7 +93,7 @@ if __name__ == "__main__":
 
     # Configure your App ID and Secret Key from Null-Auth Dashboard
     API_URL = "https://null-auth-backend.vercel.app"
-    APP_ID = "NA-11745023"
+    APP_ID = "NA-13026130"
     APP_SECRET = "nas_a11d5a6604bec0b8227a8fbbc472a10722b27b66014a2634"
 
     sdk = NullAuthSDK(APP_ID, APP_SECRET, API_URL)
