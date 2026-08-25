@@ -55,7 +55,7 @@ export async function login(req: Request, res: Response) {
     const token = jwt.sign(
       { id: admin.id, username: admin.username },
       config.jwtSecret,
-      { expiresIn: config.jwtExpiresIn }
+      { expiresIn: config.jwtExpiresIn as any }
     );
 
     // Update last login
