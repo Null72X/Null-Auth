@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Null-Auth Ultra-Advanced Single-File Python SDK (KeyAuth-Style API)
-100% Error-Free & Glitch-Free Production Build
+100% Error-Free & NativeAOT / Trimming Safe Production Build
 
 Initialization:
     auth = NullAuth(app_id="NA-13026130", secret="nas_...", version="1.0.0")
@@ -9,7 +9,7 @@ Initialization:
 Features:
     - License Key Authentication: auth.license("NULL-XXXX-YYYY-ZZZZ")
     - HWID Whitelist Mode: auth.check_hwid()
-    - Dynamic Backend Error Response Processing & Native Popups
+    - Dynamic Backend Error Message Popups on Failure (Version Mismatch, Expired, Banned, Paused, HWID Mismatch, Disabled)
     - Full Access to raw & parsed User Data fields (auth.user_data)
 """
 
@@ -98,7 +98,6 @@ class NullAuth:
         err_code = str(response_dict.get("error", "AUTH_FAILED"))
         server_msg = str(response_dict.get("message", "Authentication request failed."))
 
-        # Map error codes to clean window header titles
         titles = {
             "VERSION_MISMATCH": "Update Required",
             "LICENSE_EXPIRED": "License Expired",
