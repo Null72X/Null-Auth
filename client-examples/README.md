@@ -1,68 +1,45 @@
-# Null-Auth Client SDKs & Console Application Samples
+# Null-Auth Single-File Client SDKs (KeyAuth Style)
 
-This directory contains production-ready integration examples for embedding **Null-Auth** private authentication & licensing in desktop applications.
-
-For every language (**Python**, **C#**, and **C++**), the SDK directory is split into **2 clean files**:
-1. **Core SDK Library**: Reusable SDK class supporting BOTH Auth Methods.
-2. **Console Application Sample**: Runnable console application demonstrating interactive user authentication for BOTH Auth Methods.
+Each folder contains **EXACTLY 1 single, standalone auth file** for that language. It includes both the KeyAuth-style `NullAuth` SDK class and a runnable console application entry point supporting **BOTH Auth Methods** (License Key & HWID Whitelist Mode).
 
 ---
 
-## 📁 Directory Structure
+## 📁 Single-File Structure
 
 ```
 client-examples/
 ├── python/
-│   ├── null_auth_sdk.py       # File 1: Core Python 3 SDK Library
-│   └── auth_console_app.py    # File 2: Console Application Sample (Both Methods)
+│   └── NullAuth.py    # Single standalone Python 3 Auth file (KeyAuth-style API)
 ├── csharp/
-│   ├── NullAuthSDK.cs         # File 1: Core C# .NET SDK Library
-│   └── AuthConsoleApp.cs      # File 2: Console Application Sample (Both Methods)
+│   └── NullAuth.cs    # Single standalone C# .NET Auth file (KeyAuth-style API)
 ├── cpp/
-│   ├── NullAuthSDK.hpp        # File 1: Core C++ WinINet SDK Library Header
-│   └── AuthConsoleApp.cpp     # File 2: Console Application Sample (Both Methods)
+│   └── NullAuth.cpp   # Single standalone C++ WinINet Auth file (KeyAuth-style API)
 └── README.md
 ```
 
 ---
 
-## 🔑 Authentication Modes Supported in Both Files
+## 🔑 KeyAuth-Style SDK Usage Example (Python)
 
-### Method 1: License Key + Bound Machine SID
-- **Endpoint**: `POST /api/v1/client/license/authenticate`
-- **Request Body**:
-```json
-{
-  "appId": "NA-48392017",
-  "appSecret": "nas_xxxxxxxxxxxxxxxxxxxxxxxx",
-  "licenseKey": "NULL-ABCD-1234-EFGH",
-  "hwid": "S-1-5-21-38294-..."
-}
-```
+```python
+from NullAuth import NullAuth
 
-### Method 2: HWID Direct Whitelist Access
-- **Endpoint**: `POST /api/v1/client/hwid/authenticate`
-- **Request Body**:
-```json
-{
-  "appId": "NA-48392017",
-  "appSecret": "nas_xxxxxxxxxxxxxxxxxxxxxxxx",
-  "hwid": "S-1-5-21-38294-..."
-}
-```
+# Initialize Null-Auth Client
+auth = NullAuth(
+    name="MyApplication",
+    app_id="NA-13026130",
+    secret="nas_334106af8244ffc4284df3f2c31709011681d10cfa37e67a",
+    version="1.0.0"
+)
 
----
+# Connect & Initialize
+if auth.init():
+    # Method 1: License Key
+    if auth.license("NULL-ABCD-1234-EFGH"):
+        print(f"Access Granted! Status: {auth.user_data.status}")
+        print(f"Days Remaining: {auth.user_data.remaining_days}")
 
-## ⚡ Standardized API Response
-
-```json
-{
-  "success": true,
-  "message": "Authentication successful",
-  "data": {
-    "status": "active",
-    "expires_at": "2027-01-01T00:00:00.000Z",
-    "remaining_days": 365
-  }
-}
+    # Method 2: HWID Whitelist Only
+    # if auth.check_hwid():
+    #     print("Machine Whitelisted & Authorized!")
 ```
