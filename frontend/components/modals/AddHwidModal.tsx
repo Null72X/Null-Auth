@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { fetchApi } from '@/lib/api';
@@ -28,23 +28,43 @@ export function AddHwidModal({
   defaultAppId,
 }: AddHwidModalProps) {
   const hwidApps = apps.filter((a) => a.type === 'HWID');
-  const [appId, setAppId] = useState(defaultAppId || hwidApps[0]?.id || '');
+  const [appId, setAppId] = useState(defaultAppId || '');
   const [hwid, setHwid] = useState('');
   const [days, setDays] = useState(30);
   const [notes, setNotes] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (isOpen) {
+      if (defaultAppId) {
+        setAppId(defaultAppId);
+      } else if (hwidApps.length > 0 && !appId) {
+        setAppId(hwidApps[0].id);
+      }
+    }
+  }, [isOpen, apps, defaultAppId]);
+
+  const selectedAppId = appId || (hwidApps.length > 0 ? hwidApps[0].id : '');
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
 
+    const targetAppId = selectedAppId;
+
+    if (!targetAppId) {
+      setError('Please create an HWID-access application first.');
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const res = await fetchApi('/admin/hwid', {
         method: 'POST',
         body: JSON.stringify({
-          appId,
+          appId: targetAppId,
           hwid,
           days: Number(days),
           notes,
@@ -81,7 +101,7 @@ export function AddHwidModal({
             Target Application *
           </label>
           <select
-            value={appId}
+            value={selectedAppId}
             onChange={(e) => setAppId(e.target.value)}
             required
             className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2.5 text-sm text-zinc-100 focus:outline-none focus:border-red-500"
@@ -93,6 +113,11 @@ export function AddHwidModal({
               </option>
             ))}
           </select>
+          {hwidApps.length === 0 && (
+            <p className="text-xs text-red-400 mt-1">
+              Please go to Applications and create an 'HWID Whitelist' type app first.
+            </p>
+          )}
         </div>
 
         <div>
@@ -143,7 +168,7 @@ export function AddHwidModal({
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" isLoading={isLoading} disabled={!appId || !hwid}>
+          <Button type="submit" isLoading={isLoading} disabled={!selectedAppId || !hwid}>
             Authorize HWID
           </Button>
         </div>

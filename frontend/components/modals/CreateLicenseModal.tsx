@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { fetchApi } from '@/lib/api';
@@ -28,23 +28,43 @@ export function CreateLicenseModal({
   defaultAppId,
 }: CreateLicenseModalProps) {
   const licenseApps = apps.filter((a) => a.type === 'LICENSE');
-  const [appId, setAppId] = useState(defaultAppId || licenseApps[0]?.id || '');
+  const [appId, setAppId] = useState(defaultAppId || '');
   const [quantity, setQuantity] = useState(1);
   const [days, setDays] = useState(30);
   const [notes, setNotes] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (isOpen) {
+      if (defaultAppId) {
+        setAppId(defaultAppId);
+      } else if (licenseApps.length > 0 && !appId) {
+        setAppId(licenseApps[0].id);
+      }
+    }
+  }, [isOpen, apps, defaultAppId]);
+
+  const selectedAppId = appId || (licenseApps.length > 0 ? licenseApps[0].id : '');
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
 
+    const targetAppId = selectedAppId;
+
+    if (!targetAppId) {
+      setError('Please create a License-based application first.');
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const res = await fetchApi('/admin/licenses/generate', {
         method: 'POST',
         body: JSON.stringify({
-          appId,
+          appId: targetAppId,
           quantity: Number(quantity),
           days: Number(days),
           notes,
@@ -81,7 +101,7 @@ export function CreateLicenseModal({
             Target Application *
           </label>
           <select
-            value={appId}
+            value={selectedAppId}
             onChange={(e) => setAppId(e.target.value)}
             required
             className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2.5 text-sm text-zinc-100 focus:outline-none focus:border-red-500"
@@ -93,6 +113,11 @@ export function CreateLicenseModal({
               </option>
             ))}
           </select>
+          {licenseApps.length === 0 && (
+            <p className="text-xs text-red-400 mt-1">
+              Please go to Applications and create a 'License Key' type app first.
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -143,7 +168,7 @@ export function CreateLicenseModal({
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" isLoading={isLoading} disabled={!appId}>
+          <Button type="submit" isLoading={isLoading} disabled={!selectedAppId}>
             Generate License(s)
           </Button>
         </div>
