@@ -44,12 +44,12 @@ export default function LoginPage() {
       <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] bg-red-950/30 rounded-full blur-[140px] pointer-events-none" />
 
       {/* Login Card */}
-      <div className="w-full max-w-md bg-zinc-900/90 backdrop-blur-2xl border border-zinc-800/90 rounded-3xl p-8 shadow-2xl relative z-10 animate-scale-in">
+      <div className="w-full max-w-md bg-zinc-900/90 backdrop-blur-2xl border border-zinc-800/90 rounded-[7px] p-8 shadow-2xl relative z-10 animate-scale-in">
         {/* Header Logo */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-red-950/80 border border-red-800/60 flex items-center justify-center text-red-500 mb-4 shadow-xl shadow-red-950/50 relative group">
+          <div className="w-16 h-16 rounded-[7px] bg-red-950/80 border border-red-800/60 flex items-center justify-center text-red-500 mb-4 shadow-xl shadow-red-950/50 relative group">
             <Shield className="w-8 h-8 transition-transform duration-300 group-hover:scale-110" />
-            <span className="absolute inset-0 rounded-2xl bg-red-500/20 blur-md opacity-0 group-hover:opacity-100 transition-opacity" />
+            <span className="absolute inset-0 rounded-[7px] bg-red-500/20 blur-md opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
           <h1 className="text-2xl font-black text-white tracking-wide flex items-center gap-2">
             Null-Auth <Sparkles className="w-4 h-4 text-red-500" />
@@ -60,7 +60,7 @@ export default function LoginPage() {
         </div>
 
         {error && (
-          <div className="mb-6 p-4 rounded-xl bg-red-950/70 border border-red-800/60 flex items-start gap-3 text-red-300 text-xs shadow-md animate-slide-up">
+          <div className="mb-6 p-4 rounded-[7px] bg-red-950/70 border border-red-800/60 flex items-start gap-3 text-red-300 text-xs shadow-md animate-slide-up">
             <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
@@ -81,7 +81,7 @@ export default function LoginPage() {
                 onChange={(e) => setUsername(e.target.value)}
                 required
                 placeholder="Enter username (e.g. NULL)"
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-10 pr-4 py-3 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-red-500/80 focus:ring-1 focus:ring-red-500/80 transition-all"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-[7px] pl-10 pr-4 py-3 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-red-500/80 focus:ring-1 focus:ring-red-500/80 transition-all"
               />
             </div>
           </div>
@@ -100,7 +100,7 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 placeholder="••••••••••••"
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-10 pr-4 py-3 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-red-500/80 focus:ring-1 focus:ring-red-500/80 transition-all"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-[7px] pl-10 pr-4 py-3 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-red-500/80 focus:ring-1 focus:ring-red-500/80 transition-all"
               />
             </div>
           </div>

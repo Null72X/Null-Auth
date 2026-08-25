@@ -33,12 +33,12 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="w-64 bg-zinc-900/90 backdrop-blur-xl border-r border-zinc-800/80 flex flex-col h-screen sticky top-0 select-none z-50">
+    <aside className="w-64 bg-zinc-900/90 backdrop-blur-2xl border-r border-zinc-800/80 flex flex-col h-screen sticky top-0 select-none z-40">
       {/* Brand Logo */}
       <div className="h-16 flex items-center px-6 border-b border-zinc-800/80 gap-3">
-        <div className="w-9 h-9 rounded-xl bg-red-950/80 border border-red-800/60 flex items-center justify-center text-red-500 shadow-md shadow-red-950/50 relative group">
+        <div className="w-9 h-9 rounded-[7px] bg-red-950/80 border border-red-800/60 flex items-center justify-center text-red-500 shadow-md shadow-red-950/50 relative group">
           <Shield className="w-5 h-5 transition-transform duration-300 group-hover:scale-110" />
-          <span className="absolute inset-0 rounded-xl bg-red-500/20 blur-sm opacity-0 group-hover:opacity-100 transition-opacity" />
+          <span className="absolute inset-0 rounded-[7px] bg-red-500/20 blur-sm opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
         <div>
           <span className="font-bold text-lg text-white tracking-wide">Null-Auth</span>
@@ -57,7 +57,7 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
+              className={`flex items-center gap-3 px-3.5 py-2.5 rounded-[7px] text-sm font-semibold transition-all duration-200 ${
                 isActive
                   ? 'bg-gradient-to-r from-red-950/80 to-zinc-900 text-red-400 border border-red-800/50 shadow-md shadow-red-950/30 translate-x-1'
                   : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60 hover:translate-x-0.5'
@@ -78,7 +78,7 @@ export function Sidebar() {
       <div className="p-3.5 border-t border-zinc-800/80">
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-zinc-400 hover:text-red-400 hover:bg-red-950/40 border border-transparent hover:border-red-900/40 transition-all duration-200 active:scale-[0.98]"
+          className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-[7px] text-sm font-semibold text-zinc-400 hover:text-red-400 hover:bg-red-950/40 border border-transparent hover:border-red-900/40 transition-all duration-200 active:scale-[0.98]"
         >
           <LogOut className="w-4 h-4 text-zinc-400 group-hover:text-red-400" />
           Logout

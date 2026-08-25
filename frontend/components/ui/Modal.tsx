@@ -34,15 +34,15 @@ export function Modal({ isOpen, onClose, title, children, maxWidth = 'md' }: Mod
   if (maxWidth === 'xl') widthClass = 'max-w-xl';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
       <div
-        className={`w-full ${widthClass} bg-zinc-900/90 border border-zinc-800/90 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-scale-in`}
+        className={`w-full ${widthClass} bg-zinc-900/95 border border-zinc-800/90 rounded-[7px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-scale-in`}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800/80 bg-zinc-950/40">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800/80 bg-zinc-950/50">
           <h3 className="text-base font-bold text-zinc-100">{title}</h3>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
+            className="p-1.5 rounded-[5px] text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>

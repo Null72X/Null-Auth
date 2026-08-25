@@ -26,19 +26,20 @@ body {
 
 ::-webkit-scrollbar-thumb {
   background: #27272a;
-  border-radius: 9999px;
+  border-radius: 7px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: #3f3f46;
 }
 
-/* Glassmorphism utility */
+/* Glassmorphism utility with 7px rounded corners */
 .glass-panel {
   background: rgba(24, 24, 27, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border: 1px solid rgba(39, 39, 42, 0.8);
+  border-radius: 7px;
 }
 
 .glass-card {
@@ -46,29 +47,28 @@ body {
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(39, 39, 42, 0.7);
+  border-radius: 7px;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .glass-card:hover {
   border-color: rgba(239, 68, 68, 0.4);
-  box-shadow: 0 10px 30px -10px rgba(239, 68, 68, 0.15);
+  box-shadow: 0 10px 30px -10px rgba(239, 68, 68, 0.2);
   transform: translateY(-2px);
 }
 
-/* Glowing Accent Border */
-.glow-border {
-  position: relative;
+/* Floating Particles Styles */
+.particles-container {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
 }
 
-.glow-border::after {
-  content: '';
+.particle {
   position: absolute;
-  inset: -1px;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.5), transparent 60%);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.3);
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
 }
