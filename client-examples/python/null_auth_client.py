@@ -107,9 +107,9 @@ if __name__ == "__main__":
     print("       Null-Auth Python Integration Sample       ")
     print("=================================================")
 
-    API_URL = "http://localhost:5000"
-    APP_ID = "NA-48392017"
-    APP_SECRET = "nas_YOUR_APP_SECRET_HERE"
+    API_URL = "https://null-auth-dashboard.vercel.app/"
+    APP_ID = "NA-11745023"
+    APP_SECRET = "nas_a11d5a6604bec0b8227a8fbbc472a10722b27b66014a2634"
 
     client = NullAuthClient(API_URL, APP_ID, APP_SECRET)
 
