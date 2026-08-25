@@ -17,6 +17,7 @@ import {
   Key,
   ShieldCheck,
   Eye,
+  EyeOff,
   RefreshCw,
   Trash2,
   Pause,
@@ -27,8 +28,9 @@ import {
   Search,
   Users,
   Tag,
-  Download,
-  ShieldAlert,
+  Shield,
+  Code,
+  Sparkles,
 } from 'lucide-react';
 
 interface AppItem {
@@ -58,11 +60,14 @@ export default function ApplicationsPage() {
 
   // Modals
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [selectedAppSecret, setSelectedAppSecret] = useState<{ name: string; secret: string } | null>(null);
+  const [selectedAppSecret, setSelectedAppSecret] = useState<AppItem | null>(null);
   const [appToDelete, setAppToDelete] = useState<AppItem | null>(null);
   const [appToEdit, setAppToEdit] = useState<AppItem | null>(null);
   const [editName, setEditName] = useState('');
   
+  // Secret visibility toggle per card
+  const [revealedSecrets, setRevealedSecrets] = useState<Record<string, boolean>>({});
+
   // Version Checker Edit Modal
   const [appToEditVersion, setAppToEditVersion] = useState<AppItem | null>(null);
   const [editVersion, setEditVersion] = useState('1.0.0');
@@ -72,7 +77,7 @@ export default function ApplicationsPage() {
   const [quickHwidApp, setQuickHwidApp] = useState<AppItem | null>(null);
 
   const [copiedAppId, setCopiedAppId] = useState<string | null>(null);
-  const [copiedSecret, setCopiedSecret] = useState(false);
+  const [copiedSecret, setCopiedSecret] = useState<string | null>(null);
 
   const loadApps = async () => {
     setIsLoading(true);
@@ -113,6 +118,13 @@ export default function ApplicationsPage() {
     return { total, licenseCount, hwidCount, totalActiveUsers };
   }, [apps]);
 
+  const toggleRevealSecret = (appId: string) => {
+    setRevealedSecrets((prev) => ({
+      ...prev,
+      [appId]: !prev[appId],
+    }));
+  };
+
   const handleToggleStatus = async (app: AppItem) => {
     const newStatus = app.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
     await fetchApi(`/admin/apps/${app.id}/status`, {
@@ -127,7 +139,7 @@ export default function ApplicationsPage() {
       method: 'POST',
     });
     if (res.success && res.data) {
-      setSelectedAppSecret({ name: app.name, secret: res.data.secret });
+      setSelectedAppSecret({ ...app, secret: res.data.secret });
       loadApps();
     }
   };
@@ -174,8 +186,8 @@ export default function ApplicationsPage() {
 
   const copySecret = (secret: string) => {
     navigator.clipboard.writeText(secret);
-    setCopiedSecret(true);
-    setTimeout(() => setCopiedSecret(false), 2000);
+    setCopiedSecret(secret);
+    setTimeout(() => setCopiedSecret(null), 2000);
   };
 
   return (
@@ -193,7 +205,7 @@ export default function ApplicationsPage() {
       {/* Summary Metrics Banner */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="flex items-center gap-4 bg-zinc-900/90 border-zinc-800">
-          <div className="w-11 h-11 rounded-xl bg-red-950/80 border border-red-800/60 flex items-center justify-center text-red-400">
+          <div className="w-11 h-11 rounded-[7px] bg-red-950/80 border border-red-800/60 flex items-center justify-center text-red-400">
             <AppWindow className="w-5 h-5" />
           </div>
           <div>
@@ -203,7 +215,7 @@ export default function ApplicationsPage() {
         </Card>
 
         <Card className="flex items-center gap-4 bg-zinc-900/90 border-zinc-800">
-          <div className="w-11 h-11 rounded-xl bg-blue-950/80 border border-blue-800/60 flex items-center justify-center text-blue-400">
+          <div className="w-11 h-11 rounded-[7px] bg-blue-950/80 border border-blue-800/60 flex items-center justify-center text-blue-400">
             <Key className="w-5 h-5" />
           </div>
           <div>
@@ -213,7 +225,7 @@ export default function ApplicationsPage() {
         </Card>
 
         <Card className="flex items-center gap-4 bg-zinc-900/90 border-zinc-800">
-          <div className="w-11 h-11 rounded-xl bg-purple-950/80 border border-purple-800/60 flex items-center justify-center text-purple-400">
+          <div className="w-11 h-11 rounded-[7px] bg-purple-950/80 border border-purple-800/60 flex items-center justify-center text-purple-400">
             <ShieldCheck className="w-5 h-5" />
           </div>
           <div>
@@ -223,7 +235,7 @@ export default function ApplicationsPage() {
         </Card>
 
         <Card className="flex items-center gap-4 bg-zinc-900/90 border-zinc-800">
-          <div className="w-11 h-11 rounded-xl bg-emerald-950/80 border border-emerald-800/60 flex items-center justify-center text-emerald-400">
+          <div className="w-11 h-11 rounded-[7px] bg-emerald-950/80 border border-emerald-800/60 flex items-center justify-center text-emerald-400">
             <Users className="w-5 h-5" />
           </div>
           <div>
@@ -244,16 +256,16 @@ export default function ApplicationsPage() {
               placeholder="Search applications by name or App ID (e.g. NA-48392017)..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-red-500/80 focus:ring-1 focus:ring-red-500/80 transition-all"
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-[7px] pl-10 pr-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-red-500/80 focus:ring-1 focus:ring-red-500/80 transition-all"
             />
           </div>
 
           {/* Filter Pills */}
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center p-1 bg-zinc-950 border border-zinc-800 rounded-xl text-xs">
+            <div className="flex items-center p-1 bg-zinc-950 border border-zinc-800 rounded-[7px] text-xs">
               <button
                 onClick={() => setStatusFilter('ALL')}
-                className={`px-3 py-1 rounded-lg font-semibold transition-all ${
+                className={`px-3 py-1 rounded-[5px] font-semibold transition-all ${
                   statusFilter === 'ALL'
                     ? 'bg-zinc-800 text-white shadow-sm'
                     : 'text-zinc-400 hover:text-zinc-200'
@@ -263,7 +275,7 @@ export default function ApplicationsPage() {
               </button>
               <button
                 onClick={() => setStatusFilter('ACTIVE')}
-                className={`px-3 py-1 rounded-lg font-semibold transition-all ${
+                className={`px-3 py-1 rounded-[5px] font-semibold transition-all ${
                   statusFilter === 'ACTIVE'
                     ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/40 shadow-sm'
                     : 'text-zinc-400 hover:text-zinc-200'
@@ -273,7 +285,7 @@ export default function ApplicationsPage() {
               </button>
               <button
                 onClick={() => setStatusFilter('PAUSED')}
-                className={`px-3 py-1 rounded-lg font-semibold transition-all ${
+                className={`px-3 py-1 rounded-[5px] font-semibold transition-all ${
                   statusFilter === 'PAUSED'
                     ? 'bg-amber-950 text-amber-400 border border-amber-800/40 shadow-sm'
                     : 'text-zinc-400 hover:text-zinc-200'
@@ -283,10 +295,10 @@ export default function ApplicationsPage() {
               </button>
             </div>
 
-            <div className="flex items-center p-1 bg-zinc-950 border border-zinc-800 rounded-xl text-xs">
+            <div className="flex items-center p-1 bg-zinc-950 border border-zinc-800 rounded-[7px] text-xs">
               <button
                 onClick={() => setTypeFilter('ALL')}
-                className={`px-3 py-1 rounded-lg font-semibold transition-all ${
+                className={`px-3 py-1 rounded-[5px] font-semibold transition-all ${
                   typeFilter === 'ALL'
                     ? 'bg-zinc-800 text-white shadow-sm'
                     : 'text-zinc-400 hover:text-zinc-200'
@@ -296,7 +308,7 @@ export default function ApplicationsPage() {
               </button>
               <button
                 onClick={() => setTypeFilter('LICENSE')}
-                className={`px-3 py-1 rounded-lg font-semibold transition-all ${
+                className={`px-3 py-1 rounded-[5px] font-semibold transition-all ${
                   typeFilter === 'LICENSE'
                     ? 'bg-blue-950 text-blue-400 border border-blue-800/40 shadow-sm'
                     : 'text-zinc-400 hover:text-zinc-200'
@@ -306,7 +318,7 @@ export default function ApplicationsPage() {
               </button>
               <button
                 onClick={() => setTypeFilter('HWID')}
-                className={`px-3 py-1 rounded-lg font-semibold transition-all ${
+                className={`px-3 py-1 rounded-[5px] font-semibold transition-all ${
                   typeFilter === 'HWID'
                     ? 'bg-purple-950 text-purple-400 border border-purple-800/40 shadow-sm'
                     : 'text-zinc-400 hover:text-zinc-200'
@@ -344,15 +356,16 @@ export default function ApplicationsPage() {
           {filteredApps.map((app, index) => {
             const userRatio =
               app.totalUsers > 0 ? Math.round((app.activeUsers / app.totalUsers) * 100) : 0;
+            const isSecretRevealed = !!revealedSecrets[app.id];
 
             return (
               <Card
                 key={app.id}
-                className="flex flex-col justify-between space-y-5 animate-slide-up group"
+                className="flex flex-col justify-between space-y-5 animate-slide-up group border-zinc-800 hover:border-red-500/40"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
                 <div className="space-y-4">
-                  {/* App Title & ID Header */}
+                  {/* App Header & Title */}
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
@@ -370,13 +383,38 @@ export default function ApplicationsPage() {
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
+                      <Badge status={app.type} />
+                    </div>
 
-                      {/* App ID Pill with Quick Copy */}
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-950 border border-zinc-800 font-mono text-xs text-zinc-300">
-                        <span className="text-red-400 font-bold">{app.appId}</span>
+                    <div className="flex flex-col items-end gap-1.5">
+                      <Badge status={app.status} />
+                      {/* Version Tag Pill */}
+                      <button
+                        onClick={() => {
+                          setAppToEditVersion(app);
+                          setEditVersion(app.version || '1.0.0');
+                          setEditDownloadUrl(app.downloadUrl || '');
+                        }}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-800 hover:bg-zinc-700 text-[10px] font-mono font-bold text-amber-400 border border-zinc-700 transition-colors"
+                        title="Click to edit required app version"
+                      >
+                        <Tag className="w-3 h-3" /> v{app.version || '1.0.0'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* HIGH-END APPLICATION CREDENTIALS BLOCK */}
+                  <div className="p-3.5 rounded-[7px] bg-zinc-950/90 border border-zinc-800/80 space-y-2 font-mono text-xs shadow-inner">
+                    {/* App ID Row */}
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider flex items-center gap-1.5 shrink-0">
+                        <Key className="w-3 h-3 text-red-400" /> App ID
+                      </span>
+                      <div className="flex items-center gap-1.5 truncate">
+                        <span className="text-red-400 font-bold truncate">{app.appId}</span>
                         <button
                           onClick={() => copyAppId(app.appId)}
-                          className="text-zinc-500 hover:text-zinc-200 transition-colors"
+                          className="p-1 rounded-[5px] bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors shrink-0"
                           title="Copy App ID"
                         >
                           {copiedAppId === app.appId ? (
@@ -388,46 +426,56 @@ export default function ApplicationsPage() {
                       </div>
                     </div>
 
-                    <div className="flex flex-col items-end gap-1.5">
-                      <Badge status={app.status} />
-                      {/* Required Version Pill */}
-                      <button
-                        onClick={() => {
-                          setAppToEditVersion(app);
-                          setEditVersion(app.version || '1.0.0');
-                          setEditDownloadUrl(app.downloadUrl || '');
-                        }}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-800 hover:bg-zinc-700 text-[10px] font-mono font-bold text-amber-400 border border-zinc-700 transition-colors"
-                        title="Click to update required version & download URL"
-                      >
-                        <Tag className="w-3 h-3" /> v{app.version || '1.0.0'}
-                      </button>
+                    {/* App Secret Row */}
+                    <div className="flex items-center justify-between gap-2 border-t border-zinc-900/90 pt-2">
+                      <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider flex items-center gap-1.5 shrink-0">
+                        <Shield className="w-3 h-3 text-amber-400" /> Secret Key
+                      </span>
+                      <div className="flex items-center gap-1.5 truncate">
+                        <span className="text-zinc-300 font-mono text-[11px] truncate max-w-[130px]">
+                          {isSecretRevealed
+                            ? app.secret
+                            : `${app.secret.slice(0, 6)}••••••••`}
+                        </span>
+                        <button
+                          onClick={() => toggleRevealSecret(app.id)}
+                          className="p-1 rounded-[5px] bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors shrink-0"
+                          title={isSecretRevealed ? 'Hide Secret' : 'Reveal Secret'}
+                        >
+                          {isSecretRevealed ? (
+                            <EyeOff className="w-3 h-3 text-amber-400" />
+                          ) : (
+                            <Eye className="w-3 h-3" />
+                          )}
+                        </button>
+                        <button
+                          onClick={() => copySecret(app.secret)}
+                          className="p-1 rounded-[5px] bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors shrink-0"
+                          title="Copy Secret Key"
+                        >
+                          {copiedSecret === app.secret ? (
+                            <Check className="w-3 h-3 text-emerald-400" />
+                          ) : (
+                            <Copy className="w-3 h-3" />
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Auth Mode & Stats Bar */}
-                  <div className="pt-3 border-t border-zinc-800/80 space-y-3">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-zinc-500 font-semibold uppercase tracking-wider text-[10px]">
-                        Auth Mode
+                  {/* Active User Progress Meter */}
+                  <div className="space-y-1.5 pt-1">
+                    <div className="flex items-center justify-between text-xs font-semibold">
+                      <span className="text-zinc-400">Active Users</span>
+                      <span className="text-emerald-400">
+                        {app.activeUsers} <span className="text-zinc-500 font-normal">/ {app.totalUsers} Total</span>
                       </span>
-                      <Badge status={app.type} />
                     </div>
-
-                    {/* Active User Progress Bar */}
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between text-xs font-semibold">
-                        <span className="text-zinc-400">Active Users</span>
-                        <span className="text-emerald-400">
-                          {app.activeUsers} <span className="text-zinc-500 font-normal">/ {app.totalUsers} Total</span>
-                        </span>
-                      </div>
-                      <div className="w-full h-2 rounded-full bg-zinc-950 overflow-hidden border border-zinc-800">
-                        <div
-                          className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 rounded-full transition-all duration-500"
-                          style={{ width: `${userRatio}%` }}
-                        />
-                      </div>
+                    <div className="w-full h-2 rounded-[7px] bg-zinc-950 overflow-hidden border border-zinc-800">
+                      <div
+                        className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 rounded-[7px] transition-all duration-500"
+                        style={{ width: `${userRatio}%` }}
+                      />
                     </div>
                   </div>
                 </div>
@@ -461,10 +509,10 @@ export default function ApplicationsPage() {
                       <Button
                         variant="secondary"
                         size="sm"
-                        onClick={() => setSelectedAppSecret({ name: app.name, secret: app.secret })}
-                        title="View App Secret Key"
+                        onClick={() => setSelectedAppSecret(app)}
+                        title="View Full Credentials & SDK Code"
                       >
-                        <Eye className="w-3.5 h-3.5 mr-1" /> Secret
+                        <Code className="w-3.5 h-3.5 mr-1 text-red-400" /> Credentials
                       </Button>
                       <Button
                         variant="secondary"
@@ -538,26 +586,62 @@ export default function ApplicationsPage() {
         />
       )}
 
-      {/* View Secret Modal */}
+      {/* View Full Credentials & Integration Modal */}
       <Modal
         isOpen={!!selectedAppSecret}
         onClose={() => setSelectedAppSecret(null)}
-        title={`Application Secret — ${selectedAppSecret?.name}`}
+        title={`Application Credentials — ${selectedAppSecret?.name}`}
       >
         <div className="space-y-4">
           <p className="text-xs text-zinc-400">
-            Keep this secret key confidential. Embed it in your C#, C++, or Python desktop client for authentication requests.
+            Use these credentials to connect your desktop client (C#, C++, or Python) to Null-Auth Private Cloud API.
           </p>
 
-          <div className="p-3.5 rounded-xl bg-zinc-950 border border-zinc-800 flex items-center justify-between gap-3 font-mono text-xs text-red-400">
-            <span className="truncate">{selectedAppSecret?.secret}</span>
-            <button
-              onClick={() => copySecret(selectedAppSecret?.secret || '')}
-              className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors shrink-0"
-              title="Copy Secret"
-            >
-              {copiedSecret ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-            </button>
+          {/* Styled Credentials Panel */}
+          <div className="p-4 rounded-[7px] bg-zinc-950 border border-zinc-800 space-y-3 font-mono text-xs">
+            {/* App ID */}
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-zinc-500 font-bold uppercase tracking-wider text-[10px]">Application ID</span>
+              <div className="flex items-center gap-2">
+                <span className="text-red-400 font-bold">{selectedAppSecret?.appId}</span>
+                <button
+                  onClick={() => copyAppId(selectedAppSecret?.appId || '')}
+                  className="p-1 rounded-[5px] bg-zinc-900 hover:bg-zinc-800 text-zinc-300 transition-colors"
+                  title="Copy App ID"
+                >
+                  {copiedAppId === selectedAppSecret?.appId ? (
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Secret Key */}
+            <div className="flex items-center justify-between gap-2 border-t border-zinc-900 pt-2.5">
+              <span className="text-zinc-500 font-bold uppercase tracking-wider text-[10px]">Secret API Key</span>
+              <div className="flex items-center gap-2">
+                <span className="text-amber-400 font-bold truncate max-w-[200px]">{selectedAppSecret?.secret}</span>
+                <button
+                  onClick={() => copySecret(selectedAppSecret?.secret || '')}
+                  className="p-1 rounded-[5px] bg-zinc-900 hover:bg-zinc-800 text-zinc-300 transition-colors"
+                  title="Copy Secret Key"
+                >
+                  {copiedSecret === selectedAppSecret?.secret ? (
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Version */}
+            <div className="flex items-center justify-between gap-2 border-t border-zinc-900 pt-2.5">
+              <span className="text-zinc-500 font-bold uppercase tracking-wider text-[10px]">Required Version</span>
+              <span className="text-emerald-400 font-bold">v{selectedAppSecret?.version || '1.0.0'}</span>
+            </div>
           </div>
 
           <div className="flex justify-end pt-2">
@@ -580,7 +664,7 @@ export default function ApplicationsPage() {
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
               required
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2.5 text-sm text-zinc-100 focus:outline-none focus:border-red-500"
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-[7px] px-3.5 py-2.5 text-sm text-zinc-100 focus:outline-none focus:border-red-500"
             />
           </div>
 
@@ -614,7 +698,7 @@ export default function ApplicationsPage() {
               onChange={(e) => setEditVersion(e.target.value)}
               required
               placeholder="e.g. 1.0.0"
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2.5 text-sm font-mono text-amber-400 focus:outline-none focus:border-red-500"
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-[7px] px-3.5 py-2.5 text-sm font-mono text-amber-400 focus:outline-none focus:border-red-500"
             />
           </div>
 
@@ -627,7 +711,7 @@ export default function ApplicationsPage() {
               value={editDownloadUrl}
               onChange={(e) => setEditDownloadUrl(e.target.value)}
               placeholder="https://example.com/downloads/v1.2.0.exe"
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2.5 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-red-500"
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-[7px] px-3.5 py-2.5 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-red-500"
             />
             <p className="text-[11px] text-zinc-500 mt-1">
               Returned in error response when an outdated client attempts to log in.
