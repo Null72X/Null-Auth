@@ -1,0 +1,90 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Admin {
+  id           String    @id @default(uuid())
+  username     String    @unique
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  lastLogin    DateTime?
+}
+
+model Application {
+  id        String       @id @default(uuid())
+  appId     String       @unique // e.g. NA-48392017
+  name      String
+  secret    String       // Secret API key
+  type      String       // "LICENSE" or "HWID"
+  status    String       @default("ACTIVE") // "ACTIVE" or "PAUSED"
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  licenses    License[]
+  hwidAccesses HwidAccess[]
+
+  @@index([appId])
+  @@index([status])
+}
+
+model License {
+  id               String      @id @default(uuid())
+  key              String      @unique // e.g. NULL-ABCD-1234-EFGH
+  appId            String
+  application      Application @relation(fields: [appId], references: [id], onDelete: Cascade)
+  status           String      @default("ACTIVE") // "ACTIVE", "PAUSED", "EXPIRED", "BANNED"
+  boundHwid        String?     // Hashed or sanitized machine SID / HWID
+  expiresAt        DateTime
+  notes            String?
+  firstActivatedAt DateTime?
+  lastLoginAt      DateTime?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@index([key])
+  @@index([appId])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+model HwidAccess {
+  id          String      @id @default(uuid())
+  hwidHash    String      // Hashed or sanitized machine SID / HWID
+  appId       String
+  application Application @relation(fields: [appId], references: [id], onDelete: Cascade)
+  status      String      @default("ACTIVE") // "ACTIVE", "PAUSED", "EXPIRED", "BANNED"
+  expiresAt   DateTime
+  notes       String?
+  lastAuthAt  DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@unique([appId, hwidHash])
+  @@index([appId])
+  @@index([hwidHash])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  appId     String?  // Optional application reference
+  action    String   // e.g. ADMIN_LOGIN, LICENSE_CREATE, CLIENT_AUTH_SUCCESS
+  actorType String   // "ADMIN" or "CLIENT"
+  ipAddress String?
+  userAgent String?
+  details   String?  // Sanitized details / JSON string
+  status    String   // "SUCCESS" or "FAILURE"
+  createdAt DateTime @default(now())
+
+  @@index([appId])
+  @@index([action])
+  @@index([actorType])
+  @@index([createdAt])
+}
