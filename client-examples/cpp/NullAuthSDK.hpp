@@ -11,9 +11,6 @@
 
 namespace NullAuth {
 
-    /**
-     * Obtains the current Windows User SID via standard 'whoami /user' command
-     */
     inline std::string GetWindowsUserSid() {
         std::array<char, 512> buffer;
         std::string result = "";
@@ -36,9 +33,6 @@ namespace NullAuth {
         return "UNKNOWN_HWID";
     }
 
-    /**
-     * Sends HTTPS POST request using WinINet API
-     */
     inline bool SendHttpsPost(const std::string& host, const std::string& path, const std::string& jsonBody, std::string& responseOut) {
         HINTERNET hInternet = InternetOpenA("NullAuthCppSDK/1.0", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
         if (!hInternet) return false;
@@ -77,20 +71,20 @@ namespace NullAuth {
     }
 
     /**
-     * METHOD 1: Authenticate License Key
+     * METHOD 1: Authenticate License Key + Version Checker
      */
-    inline bool AuthenticateLicense(const std::string& host, const std::string& appId, const std::string& appSecret, const std::string& licenseKey, std::string& responseOut) {
+    inline bool AuthenticateLicense(const std::string& host, const std::string& appId, const std::string& appSecret, const std::string& licenseKey, const std::string& version, std::string& responseOut) {
         std::string sid = GetWindowsUserSid();
-        std::string body = "{\"appId\":\"" + appId + "\",\"appSecret\":\"" + appSecret + "\",\"licenseKey\":\"" + licenseKey + "\",\"hwid\":\"" + sid + "\"}";
+        std::string body = "{\"appId\":\"" + appId + "\",\"appSecret\":\"" + appSecret + "\",\"licenseKey\":\"" + licenseKey + "\",\"hwid\":\"" + sid + "\",\"version\":\"" + version + "\"}";
         return SendHttpsPost(host, "/api/v1/client/license/authenticate", body, responseOut);
     }
 
     /**
-     * METHOD 2: Authenticate HWID Whitelist
+     * METHOD 2: Authenticate HWID Whitelist + Version Checker
      */
-    inline bool AuthenticateHwid(const std::string& host, const std::string& appId, const std::string& appSecret, std::string& responseOut) {
+    inline bool AuthenticateHwid(const std::string& host, const std::string& appId, const std::string& appSecret, const std::string& version, std::string& responseOut) {
         std::string sid = GetWindowsUserSid();
-        std::string body = "{\"appId\":\"" + appId + "\",\"appSecret\":\"" + appSecret + "\",\"hwid\":\"" + sid + "\"}";
+        std::string body = "{\"appId\":\"" + appId + "\",\"appSecret\":\"" + appSecret + "\",\"hwid\":\"" + sid + "\",\"version\":\"" + version + "\"}";
         return SendHttpsPost(host, "/api/v1/client/hwid/authenticate", body, responseOut);
     }
 }

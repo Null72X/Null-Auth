@@ -4,11 +4,13 @@ import {
   getAppById,
   createApp,
   updateAppName,
+  updateAppVersion,
   toggleAppStatus,
   regenerateSecret,
   deleteApp,
   createAppSchema,
   updateAppNameSchema,
+  updateAppVersionSchema,
   updateAppStatusSchema,
 } from '../controllers/apps.controller.js';
 import { requireAdminAuth } from '../middleware/auth.middleware.js';
@@ -22,6 +24,7 @@ router.get('/', listApps);
 router.get('/:id', getAppById);
 router.post('/', validateBody(createAppSchema), createApp);
 router.patch('/:id/name', validateBody(updateAppNameSchema), updateAppName);
+router.patch('/:id/version', validateBody(updateAppVersionSchema), updateAppVersion);
 router.patch('/:id/status', validateBody(updateAppStatusSchema), toggleAppStatus);
 router.post('/:id/regenerate-secret', regenerateSecret);
 router.delete('/:id', deleteApp);

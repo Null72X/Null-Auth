@@ -10,16 +10,20 @@ export const licenseAuthSchema = z.object({
   appSecret: z.string().min(1, 'appSecret is required'),
   licenseKey: z.string().min(1, 'licenseKey is required'),
   hwid: z.string().min(1, 'hwid/identifier is required'),
+  version: z.string().optional(),
+  clientVersion: z.string().optional(),
 });
 
 export const hwidAuthSchema = z.object({
   appId: z.string().min(1, 'appId is required'),
   appSecret: z.string().min(1, 'appSecret is required'),
   hwid: z.string().min(1, 'hwid/identifier is required'),
+  version: z.string().optional(),
+  clientVersion: z.string().optional(),
 });
 
 export async function authenticateLicense(req: Request, res: Response) {
-  const { appId, appSecret, licenseKey, hwid } = req.body;
+  const { appId, appSecret, licenseKey, hwid, version, clientVersion } = req.body;
   const ipAddress = req.ip || req.socket.remoteAddress;
   const userAgent = req.headers['user-agent'];
 
@@ -69,7 +73,30 @@ export async function authenticateLicense(req: Request, res: Response) {
       return sendError(res, 'Application is currently paused or disabled', 403, 'APPLICATION_DISABLED');
     }
 
-    // 4. Verify License
+    // 3.5 Version Checker Validation
+    const clientVer = (version || clientVersion || '').trim();
+    const requiredVer = (app.version || '1.0.0').trim();
+
+    if (clientVer && clientVer !== requiredVer) {
+      await logActivity({
+        appId: app.id,
+        action: 'CLIENT_AUTH_FAILED',
+        actorType: 'CLIENT',
+        ipAddress,
+        userAgent,
+        details: { appId: app.appId, clientVersion: clientVer, requiredVersion: requiredVer, reason: 'VERSION_MISMATCH' },
+        status: 'FAILURE',
+      });
+      return sendError(
+        res,
+        `Application version '${clientVer}' is outdated. Required version is '${requiredVer}'.`,
+        426,
+        'VERSION_MISMATCH',
+        { requiredVersion: requiredVer, downloadUrl: app.downloadUrl || null }
+      );
+    }
+
+    // 4. Verify License Key
     const license = await prisma.license.findFirst({
       where: { key: licenseKey.trim(), appId: app.id },
     });
@@ -84,10 +111,10 @@ export async function authenticateLicense(req: Request, res: Response) {
         details: { appId: app.appId, licenseKey, reason: 'LICENSE_NOT_FOUND' },
         status: 'FAILURE',
       });
-      return sendError(res, 'License key not found', 404, 'LICENSE_NOT_FOUND');
+      return sendError(res, 'Invalid license key', 404, 'LICENSE_NOT_FOUND');
     }
 
-    // 5. Check License Status
+    // 5. Verify License Status
     if (license.status === 'PAUSED') {
       await logActivity({
         appId: app.id,
@@ -116,13 +143,14 @@ export async function authenticateLicense(req: Request, res: Response) {
 
     // 6. Check Expiration
     const now = new Date();
-    if (license.expiresAt <= now || license.status === 'EXPIRED') {
+    if (license.expiresAt < now) {
       if (license.status !== 'EXPIRED') {
         await prisma.license.update({
           where: { id: license.id },
           data: { status: 'EXPIRED' },
         });
       }
+
       await logActivity({
         appId: app.id,
         action: 'CLIENT_AUTH_FAILED',
@@ -135,15 +163,15 @@ export async function authenticateLicense(req: Request, res: Response) {
       return sendError(res, 'License key has expired', 403, 'LICENSE_EXPIRED');
     }
 
-    // 7. Check HWID Binding
-    const clientHwidHash = hashHwid(hwid);
+    // 7. Check & Bind HWID / Machine SID
+    const cleanHwid = hashHwid(hwid);
 
     if (!license.boundHwid) {
-      // First activation! Bind machine identifier
+      // First activation - Bind HWID
       await prisma.license.update({
         where: { id: license.id },
         data: {
-          boundHwid: clientHwidHash,
+          boundHwid: cleanHwid,
           firstActivatedAt: now,
           lastLoginAt: now,
         },
@@ -151,58 +179,73 @@ export async function authenticateLicense(req: Request, res: Response) {
 
       await logActivity({
         appId: app.id,
-        action: 'CLIENT_LICENSE_FIRST_ACTIVATION',
+        action: 'CLIENT_HWID_BOUND',
         actorType: 'CLIENT',
         ipAddress,
         userAgent,
-        details: { appId: app.appId, licenseKey: license.key, boundHwid: clientHwidHash },
+        details: { appId: app.appId, licenseKey: license.key, boundHwid: cleanHwid },
         status: 'SUCCESS',
       });
-    } else if (license.boundHwid !== clientHwidHash) {
+    } else if (license.boundHwid !== cleanHwid) {
+      // HWID Mismatch
       await logActivity({
         appId: app.id,
         action: 'CLIENT_AUTH_FAILED',
         actorType: 'CLIENT',
         ipAddress,
         userAgent,
-        details: { appId: app.appId, licenseKey: license.key, reason: 'HWID_MISMATCH' },
+        details: {
+          appId: app.appId,
+          licenseKey: license.key,
+          attemptedHwid: cleanHwid,
+          boundHwid: license.boundHwid,
+          reason: 'HWID_MISMATCH',
+        },
         status: 'FAILURE',
       });
-      return sendError(res, 'License key is bound to a different machine or user identifier', 403, 'HWID_MISMATCH');
+      return sendError(
+        res,
+        'License key is bound to a different machine / user SID',
+        403,
+        'HWID_MISMATCH'
+      );
     } else {
-      // Valid subsequent login
+      // Regular login - Update last login time
       await prisma.license.update({
         where: { id: license.id },
         data: { lastLoginAt: now },
       });
-
-      await logActivity({
-        appId: app.id,
-        action: 'CLIENT_LICENSE_AUTH_SUCCESS',
-        actorType: 'CLIENT',
-        ipAddress,
-        userAgent,
-        details: { appId: app.appId, licenseKey: license.key },
-        status: 'SUCCESS',
-      });
     }
 
-    const diffTime = license.expiresAt.getTime() - now.getTime();
-    const remainingDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    await logActivity({
+      appId: app.id,
+      action: 'CLIENT_AUTH_SUCCESS',
+      actorType: 'CLIENT',
+      ipAddress,
+      userAgent,
+      details: { appId: app.appId, licenseKey: license.key, hwid: cleanHwid },
+      status: 'SUCCESS',
+    });
+
+    const remainingMs = license.expiresAt.getTime() - now.getTime();
+    const remainingDays = Math.max(0, Math.ceil(remainingMs / (1000 * 60 * 60 * 24)));
 
     return sendSuccess(res, 'Authentication successful', {
       status: 'active',
       expires_at: license.expiresAt.toISOString(),
       remaining_days: remainingDays,
-      first_activated_at: (license.firstActivatedAt || now).toISOString(),
+      first_activated_at: license.firstActivatedAt
+        ? license.firstActivatedAt.toISOString()
+        : now.toISOString(),
+      version: app.version,
     });
   } catch (error: any) {
-    return sendError(res, 'Client authentication error', 500, error.message);
+    return sendError(res, 'Client authentication failed', 500, error.message);
   }
 }
 
 export async function authenticateHwid(req: Request, res: Response) {
-  const { appId, appSecret, hwid } = req.body;
+  const { appId, appSecret, hwid, version, clientVersion } = req.body;
   const ipAddress = req.ip || req.socket.remoteAddress;
   const userAgent = req.headers['user-agent'];
 
@@ -252,103 +295,128 @@ export async function authenticateHwid(req: Request, res: Response) {
       return sendError(res, 'Application is currently paused or disabled', 403, 'APPLICATION_DISABLED');
     }
 
-    // 4. Verify HWID Entry
-    const clientHwidHash = hashHwid(hwid);
-    const hwidEntry = await prisma.hwidAccess.findUnique({
-      where: {
-        appId_hwidHash: {
-          appId: app.id,
-          hwidHash: clientHwidHash,
-        },
-      },
+    // 3.5 Version Checker Validation
+    const clientVer = (version || clientVersion || '').trim();
+    const requiredVer = (app.version || '1.0.0').trim();
+
+    if (clientVer && clientVer !== requiredVer) {
+      await logActivity({
+        appId: app.id,
+        action: 'CLIENT_AUTH_FAILED',
+        actorType: 'CLIENT',
+        ipAddress,
+        userAgent,
+        details: { appId: app.appId, clientVersion: clientVer, requiredVersion: requiredVer, reason: 'VERSION_MISMATCH' },
+        status: 'FAILURE',
+      });
+      return sendError(
+        res,
+        `Application version '${clientVer}' is outdated. Required version is '${requiredVer}'.`,
+        426,
+        'VERSION_MISMATCH',
+        { requiredVersion: requiredVer, downloadUrl: app.downloadUrl || null }
+      );
+    }
+
+    // 4. Verify HWID Access Record
+    const cleanHwid = hashHwid(hwid);
+    const hwidRecord = await prisma.hwidAccess.findFirst({
+      where: { hwidHash: cleanHwid, appId: app.id },
     });
 
-    if (!hwidEntry) {
+    if (!hwidRecord) {
       await logActivity({
         appId: app.id,
         action: 'CLIENT_AUTH_FAILED',
         actorType: 'CLIENT',
         ipAddress,
         userAgent,
-        details: { appId: app.appId, hwidHash: clientHwidHash, reason: 'IDENTIFIER_NOT_FOUND' },
+        details: { appId: app.appId, hwid: cleanHwid, reason: 'IDENTIFIER_NOT_FOUND' },
         status: 'FAILURE',
       });
-      return sendError(res, 'Machine or user identifier is not authorized', 404, 'IDENTIFIER_NOT_FOUND');
+      return sendError(
+        res,
+        'Machine HWID / User SID is not authorized for this application',
+        404,
+        'IDENTIFIER_NOT_FOUND'
+      );
     }
 
-    // 5. Check Status
-    if (hwidEntry.status === 'PAUSED') {
+    // 5. Verify HWID Status
+    if (hwidRecord.status === 'PAUSED') {
       await logActivity({
         appId: app.id,
         action: 'CLIENT_AUTH_FAILED',
         actorType: 'CLIENT',
         ipAddress,
         userAgent,
-        details: { appId: app.appId, hwidHash: clientHwidHash, reason: 'IDENTIFIER_PAUSED' },
+        details: { appId: app.appId, hwid: cleanHwid, reason: 'IDENTIFIER_PAUSED' },
         status: 'FAILURE',
       });
-      return sendError(res, 'Identifier access is paused', 403, 'IDENTIFIER_PAUSED');
+      return sendError(res, 'HWID access is currently paused', 403, 'IDENTIFIER_PAUSED');
     }
 
-    if (hwidEntry.status === 'BANNED') {
+    if (hwidRecord.status === 'BANNED') {
       await logActivity({
         appId: app.id,
         action: 'CLIENT_AUTH_FAILED',
         actorType: 'CLIENT',
         ipAddress,
         userAgent,
-        details: { appId: app.appId, hwidHash: clientHwidHash, reason: 'IDENTIFIER_BANNED' },
+        details: { appId: app.appId, hwid: cleanHwid, reason: 'IDENTIFIER_BANNED' },
         status: 'FAILURE',
       });
-      return sendError(res, 'Identifier access has been banned', 403, 'IDENTIFIER_BANNED');
+      return sendError(res, 'HWID has been banned from this application', 403, 'IDENTIFIER_BANNED');
     }
 
     // 6. Check Expiration
     const now = new Date();
-    if (hwidEntry.expiresAt <= now || hwidEntry.status === 'EXPIRED') {
-      if (hwidEntry.status !== 'EXPIRED') {
+    if (hwidRecord.expiresAt < now) {
+      if (hwidRecord.status !== 'EXPIRED') {
         await prisma.hwidAccess.update({
-          where: { id: hwidEntry.id },
+          where: { id: hwidRecord.id },
           data: { status: 'EXPIRED' },
         });
       }
+
       await logActivity({
         appId: app.id,
         action: 'CLIENT_AUTH_FAILED',
         actorType: 'CLIENT',
         ipAddress,
         userAgent,
-        details: { appId: app.appId, hwidHash: clientHwidHash, reason: 'IDENTIFIER_EXPIRED' },
+        details: { appId: app.appId, hwid: cleanHwid, reason: 'IDENTIFIER_EXPIRED' },
         status: 'FAILURE',
       });
-      return sendError(res, 'Identifier access has expired', 403, 'IDENTIFIER_EXPIRED');
+      return sendError(res, 'HWID access authorization has expired', 403, 'IDENTIFIER_EXPIRED');
     }
 
     // 7. Update Last Auth Time
     await prisma.hwidAccess.update({
-      where: { id: hwidEntry.id },
+      where: { id: hwidRecord.id },
       data: { lastAuthAt: now },
     });
 
     await logActivity({
       appId: app.id,
-      action: 'CLIENT_HWID_AUTH_SUCCESS',
+      action: 'CLIENT_AUTH_SUCCESS',
       actorType: 'CLIENT',
       ipAddress,
       userAgent,
-      details: { appId: app.appId, hwidHash: clientHwidHash },
+      details: { appId: app.appId, hwid: cleanHwid },
       status: 'SUCCESS',
     });
 
-    const diffTime = hwidEntry.expiresAt.getTime() - now.getTime();
-    const remainingDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const remainingMs = hwidRecord.expiresAt.getTime() - now.getTime();
+    const remainingDays = Math.max(0, Math.ceil(remainingMs / (1000 * 60 * 60 * 24)));
 
     return sendSuccess(res, 'Authentication successful', {
       status: 'active',
-      expires_at: hwidEntry.expiresAt.toISOString(),
+      expires_at: hwidRecord.expiresAt.toISOString(),
       remaining_days: remainingDays,
+      version: app.version,
     });
   } catch (error: any) {
-    return sendError(res, 'Client HWID authentication error', 500, error.message);
+    return sendError(res, 'Client authentication failed', 500, error.message);
   }
 }

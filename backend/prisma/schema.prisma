@@ -17,14 +17,16 @@ model Admin {
 }
 
 model Application {
-  id        String       @id @default(uuid())
-  appId     String       @unique // e.g. NA-48392017
-  name      String
-  secret    String       // Secret API key
-  type      String       // "LICENSE" or "HWID"
-  status    String       @default("ACTIVE") // "ACTIVE" or "PAUSED"
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  id          String       @id @default(uuid())
+  appId       String       @unique // e.g. NA-48392017
+  name        String
+  secret      String       // Secret API key
+  type        String       // "LICENSE" or "HWID"
+  status      String       @default("ACTIVE") // "ACTIVE" or "PAUSED"
+  version     String       @default("1.0.0")  // Required version e.g. "1.0.0"
+  downloadUrl String?      // Optional update download link
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   licenses    License[]
   hwidAccesses HwidAccess[]

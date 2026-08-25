@@ -21,13 +21,13 @@ namespace NullAuthClient
         public string Status { get; set; }
         public string ExpiresAt { get; set; }
         public int RemainingDays { get; set; }
-        public string FirstActivatedAt { get; set; }
+        public string RequiredVersion { get; set; }
+        public string DownloadUrl { get; set; }
     }
 
     /// <summary>
-    /// Core Null-Auth SDK Library implementing BOTH Auth Methods:
-    ///   - Method 1: License Key Authentication
-    ///   - Method 2: Direct HWID Whitelist Authentication
+    /// Core Null-Auth SDK Library with Automatic Version Checker
+    /// Supports BOTH Auth Methods + Version Checking
     /// </summary>
     public class NullAuthSDK
     {
@@ -43,9 +43,6 @@ namespace NullAuthClient
             _appSecret = appSecret;
         }
 
-        /// <summary>
-        /// Retrieves the Windows User SID using legitimate 'whoami /user' command.
-        /// </summary>
         public static string GetWindowsUserSid()
         {
             try
@@ -78,20 +75,14 @@ namespace NullAuthClient
             }
             catch { }
 
-            try
-            {
-                return WindowsIdentity.GetCurrent().User?.Value ?? "UNKNOWN_SID";
-            }
-            catch
-            {
-                return "UNKNOWN_HWID";
-            }
+            try { return WindowsIdentity.GetCurrent().User?.Value ?? "UNKNOWN_HWID"; }
+            catch { return "UNKNOWN_HWID"; }
         }
 
         /// <summary>
-        /// METHOD 1: Authenticate using License Key (License Key + Bound Machine SID)
+        /// METHOD 1: Authenticate License Key + Version Checker
         /// </summary>
-        public async Task<NullAuthResult> AuthenticateLicenseAsync(string licenseKey)
+        public async Task<NullAuthResult> AuthenticateLicenseAsync(string licenseKey, string clientVersion = "1.0.0")
         {
             string hwid = GetWindowsUserSid();
             string endpoint = $"{_baseUrl}/api/v1/client/license/authenticate";
@@ -101,16 +92,17 @@ namespace NullAuthClient
                 appId = _appId,
                 appSecret = _appSecret,
                 licenseKey = licenseKey?.Trim(),
-                hwid = hwid
+                hwid = hwid,
+                version = clientVersion
             };
 
             return await SendAuthRequestAsync(endpoint, payload);
         }
 
         /// <summary>
-        /// METHOD 2: Authenticate using HWID Whitelist directly
+        /// METHOD 2: Authenticate HWID Whitelist + Version Checker
         /// </summary>
-        public async Task<NullAuthResult> AuthenticateHwidAsync()
+        public async Task<NullAuthResult> AuthenticateHwidAsync(string clientVersion = "1.0.0")
         {
             string hwid = GetWindowsUserSid();
             string endpoint = $"{_baseUrl}/api/v1/client/hwid/authenticate";
@@ -119,7 +111,8 @@ namespace NullAuthClient
             {
                 appId = _appId,
                 appSecret = _appSecret,
-                hwid = hwid
+                hwid = hwid,
+                version = clientVersion
             };
 
             return await SendAuthRequestAsync(endpoint, payload);
@@ -143,14 +136,15 @@ namespace NullAuthClient
                 string errorCode = root.TryGetProperty("error", out var errElem) ? errElem.GetString() : null;
 
                 NullAuthData data = null;
-                if (success && root.TryGetProperty("data", out var dataElem))
+                if (root.TryGetProperty("data", out var dataElem))
                 {
                     data = new NullAuthData
                     {
                         Status = dataElem.TryGetProperty("status", out var s) ? s.GetString() : "active",
                         ExpiresAt = dataElem.TryGetProperty("expires_at", out var e) ? e.GetString() : "",
                         RemainingDays = dataElem.TryGetProperty("remaining_days", out var r) ? r.GetInt32() : 0,
-                        FirstActivatedAt = dataElem.TryGetProperty("first_activated_at", out var f) ? f.GetString() : null,
+                        RequiredVersion = dataElem.TryGetProperty("requiredVersion", out var rv) ? rv.GetString() : null,
+                        DownloadUrl = dataElem.TryGetProperty("downloadUrl", out var dl) ? dl.GetString() : null,
                     };
                 }
 
@@ -162,7 +156,7 @@ namespace NullAuthClient
                     Data = data
                 };
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return new NullAuthResult
                 {

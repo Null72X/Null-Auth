@@ -26,8 +26,9 @@ import {
   Check,
   Search,
   Users,
-  Activity,
-  Zap,
+  Tag,
+  Download,
+  ShieldAlert,
 } from 'lucide-react';
 
 interface AppItem {
@@ -37,6 +38,8 @@ interface AppItem {
   secret: string;
   type: 'LICENSE' | 'HWID';
   status: 'ACTIVE' | 'PAUSED';
+  version: string;
+  downloadUrl: string | null;
   createdAt: string;
   activeUsers: number;
   expiredUsers: number;
@@ -59,6 +62,12 @@ export default function ApplicationsPage() {
   const [appToDelete, setAppToDelete] = useState<AppItem | null>(null);
   const [appToEdit, setAppToEdit] = useState<AppItem | null>(null);
   const [editName, setEditName] = useState('');
+  
+  // Version Checker Edit Modal
+  const [appToEditVersion, setAppToEditVersion] = useState<AppItem | null>(null);
+  const [editVersion, setEditVersion] = useState('1.0.0');
+  const [editDownloadUrl, setEditDownloadUrl] = useState('');
+
   const [quickLicenseApp, setQuickLicenseApp] = useState<AppItem | null>(null);
   const [quickHwidApp, setQuickHwidApp] = useState<AppItem | null>(null);
 
@@ -143,6 +152,20 @@ export default function ApplicationsPage() {
     loadApps();
   };
 
+  const handleUpdateVersion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!appToEditVersion) return;
+    await fetchApi(`/admin/apps/${appToEditVersion.id}/version`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        version: editVersion.trim(),
+        downloadUrl: editDownloadUrl.trim() || null,
+      }),
+    });
+    setAppToEditVersion(null);
+    loadApps();
+  };
+
   const copyAppId = (appId: string) => {
     navigator.clipboard.writeText(appId);
     setCopiedAppId(appId);
@@ -160,7 +183,7 @@ export default function ApplicationsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <Header
           title="Applications Manager"
-          subtitle="Create, configure, monitor users, and control isolated application profiles."
+          subtitle="Create, configure, enforce application versions, monitor users, and control application profiles."
         />
         <Button onClick={() => setIsCreateOpen(true)} className="gap-2 shrink-0 shadow-lg shadow-red-950/40">
           <Plus className="w-4 h-4" /> Create Application
@@ -365,7 +388,21 @@ export default function ApplicationsPage() {
                       </div>
                     </div>
 
-                    <Badge status={app.status} />
+                    <div className="flex flex-col items-end gap-1.5">
+                      <Badge status={app.status} />
+                      {/* Required Version Pill */}
+                      <button
+                        onClick={() => {
+                          setAppToEditVersion(app);
+                          setEditVersion(app.version || '1.0.0');
+                          setEditDownloadUrl(app.downloadUrl || '');
+                        }}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-800 hover:bg-zinc-700 text-[10px] font-mono font-bold text-amber-400 border border-zinc-700 transition-colors"
+                        title="Click to update required version & download URL"
+                      >
+                        <Tag className="w-3 h-3" /> v{app.version || '1.0.0'}
+                      </button>
+                    </div>
                   </div>
 
                   {/* Auth Mode & Stats Bar */}
@@ -552,6 +589,56 @@ export default function ApplicationsPage() {
               Cancel
             </Button>
             <Button type="submit">Save Changes</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Edit App Version & Download URL Modal */}
+      <Modal
+        isOpen={!!appToEditVersion}
+        onClose={() => setAppToEditVersion(null)}
+        title={`Version Control & Auto-Update — ${appToEditVersion?.name}`}
+      >
+        <form onSubmit={handleUpdateVersion} className="space-y-4">
+          <p className="text-xs text-zinc-400">
+            Enforce client application versions. Any client attempting to authenticate with a version different from the required version will be blocked from running.
+          </p>
+
+          <div>
+            <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">
+              Required App Version (e.g. 1.0.0, 1.2.0, 2.0.0) *
+            </label>
+            <input
+              type="text"
+              value={editVersion}
+              onChange={(e) => setEditVersion(e.target.value)}
+              required
+              placeholder="e.g. 1.0.0"
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2.5 text-sm font-mono text-amber-400 focus:outline-none focus:border-red-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">
+              Optional Update Download URL
+            </label>
+            <input
+              type="text"
+              value={editDownloadUrl}
+              onChange={(e) => setEditDownloadUrl(e.target.value)}
+              placeholder="https://example.com/downloads/v1.2.0.exe"
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2.5 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-red-500"
+            />
+            <p className="text-[11px] text-zinc-500 mt-1">
+              Returned in error response when an outdated client attempts to log in.
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
+            <Button type="button" variant="secondary" onClick={() => setAppToEditVersion(null)}>
+              Cancel
+            </Button>
+            <Button type="submit">Save Required Version</Button>
           </div>
         </form>
       </Modal>

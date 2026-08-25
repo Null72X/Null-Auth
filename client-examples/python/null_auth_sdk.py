@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Null-Auth Core Client SDK Library
+Null-Auth Core Client SDK Library with Automatic Version Checker
 Zero-dependency Python 3 client for Null-Auth Private Licensing & Auth Platform.
 Supports BOTH Auth Methods:
-  1. License Key Authentication (License Key + Bound Machine SID)
-  2. HWID Whitelist Authentication (Direct Machine SID Authorization)
+  1. License Key Authentication (License Key + Bound Machine SID + Version Check)
+  2. HWID Whitelist Authentication (Direct Machine SID Authorization + Version Check)
 """
 
 import subprocess
@@ -34,30 +34,32 @@ class NullAuthSDK:
             pass
         return "UNKNOWN_HWID"
 
-    def authenticate_license(self, license_key: str) -> dict:
+    def authenticate_license(self, license_key: str, client_version: str = "1.0.0") -> dict:
         """
-        METHOD 1: License Key Authentication
-        Validates license key and binds to Windows User SID.
+        METHOD 1: License Key Authentication + Version Checker
+        Validates license key, checks machine SID, and enforces client version match.
         """
         url = f"{self.base_url}/api/v1/client/license/authenticate"
         payload = {
             "appId": self.app_id,
             "appSecret": self.app_secret,
             "licenseKey": license_key.strip(),
-            "hwid": self.get_windows_user_sid()
+            "hwid": self.get_windows_user_sid(),
+            "version": client_version
         }
         return self._send_request(url, payload)
 
-    def authenticate_hwid(self) -> dict:
+    def authenticate_hwid(self, client_version: str = "1.0.0") -> dict:
         """
-        METHOD 2: HWID Whitelist Authentication
-        Direct machine-level authorization without requiring a license key.
+        METHOD 2: HWID Whitelist Authentication + Version Checker
+        Direct machine-level authorization + enforces client version match.
         """
         url = f"{self.base_url}/api/v1/client/hwid/authenticate"
         payload = {
             "appId": self.app_id,
             "appSecret": self.app_secret,
-            "hwid": self.get_windows_user_sid()
+            "hwid": self.get_windows_user_sid(),
+            "version": client_version
         }
         return self._send_request(url, payload)
 
@@ -74,8 +76,9 @@ class NullAuthSDK:
                 return json.loads(response.read().decode('utf-8'))
         except urllib.error.HTTPError as e:
             try:
-                return json.loads(e.read().decode('utf-8'))
+                error_resp = json.loads(e.read().decode('utf-8'))
+                return error_resp
             except Exception:
-                return {"success": False, "message": f"HTTP Error {e.code}"}
+                return {"success": False, "message": f"HTTP Error {e.code}", "error": "HTTP_ERROR"}
         except Exception:
-            return {"success": False, "message": "Failed to connect to Null-Auth cloud server."}
+            return {"success": False, "message": "Failed to connect to Null-Auth cloud server.", "error": "NETWORK_ERROR"}

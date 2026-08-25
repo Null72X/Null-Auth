@@ -8,6 +8,8 @@ import { logActivity } from '../services/logger.service.js';
 export const createAppSchema = z.object({
   name: z.string().min(2, 'Application name must be at least 2 characters').max(64),
   type: z.enum(['LICENSE', 'HWID'], { required_error: 'Type must be LICENSE or HWID' }),
+  version: z.string().optional(),
+  downloadUrl: z.string().optional().nullable(),
 });
 
 export const updateAppNameSchema = z.object({
@@ -16,6 +18,11 @@ export const updateAppNameSchema = z.object({
 
 export const updateAppStatusSchema = z.object({
   status: z.enum(['ACTIVE', 'PAUSED']),
+});
+
+export const updateAppVersionSchema = z.object({
+  version: z.string().min(1, 'Version is required'),
+  downloadUrl: z.string().optional().nullable(),
 });
 
 export async function listApps(req: Request, res: Response) {
@@ -81,6 +88,8 @@ export async function listApps(req: Request, res: Response) {
           secret: app.secret,
           type: app.type,
           status: app.status,
+          version: app.version || '1.0.0',
+          downloadUrl: app.downloadUrl || null,
           createdAt: app.createdAt,
           updatedAt: app.updatedAt,
           activeUsers,
@@ -166,7 +175,7 @@ export async function getAppById(req: Request, res: Response) {
 }
 
 export async function createApp(req: Request, res: Response) {
-  const { name, type } = req.body;
+  const { name, type, version, downloadUrl } = req.body;
 
   try {
     let appId = generateAppId();
@@ -186,6 +195,8 @@ export async function createApp(req: Request, res: Response) {
         secret,
         type,
         status: 'ACTIVE',
+        version: version ? version.trim() : '1.0.0',
+        downloadUrl: downloadUrl ? downloadUrl.trim() : null,
       },
     });
 
@@ -195,7 +206,7 @@ export async function createApp(req: Request, res: Response) {
       actorType: 'ADMIN',
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
-      details: { appId: newApp.appId, name: newApp.name, type: newApp.type },
+      details: { appId: newApp.appId, name: newApp.name, type: newApp.type, version: newApp.version },
       status: 'SUCCESS',
     });
 
@@ -228,6 +239,35 @@ export async function updateAppName(req: Request, res: Response) {
     return sendSuccess(res, 'Application name updated successfully', updated);
   } catch (error: any) {
     return sendError(res, 'Failed to update application name', 500, error.message);
+  }
+}
+
+export async function updateAppVersion(req: Request, res: Response) {
+  const { id } = req.params;
+  const { version, downloadUrl } = req.body;
+
+  try {
+    const updated = await prisma.application.update({
+      where: { id },
+      data: {
+        version: version.trim(),
+        downloadUrl: downloadUrl ? downloadUrl.trim() : null,
+      },
+    });
+
+    await logActivity({
+      appId: updated.id,
+      action: 'APP_UPDATE_VERSION',
+      actorType: 'ADMIN',
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+      details: { appId: updated.appId, newVersion: version, downloadUrl },
+      status: 'SUCCESS',
+    });
+
+    return sendSuccess(res, 'Application version updated successfully', updated);
+  } catch (error: any) {
+    return sendError(res, 'Failed to update application version', 500, error.message);
   }
 }
 
