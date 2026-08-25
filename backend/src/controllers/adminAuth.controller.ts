@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { prisma } from '../db.js';
 import { config } from '../config/index.js';
 import { sendSuccess, sendError } from '../utils/response.js';
-import { logActivity } from '../services/logger.service.ts';
+import { logActivity } from '../services/logger.service.js';
 
 export const loginSchema = z.object({
   username: z.string().min(1, 'Username is required'),
