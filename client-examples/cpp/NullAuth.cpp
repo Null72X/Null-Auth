@@ -18,7 +18,6 @@ namespace NullAuthClient {
 
     class NullAuth {
     private:
-        std::string name;
         std::string appId;
         std::string secret;
         std::string version;
@@ -28,8 +27,8 @@ namespace NullAuthClient {
         UserData userData;
         bool initialized = false;
 
-        NullAuth(const std::string& name, const std::string& appId, const std::string& secret, const std::string& version = "1.0.0", const std::string& host = "null-auth-backend.vercel.app")
-            : name(name), appId(appId), secret(secret), version(version), host(host) {}
+        NullAuth(const std::string& appId, const std::string& secret, const std::string& version = "1.0.0", const std::string& host = "null-auth-backend.vercel.app")
+            : appId(appId), secret(secret), version(version), host(host) {}
 
         static std::string GetWindowsUserSid() {
             std::array<char, 512> buffer;
@@ -48,6 +47,30 @@ namespace NullAuthClient {
                 return result.substr(sidPos);
             }
             return "UNKNOWN_HWID";
+        }
+
+        static void ShowPopup(const std::wstring& title, const std::wstring& message, UINT iconType = MB_ICONERROR) {
+            MessageBoxW(0, message.c_str(), title.c_str(), iconType | MB_OK);
+        }
+
+        void HandleError(const std::string& response, bool showMsgbox) {
+            if (!showMsgbox) return;
+
+            if (response.find("VERSION_MISMATCH") != std::string::npos) {
+                ShowPopup(L"Update Required", L"Application update required! Please download the latest version.", MB_ICONWARNING);
+            } else if (response.find("LICENSE_EXPIRED") != std::string::npos || response.find("IDENTIFIER_EXPIRED") != std::string::npos) {
+                ShowPopup(L"License Expired", L"Access Denied: Your license key or HWID authorization has expired.", MB_ICONERROR);
+            } else if (response.find("LICENSE_BANNED") != std::string::npos || response.find("IDENTIFIER_BANNED") != std::string::npos) {
+                ShowPopup(L"Account Banned", L"Access Denied: Your license or machine SID has been banned.", MB_ICONERROR);
+            } else if (response.find("LICENSE_PAUSED") != std::string::npos || response.find("IDENTIFIER_PAUSED") != std::string::npos) {
+                ShowPopup(L"Access Paused", L"Access Denied: License or HWID access is currently paused by admin.", MB_ICONWARNING);
+            } else if (response.find("HWID_MISMATCH") != std::string::npos) {
+                ShowPopup(L"HWID Mismatch", L"Access Denied: License key is bound to a different machine SID.", MB_ICONERROR);
+            } else if (response.find("APPLICATION_DISABLED") != std::string::npos) {
+                ShowPopup(L"Application Paused", L"Access Denied: Application is currently paused by admin.", MB_ICONWARNING);
+            } else {
+                ShowPopup(L"Null-Auth Security Alert", L"Access Denied: Authentication failed.", MB_ICONERROR);
+            }
         }
 
         bool SendHttpsPost(const std::string& path, const std::string& jsonBody, std::string& responseOut) {
@@ -79,7 +102,7 @@ namespace NullAuthClient {
             return sent;
         }
 
-        bool License(const std::string& key) {
+        bool License(const std::string& key, bool showMsgbox = true) {
             std::string sid = GetWindowsUserSid();
             std::string body = "{\"appId\":\"" + appId + "\",\"appSecret\":\"" + secret + "\",\"licenseKey\":\"" + key + "\",\"hwid\":\"" + sid + "\",\"version\":\"" + version + "\"}";
             std::string response;
@@ -91,10 +114,11 @@ namespace NullAuthClient {
                     return true;
                 }
             }
+            HandleError(response, showMsgbox);
             return false;
         }
 
-        bool CheckHwid() {
+        bool CheckHwid(bool showMsgbox = true) {
             std::string sid = GetWindowsUserSid();
             std::string body = "{\"appId\":\"" + appId + "\",\"appSecret\":\"" + secret + "\",\"hwid\":\"" + sid + "\",\"version\":\"" + version + "\"}";
             std::string response;
@@ -106,6 +130,7 @@ namespace NullAuthClient {
                     return true;
                 }
             }
+            HandleError(response, showMsgbox);
             return false;
         }
     };
@@ -118,7 +143,7 @@ int main() {
     std::cout << "     🛡️ Null-Auth Single-File C++ Application    \n";
     std::cout << "=================================================\n\n";
 
-    NullAuthClient::NullAuth auth("MyApplication", "NA-13026130", "nas_334106af8244ffc4284df3f2c31709011681d10cfa37e67a", "1.0.0");
+    NullAuthClient::NullAuth auth("NA-13026130", "nas_334106af8244ffc4284df3f2c31709011681d10cfa37e67a", "1.0.0");
 
     std::string sid = NullAuthClient::NullAuth::GetWindowsUserSid();
     std::cout << "[+] Detected Windows User SID: " << sid << "\n\n";
@@ -137,10 +162,10 @@ int main() {
         std::string key;
         std::cin >> key;
         std::cout << "\n[*] Authenticating License Key...\n";
-        success = auth.License(key);
+        success = auth.License(key, true);
     } else {
         std::cout << "\n[*] Authenticating HWID Whitelist...\n";
-        success = auth.CheckHwid();
+        success = auth.CheckHwid(true);
     }
 
     if (success) {

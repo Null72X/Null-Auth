@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 """
-Null-Auth Single File Python SDK (KeyAuth-Style API)
+Null-Auth Single-File Python SDK (KeyAuth-Style API)
 Zero-dependency Python 3 client for Null-Auth Private Licensing & Auth Platform.
 
-Supports BOTH Auth Methods:
-  1. License Key Authentication (License Key + Bound Machine SID + Version Check)
-  2. HWID Whitelist Authentication (Direct Machine SID Authorization + Version Check)
+Initialization:
+    auth = NullAuth(app_id="NA-13026130", secret="nas_...", version="1.0.0")
+
+Features:
+    - License Key Authentication: auth.license("NULL-XXXX-YYYY-ZZZZ")
+    - HWID Whitelist Mode: auth.check_hwid()
+    - Native Windows Popups on Error (Version Mismatch, Expired, Banned, Paused, HWID Mismatch, Disabled)
 """
 
 import sys
@@ -34,13 +38,11 @@ class UserData:
 class NullAuth:
     def __init__(
         self,
-        name: str = "MyApplication",
         app_id: str = "NA-13026130",
         secret: str = "nas_334106af8244ffc4284df3f2c31709011681d10cfa37e67a",
         version: str = "1.0.0",
         server_url: str = "https://null-auth-backend.vercel.app"
     ):
-        self.name = name
         self.app_id = str(app_id).strip()
         self.secret = str(secret).strip()
         self.version = str(version).strip()
@@ -65,6 +67,7 @@ class NullAuth:
 
     @staticmethod
     def show_popup(title: str, message: str, icon_type: int = 16):
+        """Native Windows MessageBox popup window alert (icon_type 16 = MB_ICONERROR, 48 = MB_ICONWARNING)."""
         if platform.system() == "Windows":
             try:
                 ctypes.windll.user32.MessageBoxW(0, message, title, icon_type | 0x00000000)
@@ -72,6 +75,31 @@ class NullAuth:
                 print(f"[{title}] {message}")
         else:
             print(f"[{title}] {message}")
+
+    def handle_error(self, err_code: str, err_msg: str, download_url: str = None, show_msgbox: bool = True):
+        """Triggers specific native Windows MessageBox popups for all failure conditions."""
+        if not show_msgbox:
+            return
+
+        if err_code == "VERSION_MISMATCH":
+            msg = f"Application Update Required!\n\n{err_msg}"
+            if download_url:
+                msg += f"\n\nDownload Update: {download_url}"
+            self.show_popup("Update Required", msg, 48)
+        elif err_code in ["LICENSE_EXPIRED", "IDENTIFIER_EXPIRED"]:
+            self.show_popup("License Expired", f"Access Denied: Your license key or HWID authorization has expired.\n\n{err_msg}", 16)
+        elif err_code in ["LICENSE_BANNED", "IDENTIFIER_BANNED"]:
+            self.show_popup("Account Banned", f"Access Denied: Your license key or machine SID has been banned.\n\n{err_msg}", 16)
+        elif err_code in ["LICENSE_PAUSED", "IDENTIFIER_PAUSED"]:
+            self.show_popup("Access Paused", f"Access Denied: License or HWID access is currently paused by admin.\n\n{err_msg}", 48)
+        elif err_code == "HWID_MISMATCH":
+            self.show_popup("HWID Mismatch", f"Access Denied: License key is bound to a different machine SID.\n\n{err_msg}", 16)
+        elif err_code in ["LICENSE_NOT_FOUND", "IDENTIFIER_NOT_FOUND"]:
+            self.show_popup("Invalid Key / HWID", f"Access Denied: Invalid license key or unauthorized machine SID.\n\n{err_msg}", 16)
+        elif err_code == "APPLICATION_DISABLED":
+            self.show_popup("Application Paused", f"Access Denied: Application is currently paused by admin.\n\n{err_msg}", 48)
+        else:
+            self.show_popup("Null-Auth Security Alert", f"Access Denied: {err_msg}", 16)
 
     def init(self) -> bool:
         """KeyAuth-style init(): Connects to server health endpoint."""
@@ -89,7 +117,7 @@ class NullAuth:
         return False
 
     def license(self, key: str, show_msgbox: bool = True) -> bool:
-        """METHOD 1: License Key Authentication + Bound Windows User SID."""
+        """METHOD 1: License Key Authentication + Bound Windows User SID + Version Check."""
         sid = self.get_windows_user_sid()
         url = f"{self.server_url}/api/v1/client/license/authenticate"
         payload = {
@@ -109,17 +137,14 @@ class NullAuth:
             return True
 
         err_msg = res.get("message", "Authentication Failed")
-        err_code = res.get("error", "")
+        err_code = res.get("error", "AUTH_FAILED")
+        download_url = res.get("data", {}).get("downloadUrl") if isinstance(res.get("data"), dict) else None
 
-        if show_msgbox:
-            if err_code == "VERSION_MISMATCH":
-                self.show_popup("Update Required", f"Update Available!\n{err_msg}", 16)
-            else:
-                self.show_popup("Null-Auth Security Alert", f"Access Denied: {err_msg}", 16)
+        self.handle_error(err_code, err_msg, download_url, show_msgbox)
         return False
 
     def check_hwid(self, show_msgbox: bool = True) -> bool:
-        """METHOD 2: HWID Direct Whitelist Authentication."""
+        """METHOD 2: HWID Direct Whitelist Authentication + Version Check."""
         sid = self.get_windows_user_sid()
         url = f"{self.server_url}/api/v1/client/hwid/authenticate"
         payload = {
@@ -138,13 +163,10 @@ class NullAuth:
             return True
 
         err_msg = res.get("message", "HWID Authorization Failed")
-        err_code = res.get("error", "")
+        err_code = res.get("error", "AUTH_FAILED")
+        download_url = res.get("data", {}).get("downloadUrl") if isinstance(res.get("data"), dict) else None
 
-        if show_msgbox:
-            if err_code == "VERSION_MISMATCH":
-                self.show_popup("Update Required", f"Update Available!\n{err_msg}", 16)
-            else:
-                self.show_popup("Null-Auth Security Alert", f"Access Denied: {err_msg}", 16)
+        self.handle_error(err_code, err_msg, download_url, show_msgbox)
         return False
 
     def _send_request(self, url: str, payload: dict) -> dict:
@@ -175,9 +197,8 @@ if __name__ == "__main__":
     print("      🛡️ Null-Auth Single-File Python Client      ")
     print("=================================================")
 
-    # Initialize Null-Auth Client (KeyAuth Style)
+    # Initialize Null-Auth Client (app_id, secret, version)
     auth = NullAuth(
-        name="MyApplication",
         app_id="NA-13026130",
         secret="nas_334106af8244ffc4284df3f2c31709011681d10cfa37e67a",
         version="1.0.0"
@@ -185,7 +206,7 @@ if __name__ == "__main__":
 
     print("\n[*] Initializing connection to Null-Auth server...")
     if not auth.init():
-        print("[-] Server offline or connection error!")
+        auth.show_popup("Connection Error", "Failed to connect to Null-Auth server.", 16)
         sys.exit(1)
 
     print(f"[+] Server Connected! Local Version: {auth.version}")
@@ -199,9 +220,9 @@ if __name__ == "__main__":
 
     if choice == "1":
         key = input("\nEnter License Key (e.g. NULL-ABCD-1234-EFGH): ").strip()
-        success = auth.license(key)
+        success = auth.license(key, show_msgbox=True)
     else:
-        success = auth.check_hwid()
+        success = auth.check_hwid(show_msgbox=True)
 
     if success:
         print("\n[+] ACCESS GRANTED! Software Unlocked.")
