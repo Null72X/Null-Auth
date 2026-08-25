@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Header } from '@/components/layout/Header';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -13,7 +13,6 @@ import {
   Plus,
   Key,
   Search,
-  Filter,
   RefreshCw,
   Trash2,
   Pause,
@@ -26,6 +25,9 @@ import {
   Check,
   CheckSquare,
   Square,
+  ShieldCheck,
+  Clock,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface LicenseItem {
@@ -91,6 +93,16 @@ export default function LicensesPage() {
   useEffect(() => {
     loadData();
   }, [search, statusFilter, appFilter]);
+
+  // License Metrics
+  const metrics = useMemo(() => {
+    const total = licenses.length;
+    const active = licenses.filter((l) => l.effectiveStatus === 'ACTIVE').length;
+    const paused = licenses.filter((l) => l.effectiveStatus === 'PAUSED').length;
+    const expired = licenses.filter((l) => l.effectiveStatus === 'EXPIRED').length;
+    const banned = licenses.filter((l) => l.effectiveStatus === 'BANNED').length;
+    return { total, active, paused, expired, banned };
+  }, [licenses]);
 
   const handleToggleStatus = async (license: LicenseItem, newStatus: string) => {
     await fetchApi(`/admin/licenses/${license.id}/status`, {
@@ -182,15 +194,58 @@ export default function LicensesPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <Header
-          title="License Keys"
-          subtitle="Generate, manage, pause, ban, or reset HWID bindings for license keys."
+          title="License Keys Manager"
+          subtitle="Generate, manage, pause, extend duration, or reset bound machine SIDs for license keys."
         />
-        <Button onClick={() => setIsGenerateOpen(true)} className="gap-2 shrink-0">
+        <Button onClick={() => setIsGenerateOpen(true)} className="gap-2 shrink-0 shadow-lg shadow-red-950/40">
           <Plus className="w-4 h-4" /> Generate Licenses
         </Button>
+      </div>
+
+      {/* Summary Metrics Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="flex items-center gap-4 bg-zinc-900/90 border-zinc-800">
+          <div className="w-11 h-11 rounded-xl bg-blue-950/80 border border-blue-800/60 flex items-center justify-center text-blue-400">
+            <Key className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Total Keys</span>
+            <h4 className="text-xl font-extrabold text-white mt-0.5">{metrics.total}</h4>
+          </div>
+        </Card>
+
+        <Card className="flex items-center gap-4 bg-zinc-900/90 border-zinc-800">
+          <div className="w-11 h-11 rounded-xl bg-emerald-950/80 border border-emerald-800/60 flex items-center justify-center text-emerald-400">
+            <ShieldCheck className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Active Keys</span>
+            <h4 className="text-xl font-extrabold text-emerald-400 mt-0.5">{metrics.active}</h4>
+          </div>
+        </Card>
+
+        <Card className="flex items-center gap-4 bg-zinc-900/90 border-zinc-800">
+          <div className="w-11 h-11 rounded-xl bg-amber-950/80 border border-amber-800/60 flex items-center justify-center text-amber-400">
+            <Clock className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Paused / Expired</span>
+            <h4 className="text-xl font-extrabold text-amber-400 mt-0.5">{metrics.paused + metrics.expired}</h4>
+          </div>
+        </Card>
+
+        <Card className="flex items-center gap-4 bg-zinc-900/90 border-zinc-800">
+          <div className="w-11 h-11 rounded-xl bg-red-950/80 border border-red-800/60 flex items-center justify-center text-red-400">
+            <Ban className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Banned Keys</span>
+            <h4 className="text-xl font-extrabold text-red-400 mt-0.5">{metrics.banned}</h4>
+          </div>
+        </Card>
       </div>
 
       {/* Control Bar: Search & Filters */}
@@ -200,10 +255,10 @@ export default function LicensesPage() {
             <Search className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3" />
             <input
               type="text"
-              placeholder="Search by license key, notes, or bound HWID..."
+              placeholder="Search by license key (NULL-XXXX), notes, or bound Windows SID..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg pl-10 pr-4 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-red-500"
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-red-500/80"
             />
           </div>
 
@@ -211,7 +266,7 @@ export default function LicensesPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-red-500"
+              className="bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-zinc-200 focus:outline-none focus:border-red-500"
             >
               <option value="">All Statuses</option>
               <option value="ACTIVE">Active</option>
@@ -223,7 +278,7 @@ export default function LicensesPage() {
             <select
               value={appFilter}
               onChange={(e) => setAppFilter(e.target.value)}
-              className="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-red-500"
+              className="bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-zinc-200 focus:outline-none focus:border-red-500"
             >
               <option value="">All Applications</option>
               {apps.map((app) => (
@@ -237,16 +292,16 @@ export default function LicensesPage() {
 
         {/* Bulk Action Bar */}
         {selectedIds.length > 0 && (
-          <div className="pt-3 border-t border-zinc-800/80 flex items-center justify-between gap-3 text-xs bg-red-950/20 p-2.5 rounded-lg border border-red-900/30">
-            <span className="font-semibold text-red-300">
+          <div className="pt-3 border-t border-zinc-800/80 flex items-center justify-between gap-3 text-xs bg-red-950/30 p-3 rounded-xl border border-red-900/40 animate-slide-up">
+            <span className="font-bold text-red-300">
               {selectedIds.length} license(s) selected
             </span>
             <div className="flex items-center gap-2">
               <Button size="sm" variant="secondary" onClick={() => handleBulkAction('PAUSE')}>
-                Pause Selected
+                Pause
               </Button>
               <Button size="sm" variant="secondary" onClick={() => handleBulkAction('RESUME')}>
-                Resume Selected
+                Resume
               </Button>
               <Button size="sm" variant="secondary" onClick={() => handleBulkAction('ADD_DAYS')}>
                 Add Days
@@ -263,7 +318,7 @@ export default function LicensesPage() {
       <Card className="p-0 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="bg-zinc-950/80 border-b border-zinc-800/80 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+            <thead className="bg-zinc-950/90 border-b border-zinc-800/80 text-xs font-bold text-zinc-400 uppercase tracking-wider">
               <tr>
                 <th className="p-4 w-10">
                   <button onClick={toggleSelectAll} className="text-zinc-400 hover:text-zinc-200">
@@ -277,7 +332,7 @@ export default function LicensesPage() {
                 <th className="p-4">License Key</th>
                 <th className="p-4">Application</th>
                 <th className="p-4">Status</th>
-                <th className="p-4">Bound HWID</th>
+                <th className="p-4">Bound Machine SID / HWID</th>
                 <th className="p-4">Expiration</th>
                 <th className="p-4">Notes</th>
                 <th className="p-4 text-right">Actions</th>
@@ -286,7 +341,7 @@ export default function LicensesPage() {
             <tbody className="divide-y divide-zinc-800/60">
               {isLoading ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-xs text-zinc-500">
+                  <td colSpan={8} className="p-8 text-center text-xs text-zinc-500 animate-pulse">
                     Loading licenses...
                   </td>
                 </tr>
@@ -299,11 +354,13 @@ export default function LicensesPage() {
               ) : (
                 licenses.map((lic) => {
                   const isSelected = selectedIds.includes(lic.id);
+                  const daysPercent = Math.min(100, Math.max(0, (lic.remainingDays / 365) * 100));
+
                   return (
                     <tr
                       key={lic.id}
                       className={`hover:bg-zinc-800/40 transition-colors ${
-                        isSelected ? 'bg-red-950/10' : ''
+                        isSelected ? 'bg-red-950/20' : ''
                       }`}
                     >
                       <td className="p-4">
@@ -320,10 +377,13 @@ export default function LicensesPage() {
                       </td>
                       <td className="p-4 font-mono font-bold text-red-400">
                         <div className="flex items-center gap-2">
-                          <span>{lic.key}</span>
+                          <span className="bg-zinc-950 px-2.5 py-1 rounded-lg border border-zinc-800">
+                            {lic.key}
+                          </span>
                           <button
                             onClick={() => copyKey(lic.key)}
-                            className="text-zinc-500 hover:text-zinc-300 transition-colors"
+                            className="p-1 rounded text-zinc-500 hover:text-zinc-200 transition-colors"
+                            title="Copy License Key"
                           >
                             {copiedKey === lic.key ? (
                               <Check className="w-3.5 h-3.5 text-emerald-400" />
@@ -334,7 +394,7 @@ export default function LicensesPage() {
                         </div>
                       </td>
                       <td className="p-4">
-                        <span className="font-semibold text-zinc-200">
+                        <span className="font-bold text-zinc-200">
                           {lic.application?.name || 'Unknown App'}
                         </span>
                       </td>
@@ -343,7 +403,7 @@ export default function LicensesPage() {
                       </td>
                       <td className="p-4 font-mono text-xs text-zinc-300">
                         {lic.boundHwid ? (
-                          <span title={lic.boundHwid} className="font-semibold text-zinc-200">
+                          <span title={lic.boundHwid} className="font-semibold text-zinc-200 bg-zinc-950 px-2 py-1 rounded border border-zinc-800/60">
                             {lic.boundHwid}
                           </span>
                         ) : (
@@ -351,26 +411,24 @@ export default function LicensesPage() {
                         )}
                       </td>
                       <td className="p-4 text-xs">
-                        <span className="text-zinc-200 block font-semibold">
-                          {lic.remainingDays} days left
-                        </span>
-                        <span className="text-[11px] text-zinc-500">
-                          {new Date(lic.expiresAt).toLocaleDateString()}
-                        </span>
+                        <div className="space-y-1">
+                          <span className="text-zinc-200 font-bold block">
+                            {lic.remainingDays} days left
+                          </span>
+                          <span className="text-[11px] text-zinc-500 block">
+                            {new Date(lic.expiresAt).toLocaleDateString()}
+                          </span>
+                        </div>
                       </td>
-                      <td className="p-4 text-xs text-zinc-400 max-w-[120px] truncate">
-                        {lic.notes ? (
-                          <span title={lic.notes}>{lic.notes}</span>
-                        ) : (
-                          <span className="text-zinc-600 italic">—</span>
-                        )}
+                      <td className="p-4 text-xs text-zinc-400 max-w-[140px] truncate">
+                        {lic.notes ? lic.notes : <span className="text-zinc-600 italic">—</span>}
                       </td>
                       <td className="p-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             onClick={() => setLicenseToExtend(lic)}
                             title="Add / Remove Days"
-                            className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors"
+                            className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors active:scale-95"
                           >
                             <Calendar className="w-3.5 h-3.5" />
                           </button>
@@ -380,7 +438,7 @@ export default function LicensesPage() {
                               setManualHwid(lic.boundHwid || '');
                             }}
                             title="Reset / Modify Bound HWID"
-                            className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors"
+                            className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors active:scale-95"
                           >
                             <RotateCcw className="w-3.5 h-3.5" />
                           </button>
@@ -390,7 +448,7 @@ export default function LicensesPage() {
                               setEditNotes(lic.notes || '');
                             }}
                             title="Edit Notes"
-                            className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors"
+                            className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors active:scale-95"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
@@ -402,7 +460,7 @@ export default function LicensesPage() {
                               )
                             }
                             title={lic.status === 'PAUSED' ? 'Resume' : 'Pause'}
-                            className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors"
+                            className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors active:scale-95"
                           >
                             {lic.status === 'PAUSED' ? (
                               <Play className="w-3.5 h-3.5 text-emerald-400" />
@@ -418,14 +476,14 @@ export default function LicensesPage() {
                               )
                             }
                             title={lic.status === 'BANNED' ? 'Unban' : 'Ban'}
-                            className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-red-400 transition-colors"
+                            className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-red-400 transition-colors active:scale-95"
                           >
                             <Ban className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => setLicenseToDelete(lic)}
                             title="Delete License"
-                            className="p-1.5 rounded-lg bg-red-950 hover:bg-red-900 text-red-300 transition-colors"
+                            className="p-1.5 rounded-lg bg-red-950/80 hover:bg-red-900 text-red-300 transition-colors active:scale-95"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -496,7 +554,7 @@ export default function LicensesPage() {
 
           <div>
             <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">
-              Bound HWID / User SID Hash
+              Bound HWID / User SID String
             </label>
             <input
               type="text"
