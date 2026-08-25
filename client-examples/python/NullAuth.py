@@ -9,7 +9,7 @@ Initialization:
 Features:
     - License Key Authentication: auth.license("NULL-XXXX-YYYY-ZZZZ")
     - HWID Whitelist Mode: auth.check_hwid()
-    - Native Windows Popups on Error (Version Mismatch, Expired, Banned, Paused, HWID Mismatch, Disabled)
+    - Dynamic Server Message Popups on Failure (Version Mismatch, Expired, Banned, Paused, HWID Mismatch, Disabled)
 """
 
 import sys
@@ -76,30 +76,37 @@ class NullAuth:
         else:
             print(f"[{title}] {message}")
 
-    def handle_error(self, err_code: str, err_msg: str, download_url: str = None, show_msgbox: bool = True):
-        """Triggers specific native Windows MessageBox popups for all failure conditions."""
+    def handle_error(self, err_code: str, server_message: str, download_url: str = None, show_msgbox: bool = True):
+        """Displays native Windows popup using exact error message sent from backend server."""
         if not show_msgbox:
             return
 
+        titles = {
+            "VERSION_MISMATCH": "Update Required",
+            "LICENSE_EXPIRED": "License Expired",
+            "IDENTIFIER_EXPIRED": "License Expired",
+            "LICENSE_BANNED": "Account Banned",
+            "IDENTIFIER_BANNED": "Account Banned",
+            "LICENSE_PAUSED": "Access Paused",
+            "IDENTIFIER_PAUSED": "Access Paused",
+            "HWID_MISMATCH": "HWID Mismatch",
+            "LICENSE_NOT_FOUND": "Invalid License Key",
+            "IDENTIFIER_NOT_FOUND": "Unauthorized Machine",
+            "APPLICATION_DISABLED": "Application Paused",
+            "INVALID_APP_CREDENTIALS": "App Credential Error",
+        }
+
+        title = titles.get(err_code, "Null-Auth Security Alert")
+        popup_msg = server_message
+
         if err_code == "VERSION_MISMATCH":
-            msg = f"Application Update Required!\n\n{err_msg}"
             if download_url:
-                msg += f"\n\nDownload Update: {download_url}"
-            self.show_popup("Update Required", msg, 48)
-        elif err_code in ["LICENSE_EXPIRED", "IDENTIFIER_EXPIRED"]:
-            self.show_popup("License Expired", f"Access Denied: Your license key or HWID authorization has expired.\n\n{err_msg}", 16)
-        elif err_code in ["LICENSE_BANNED", "IDENTIFIER_BANNED"]:
-            self.show_popup("Account Banned", f"Access Denied: Your license key or machine SID has been banned.\n\n{err_msg}", 16)
-        elif err_code in ["LICENSE_PAUSED", "IDENTIFIER_PAUSED"]:
-            self.show_popup("Access Paused", f"Access Denied: License or HWID access is currently paused by admin.\n\n{err_msg}", 48)
-        elif err_code == "HWID_MISMATCH":
-            self.show_popup("HWID Mismatch", f"Access Denied: License key is bound to a different machine SID.\n\n{err_msg}", 16)
-        elif err_code in ["LICENSE_NOT_FOUND", "IDENTIFIER_NOT_FOUND"]:
-            self.show_popup("Invalid Key / HWID", f"Access Denied: Invalid license key or unauthorized machine SID.\n\n{err_msg}", 16)
-        elif err_code == "APPLICATION_DISABLED":
-            self.show_popup("Application Paused", f"Access Denied: Application is currently paused by admin.\n\n{err_msg}", 48)
+                popup_msg += f"\n\nDownload Update: {download_url}"
+            self.show_popup(title, popup_msg, 48)  # MB_ICONWARNING
+        elif err_code in ["LICENSE_PAUSED", "IDENTIFIER_PAUSED", "APPLICATION_DISABLED"]:
+            self.show_popup(title, popup_msg, 48)  # MB_ICONWARNING
         else:
-            self.show_popup("Null-Auth Security Alert", f"Access Denied: {err_msg}", 16)
+            self.show_popup(title, popup_msg, 16)  # MB_ICONERROR
 
     def init(self) -> bool:
         """KeyAuth-style init(): Connects to server health endpoint."""
@@ -136,11 +143,11 @@ class NullAuth:
             self.user_data = UserData(u_data)
             return True
 
-        err_msg = res.get("message", "Authentication Failed")
+        server_msg = res.get("message", "Authentication Failed")
         err_code = res.get("error", "AUTH_FAILED")
         download_url = res.get("data", {}).get("downloadUrl") if isinstance(res.get("data"), dict) else None
 
-        self.handle_error(err_code, err_msg, download_url, show_msgbox)
+        self.handle_error(err_code, server_msg, download_url, show_msgbox)
         return False
 
     def check_hwid(self, show_msgbox: bool = True) -> bool:
@@ -162,11 +169,11 @@ class NullAuth:
             self.user_data = UserData(u_data)
             return True
 
-        err_msg = res.get("message", "HWID Authorization Failed")
+        server_msg = res.get("message", "HWID Authorization Failed")
         err_code = res.get("error", "AUTH_FAILED")
         download_url = res.get("data", {}).get("downloadUrl") if isinstance(res.get("data"), dict) else None
 
-        self.handle_error(err_code, err_msg, download_url, show_msgbox)
+        self.handle_error(err_code, server_msg, download_url, show_msgbox)
         return False
 
     def _send_request(self, url: str, payload: dict) -> dict:
