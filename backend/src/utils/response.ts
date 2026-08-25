@@ -18,11 +18,18 @@ export function sendSuccess<T>(res: Response, message: string, data?: T, statusC
   return res.status(statusCode).json(response);
 }
 
-export function sendError(res: Response, message: string, statusCode = 400, errorDetails?: string): Response {
+export function sendError(
+  res: Response,
+  message: string,
+  statusCode = 400,
+  errorDetails?: string,
+  data?: any
+): Response {
   const response: ApiResponse = {
     success: false,
     message,
     ...(errorDetails && { error: errorDetails }),
+    ...(data !== undefined && { data }),
   };
   return res.status(statusCode).json(response);
 }
