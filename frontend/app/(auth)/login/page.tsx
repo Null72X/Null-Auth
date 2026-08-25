@@ -28,7 +28,7 @@ export default function LoginPage() {
         setAuthToken(res.data.token);
         router.push('/dashboard');
       } else {
-        setError(res.message || 'Invalid username or password');
+        setError(res.error || res.message || 'Invalid username or password');
       }
     } catch (err: any) {
       setError('An error occurred during authentication.');
