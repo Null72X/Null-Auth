@@ -77,22 +77,38 @@ async function ensureTablesAndAdmin() {
       );
     `);
 
-    // 2. Check & seed default admin user
-    const adminCount = await prisma.admin.count();
-    if (adminCount === 0) {
-      const username = process.env.INITIAL_ADMIN_USERNAME || 'admin';
-      const password = process.env.INITIAL_ADMIN_PASSWORD || 'NullAuthAdminPassword2026!';
-      const salt = await bcrypt.genSalt(12);
-      const passwordHash = await bcrypt.hash(password, salt);
+    // 2. Ensure Admin user with username 'NULL' exists with password 'NULLX500Y'
+    const targetUsername = process.env.INITIAL_ADMIN_USERNAME || 'NULL';
+    const targetPassword = process.env.INITIAL_ADMIN_PASSWORD || 'NULLX500Y';
 
+    const existingAdmin = await prisma.admin.findFirst({
+      where: {
+        OR: [{ username: targetUsername }, { username: 'admin' }],
+      },
+    });
+
+    const salt = await bcrypt.genSalt(12);
+    const passwordHash = await bcrypt.hash(targetPassword, salt);
+
+    if (!existingAdmin) {
       await prisma.admin.create({
         data: {
-          id: 'admin_initial_id_' + Date.now(),
-          username,
+          id: 'admin_primary_' + Date.now(),
+          username: targetUsername,
           passwordHash,
         },
       });
-      console.log(`[Null-Auth Backend] Created initial admin user: '${username}'`);
+      console.log(`[Null-Auth Backend] Created admin user: '${targetUsername}'`);
+    } else {
+      // Update password and username to target
+      await prisma.admin.update({
+        where: { id: existingAdmin.id },
+        data: {
+          username: targetUsername,
+          passwordHash,
+        },
+      });
+      console.log(`[Null-Auth Backend] Updated admin user: '${targetUsername}'`);
     }
 
     isSeeded = true;
