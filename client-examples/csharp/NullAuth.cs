@@ -29,7 +29,7 @@ namespace NullAuthClient
     }
 
     /// <summary>
-    /// KeyAuth-style Single-File C# SDK & Application Client
+    /// Ultra-Advanced Single-File C# SDK (NativeAOT & Trimming Safe)
     /// Initialization: new NullAuth(appId, secret, version)
     /// </summary>
     public class NullAuth
@@ -45,10 +45,10 @@ namespace NullAuthClient
 
         public NullAuth(string appId, string secret, string version = "1.0.0", string serverUrl = "https://null-auth-backend.vercel.app")
         {
-            AppId = appId.Trim();
-            Secret = secret.Trim();
-            Version = version.Trim();
-            ServerUrl = serverUrl.TrimEnd('/');
+            AppId = appId?.Trim() ?? "";
+            Secret = secret?.Trim() ?? "";
+            Version = version?.Trim() ?? "1.0.0";
+            ServerUrl = serverUrl?.TrimEnd('/') ?? "https://null-auth-backend.vercel.app";
         }
 
         public static string GetWindowsUserSid()
@@ -107,7 +107,7 @@ namespace NullAuthClient
             else if (errCode == "LICENSE_NOT_FOUND" || errCode == "IDENTIFIER_NOT_FOUND") title = "Invalid Key / HWID";
             else if (errCode == "APPLICATION_DISABLED") title = "Application Paused";
 
-            string popupMsg = serverMessage;
+            string popupMsg = string.IsNullOrEmpty(serverMessage) ? "Authentication request failed." : serverMessage;
             if (errCode == "VERSION_MISMATCH" && !string.IsNullOrEmpty(downloadUrl))
             {
                 popupMsg += $"\n\nDownload Update: {downloadUrl}";
@@ -136,20 +136,21 @@ namespace NullAuthClient
             return false;
         }
 
+        private static string EscapeJson(string str)
+        {
+            if (string.IsNullOrEmpty(str)) return "";
+            return str.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "\\r");
+        }
+
         public async Task<bool> LicenseAsync(string key, bool showMsgbox = true)
         {
             string sid = GetWindowsUserSid();
             string endpoint = $"{ServerUrl}/api/v1/client/license/authenticate";
-            var payload = new
-            {
-                appId = AppId,
-                appSecret = Secret,
-                licenseKey = key?.Trim(),
-                hwid = sid,
-                version = Version
-            };
 
-            var res = await SendRequestAsync(endpoint, payload);
+            // NativeAOT-Safe explicit JSON payload construction
+            string jsonBody = $"{{\"appId\":\"{EscapeJson(AppId)}\",\"appSecret\":\"{EscapeJson(Secret)}\",\"licenseKey\":\"{EscapeJson(key?.Trim())}\",\"hwid\":\"{EscapeJson(sid)}\",\"version\":\"{EscapeJson(Version)}\"}}";
+
+            var res = await SendRequestAsync(endpoint, jsonBody);
             if (res.Success && res.Data != null)
             {
                 UserData = res.Data;
@@ -166,15 +167,11 @@ namespace NullAuthClient
         {
             string sid = GetWindowsUserSid();
             string endpoint = $"{ServerUrl}/api/v1/client/hwid/authenticate";
-            var payload = new
-            {
-                appId = AppId,
-                appSecret = Secret,
-                hwid = sid,
-                version = Version
-            };
 
-            var res = await SendRequestAsync(endpoint, payload);
+            // NativeAOT-Safe explicit JSON payload construction
+            string jsonBody = $"{{\"appId\":\"{EscapeJson(AppId)}\",\"appSecret\":\"{EscapeJson(Secret)}\",\"hwid\":\"{EscapeJson(sid)}\",\"version\":\"{EscapeJson(Version)}\"}}";
+
+            var res = await SendRequestAsync(endpoint, jsonBody);
             if (res.Success && res.Data != null)
             {
                 UserData = res.Data;
@@ -187,12 +184,11 @@ namespace NullAuthClient
             return false;
         }
 
-        private async Task<NullAuthResult> SendRequestAsync(string endpoint, object payload)
+        private async Task<NullAuthResult> SendRequestAsync(string endpoint, string jsonBody)
         {
             try
             {
-                string json = JsonSerializer.Serialize(payload);
-                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
                 var response = await _http.PostAsync(endpoint, content);
                 string resString = await response.Content.ReadAsStringAsync();
 
@@ -226,69 +222,6 @@ namespace NullAuthClient
             {
                 return new NullAuthResult { Success = false, Message = ex.Message, ErrorCode = "NETWORK_ERROR" };
             }
-        }
-    }
-
-    class Program
-    {
-        static async Task Main(string[] args)
-        {
-            Console.Title = "Null-Auth Single File C# Client";
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("=================================================");
-            Console.WriteLine("     🛡️ Null-Auth Single-File C# Application     ");
-            Console.WriteLine("=================================================");
-            Console.ResetColor();
-
-            var auth = new NullAuth("NA-13026130", "nas_334106af8244ffc4284df3f2c31709011681d10cfa37e67a", "1.0.0");
-
-            Console.WriteLine("\n[*] Connecting to Null-Auth Server...");
-            if (!await auth.InitAsync())
-            {
-                NullAuth.ShowPopup("Connection Error", "Failed to connect to Null-Auth server.", MessageBoxIcon.Error);
-                return;
-            }
-
-            Console.WriteLine($"[+] Server Connected! Local Version: {auth.Version}");
-            Console.WriteLine($"[+] Detected Windows User SID: {NullAuth.GetWindowsUserSid()}");
-
-            Console.WriteLine("\nSelect Authentication Method:");
-            Console.WriteLine("  1. Method 1: License Key + Bound Machine SID");
-            Console.WriteLine("  2. Method 2: HWID Whitelist Only (No License Key)");
-
-            Console.Write("\nEnter Choice (1 or 2): ");
-            string choice = Console.ReadLine()?.Trim();
-
-            bool success;
-            if (choice == "1")
-            {
-                Console.Write("\nEnter License Key (e.g. NULL-ABCD-1234-EFGH): ");
-                string key = Console.ReadLine()?.Trim();
-                success = await auth.LicenseAsync(key, showMsgbox: true);
-            }
-            else
-            {
-                success = await auth.CheckHwidAsync(showMsgbox: true);
-            }
-
-            if (success)
-            {
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("\n[+] ACCESS GRANTED! Software Unlocked.");
-                Console.WriteLine($"    Status: {auth.UserData.Status}");
-                Console.WriteLine($"    Expires: {auth.UserData.Expires}");
-                Console.WriteLine($"    Days Left: {auth.UserData.RemainingDays}");
-                Console.ResetColor();
-            }
-            else
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("\n[-] ACCESS DENIED!");
-                Console.ResetColor();
-            }
-
-            Console.WriteLine("\nPress any key to exit...");
-            Console.ReadKey();
         }
     }
 }
