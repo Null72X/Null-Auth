@@ -145,7 +145,7 @@ export default function SettingsPage() {
           <div>
             <h2 className="text-base font-bold text-white">System Information & Client Endpoints</h2>
             <p className="text-xs text-zinc-400">
-              Reference URLs for desktop applications and Wispbyte backend integration.
+              Reference URLs for desktop applications and Vercel & Supabase integration.
             </p>
           </div>
         </div>

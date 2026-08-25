@@ -5,6 +5,8 @@
 1. **License Key + Bound Machine/User Identifier** (`NULL-XXXX-XXXX-XXXX` key bound on first activation)
 2. **Authorized HWID / Identifier Access** (Direct whitelist without license keys)
 
+Built for 100% deployment on **Vercel** with a **Supabase PostgreSQL** cloud database.
+
 ---
 
 ## Directory Structure
@@ -20,8 +22,9 @@ null-auth/
 │   │   ├── services/         # Logger and HWID hashing services
 │   │   └── utils/            # App ID, Secret & License Generators
 │   ├── prisma/
-│   │   ├── schema.prisma     # SQLite/PostgreSQL Database Schema
+│   │   ├── schema.prisma     # PostgreSQL Database Schema for Supabase
 │   │   └── seed.ts           # Admin user creation script
+│   ├── vercel.json           # Vercel serverless configuration
 │   ├── .env.example
 │   └── README.md
 │
@@ -43,30 +46,28 @@ null-auth/
 
 ---
 
-## Quick Start Guide
+## Deployment on Vercel & Supabase
 
-### 1. Setup Backend REST API
+### 1. Get Supabase Connection String
+Get your free database URL from **[Supabase.com](https://supabase.com)**:
+```env
+DATABASE_URL="postgresql://postgres.[PROJECT-REF]:[YOUR-PASSWORD]@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
+```
+
+### 2. Push Database Schema to Supabase
 ```bash
 cd backend
-cp .env.example .env
-npm install
-npx prisma generate
 npx prisma db push
-npm run seed
-npm run dev
+npx tsx prisma/seed.ts
 ```
-Backend API will start at `http://localhost:5000`.
 
-### 2. Setup Frontend Dashboard
-```bash
-cd frontend
-cp .env.example .env.local
-npm install
-npm run dev
-```
-Dashboard will start at `http://localhost:3000`. Log in using default credentials:
-- **Username**: `admin`
-- **Password**: `NullAuthAdminPassword2026!`
+### 3. Deploy Backend to Vercel
+- Import repository on Vercel, set Root Directory = `backend`.
+- Add Environment Variable: `DATABASE_URL` = *(Your Supabase URL)*.
+
+### 4. Deploy Frontend to Vercel
+- Import repository on Vercel, set Root Directory = `frontend`.
+- Add Environment Variable: `NEXT_PUBLIC_API_URL` = `https://your-backend.vercel.app/api/v1`.
 
 ---
 

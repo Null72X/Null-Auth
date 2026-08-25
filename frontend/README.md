@@ -16,32 +16,11 @@ A modern, high-performance private admin dashboard for **Null-Auth**, built with
 
 ---
 
-## Local Setup
-
-### 1. Configure Environment Variables
-Copy `.env.example` to `.env.local`:
-```bash
-cp .env.example .env.local
-```
-Set your backend API URL:
-```env
-NEXT_PUBLIC_API_URL=http://localhost:5000/api/v1
-```
-
-### 2. Install & Run
-```bash
-npm install
-npm run dev
-```
-Open `http://localhost:3000` in your browser.
-
----
-
 ## Vercel Deployment Instructions
 
-1. Push the `null-auth` repository to GitHub / GitLab.
+1. Push the `null-auth` repository to GitHub.
 2. Log into [Vercel](https://vercel.com) and click **Add New Project**.
 3. Import the repository and select `frontend` as the **Root Directory**.
 4. Configure Environment Variables in Vercel settings:
-   - `NEXT_PUBLIC_API_URL`: Set to your deployed Wispbyte Backend API URL (e.g. `https://api.yourdomain.com/api/v1`).
+   - `NEXT_PUBLIC_API_URL`: Set to your deployed Vercel Backend API URL (e.g. `https://your-null-auth-backend.vercel.app/api/v1`).
 5. Click **Deploy**.
