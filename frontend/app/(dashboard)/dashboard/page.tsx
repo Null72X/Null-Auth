@@ -168,12 +168,6 @@ export default function DashboardOverviewPage() {
               <Activity className="w-5 h-5 text-red-400" />
               <h2 className="text-base font-bold text-white">Recent Security Logs</h2>
             </div>
-            <Link
-              href="/logs"
-              className="text-xs font-bold text-red-400 hover:text-red-300 flex items-center gap-1 group"
-            >
-              View All <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-            </Link>
           </div>
 
           <div className="space-y-3">
