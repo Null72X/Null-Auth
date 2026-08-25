@@ -9,17 +9,24 @@ import { apiRateLimiter } from './middleware/rateLimiter.middleware.js';
 const app = express();
 
 // Security headers
-app.use(helmet());
-
-// CORS configuration
 app.use(
-  cors({
-    origin: [config.corsOrigin, 'http://localhost:3000', 'http://127.0.0.1:3000'],
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
   })
 );
+
+// CORS configuration - Allow all web dashboard & client origins
+app.use(
+  cors({
+    origin: true, // Accepts request origin dynamically for admin dashboard & SDK clients
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  })
+);
+
+// Explicit OPTIONS preflight handler
+app.options('*', cors());
 
 // Body parsers
 app.use(express.json({ limit: '1mb' }));

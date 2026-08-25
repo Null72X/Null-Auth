@@ -1,4 +1,5 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://null-auth-backend.vercel.app/api/v1';
+const API_URL = rawApiUrl.replace(/\/+$/, '');
 
 export function getAuthToken(): string | null {
   if (typeof window === 'undefined') return null;
@@ -32,8 +33,10 @@ export async function fetchApi<T = any>(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+
   try {
-    const response = await fetch(`${API_URL}${endpoint}`, {
+    const response = await fetch(`${API_URL}${cleanEndpoint}`, {
       ...options,
       headers,
     });
@@ -49,7 +52,7 @@ export async function fetchApi<T = any>(
 
     return data;
   } catch (err: any) {
-    console.error(`API Error [${endpoint}]:`, err);
+    console.error(`API Connection Error [${API_URL}${cleanEndpoint}]:`, err);
     return {
       success: false,
       message: 'Failed to connect to Null-Auth backend server.',
