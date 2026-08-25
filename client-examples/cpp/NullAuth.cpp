@@ -56,21 +56,42 @@ namespace NullAuthClient {
         void HandleError(const std::string& response, bool showMsgbox) {
             if (!showMsgbox) return;
 
+            std::wstring title = L"Null-Auth Security Alert";
+            UINT icon = MB_ICONERROR;
+
             if (response.find("VERSION_MISMATCH") != std::string::npos) {
-                ShowPopup(L"Update Required", L"Application update required! Please download the latest version.", MB_ICONWARNING);
+                title = L"Update Required";
+                icon = MB_ICONWARNING;
             } else if (response.find("LICENSE_EXPIRED") != std::string::npos || response.find("IDENTIFIER_EXPIRED") != std::string::npos) {
-                ShowPopup(L"License Expired", L"Access Denied: Your license key or HWID authorization has expired.", MB_ICONERROR);
+                title = L"License Expired";
             } else if (response.find("LICENSE_BANNED") != std::string::npos || response.find("IDENTIFIER_BANNED") != std::string::npos) {
-                ShowPopup(L"Account Banned", L"Access Denied: Your license or machine SID has been banned.", MB_ICONERROR);
+                title = L"Account Banned";
             } else if (response.find("LICENSE_PAUSED") != std::string::npos || response.find("IDENTIFIER_PAUSED") != std::string::npos) {
-                ShowPopup(L"Access Paused", L"Access Denied: License or HWID access is currently paused by admin.", MB_ICONWARNING);
+                title = L"Access Paused";
+                icon = MB_ICONWARNING;
             } else if (response.find("HWID_MISMATCH") != std::string::npos) {
-                ShowPopup(L"HWID Mismatch", L"Access Denied: License key is bound to a different machine SID.", MB_ICONERROR);
+                title = L"HWID Mismatch";
             } else if (response.find("APPLICATION_DISABLED") != std::string::npos) {
-                ShowPopup(L"Application Paused", L"Access Denied: Application is currently paused by admin.", MB_ICONWARNING);
-            } else {
-                ShowPopup(L"Null-Auth Security Alert", L"Access Denied: Authentication failed.", MB_ICONERROR);
+                title = L"Application Paused";
+                icon = MB_ICONWARNING;
             }
+
+            // Extract message string from server response or fallback to title
+            std::string msgSearch = "\"message\":\"";
+            size_t msgPos = response.find(msgSearch);
+            std::string serverMsg = "";
+            if (msgPos != std::string::npos) {
+                size_t start = msgPos + msgSearch.length();
+                size_t end = response.find("\"", start);
+                if (end != std::string::npos) {
+                    serverMsg = response.substr(start, end - start);
+                }
+            }
+
+            std::wstring wMsg(serverMsg.begin(), serverMsg.end());
+            if (wMsg.empty()) wMsg = title;
+
+            ShowPopup(title, wMsg, icon);
         }
 
         bool SendHttpsPost(const std::string& path, const std::string& jsonBody, std::string& responseOut) {

@@ -94,44 +94,30 @@ namespace NullAuthClient
             }
         }
 
-        private void HandleError(string errCode, string errMsg, string downloadUrl, bool showMsgbox)
+        private void HandleError(string errCode, string serverMessage, string downloadUrl, bool showMsgbox)
         {
             if (!showMsgbox) return;
 
-            if (errCode == "VERSION_MISMATCH")
+            string title = "Null-Auth Security Alert";
+            if (errCode == "VERSION_MISMATCH") title = "Update Required";
+            else if (errCode == "LICENSE_EXPIRED" || errCode == "IDENTIFIER_EXPIRED") title = "License Expired";
+            else if (errCode == "LICENSE_BANNED" || errCode == "IDENTIFIER_BANNED") title = "Account Banned";
+            else if (errCode == "LICENSE_PAUSED" || errCode == "IDENTIFIER_PAUSED") title = "Access Paused";
+            else if (errCode == "HWID_MISMATCH") title = "HWID Mismatch";
+            else if (errCode == "LICENSE_NOT_FOUND" || errCode == "IDENTIFIER_NOT_FOUND") title = "Invalid Key / HWID";
+            else if (errCode == "APPLICATION_DISABLED") title = "Application Paused";
+
+            string popupMsg = serverMessage;
+            if (errCode == "VERSION_MISMATCH" && !string.IsNullOrEmpty(downloadUrl))
             {
-                string msg = $"Application Update Required!\n\n{errMsg}";
-                if (!string.IsNullOrEmpty(downloadUrl)) msg += $"\n\nDownload Update: {downloadUrl}";
-                ShowPopup("Update Required", msg, MessageBoxIcon.Warning);
+                popupMsg += $"\n\nDownload Update: {downloadUrl}";
             }
-            else if (errCode == "LICENSE_EXPIRED" || errCode == "IDENTIFIER_EXPIRED")
-            {
-                ShowPopup("License Expired", $"Access Denied: Your license key or HWID authorization has expired.\n\n{errMsg}", MessageBoxIcon.Error);
-            }
-            else if (errCode == "LICENSE_BANNED" || errCode == "IDENTIFIER_BANNED")
-            {
-                ShowPopup("Account Banned", $"Access Denied: Your license key or machine SID has been banned.\n\n{errMsg}", MessageBoxIcon.Error);
-            }
-            else if (errCode == "LICENSE_PAUSED" || errCode == "IDENTIFIER_PAUSED")
-            {
-                ShowPopup("Access Paused", $"Access Denied: License or HWID access is currently paused by admin.\n\n{errMsg}", MessageBoxIcon.Warning);
-            }
-            else if (errCode == "HWID_MISMATCH")
-            {
-                ShowPopup("HWID Mismatch", $"Access Denied: License key is bound to a different machine SID.\n\n{errMsg}", MessageBoxIcon.Error);
-            }
-            else if (errCode == "LICENSE_NOT_FOUND" || errCode == "IDENTIFIER_NOT_FOUND")
-            {
-                ShowPopup("Invalid Key / HWID", $"Access Denied: Invalid license key or unauthorized machine SID.\n\n{errMsg}", MessageBoxIcon.Error);
-            }
-            else if (errCode == "APPLICATION_DISABLED")
-            {
-                ShowPopup("Application Paused", $"Access Denied: Application is currently paused by admin.\n\n{errMsg}", MessageBoxIcon.Warning);
-            }
-            else
-            {
-                ShowPopup("Null-Auth Security Alert", $"Access Denied: {errMsg}", MessageBoxIcon.Error);
-            }
+
+            MessageBoxIcon icon = (errCode == "VERSION_MISMATCH" || errCode == "LICENSE_PAUSED" || errCode == "IDENTIFIER_PAUSED" || errCode == "APPLICATION_DISABLED")
+                ? MessageBoxIcon.Warning
+                : MessageBoxIcon.Error;
+
+            ShowPopup(title, popupMsg, icon);
         }
 
         public async Task<bool> InitAsync()
