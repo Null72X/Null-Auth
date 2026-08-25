@@ -42,7 +42,7 @@ export async function authenticateLicense(req: Request, res: Response) {
         details: { appId, reason: 'APPLICATION_NOT_FOUND' },
         status: 'FAILURE',
       });
-      return sendError(res, 'Application not found', 404, 'APPLICATION_NOT_FOUND');
+      return sendError(res, 'Application Not Found: Invalid App ID or application record removed.', 404, 'APPLICATION_NOT_FOUND');
     }
 
     // 2. Verify App Secret
@@ -56,7 +56,7 @@ export async function authenticateLicense(req: Request, res: Response) {
         details: { appId: app.appId, reason: 'INVALID_APP_CREDENTIALS' },
         status: 'FAILURE',
       });
-      return sendError(res, 'Invalid application credentials', 401, 'INVALID_APP_CREDENTIALS');
+      return sendError(res, 'App Credential Error: Invalid secret API key provided.', 401, 'INVALID_APP_CREDENTIALS');
     }
 
     // 3. Verify App Status
@@ -70,7 +70,7 @@ export async function authenticateLicense(req: Request, res: Response) {
         details: { appId: app.appId, reason: 'APPLICATION_DISABLED' },
         status: 'FAILURE',
       });
-      return sendError(res, 'Application is currently paused or disabled', 403, 'APPLICATION_DISABLED');
+      return sendError(res, 'Application Paused: Application is currently paused by admin.', 403, 'APPLICATION_DISABLED');
     }
 
     // 3.5 Version Checker Validation
@@ -89,7 +89,7 @@ export async function authenticateLicense(req: Request, res: Response) {
       });
       return sendError(
         res,
-        `Application version '${clientVer}' is outdated. Required version is '${requiredVer}'.`,
+        `Update Required: Application version '${clientVer}' is outdated. Required version is '${requiredVer}'.`,
         426,
         'VERSION_MISMATCH',
         { requiredVersion: requiredVer, downloadUrl: app.downloadUrl || null }
@@ -111,7 +111,7 @@ export async function authenticateLicense(req: Request, res: Response) {
         details: { appId: app.appId, licenseKey, reason: 'LICENSE_NOT_FOUND' },
         status: 'FAILURE',
       });
-      return sendError(res, 'Invalid license key', 404, 'LICENSE_NOT_FOUND');
+      return sendError(res, 'Invalid Key / HWID: Machine SID or License Key not found.', 404, 'LICENSE_NOT_FOUND');
     }
 
     // 5. Verify License Status
@@ -125,7 +125,7 @@ export async function authenticateLicense(req: Request, res: Response) {
         details: { appId: app.appId, licenseKey: license.key, reason: 'LICENSE_PAUSED' },
         status: 'FAILURE',
       });
-      return sendError(res, 'License key is currently paused', 403, 'LICENSE_PAUSED');
+      return sendError(res, 'Access Paused: License key or HWID access is currently paused.', 403, 'LICENSE_PAUSED');
     }
 
     if (license.status === 'BANNED') {
@@ -138,7 +138,7 @@ export async function authenticateLicense(req: Request, res: Response) {
         details: { appId: app.appId, licenseKey: license.key, reason: 'LICENSE_BANNED' },
         status: 'FAILURE',
       });
-      return sendError(res, 'License key has been banned', 403, 'LICENSE_BANNED');
+      return sendError(res, 'Account Banned: Your license key or machine SID has been banned.', 403, 'LICENSE_BANNED');
     }
 
     // 6. Check Expiration
@@ -160,7 +160,7 @@ export async function authenticateLicense(req: Request, res: Response) {
         details: { appId: app.appId, licenseKey: license.key, reason: 'LICENSE_EXPIRED' },
         status: 'FAILURE',
       });
-      return sendError(res, 'License key has expired', 403, 'LICENSE_EXPIRED');
+      return sendError(res, 'License Expired: Your license key or HWID authorization has expired.', 403, 'LICENSE_EXPIRED');
     }
 
     // 7. Check & Bind HWID / Machine SID
@@ -205,7 +205,7 @@ export async function authenticateLicense(req: Request, res: Response) {
       });
       return sendError(
         res,
-        'License key is bound to a different machine / user SID',
+        'HWID Mismatch: License key is bound to a different machine SID.',
         403,
         'HWID_MISMATCH'
       );
@@ -264,7 +264,7 @@ export async function authenticateHwid(req: Request, res: Response) {
         details: { appId, reason: 'APPLICATION_NOT_FOUND' },
         status: 'FAILURE',
       });
-      return sendError(res, 'Application not found', 404, 'APPLICATION_NOT_FOUND');
+      return sendError(res, 'Application Not Found: Invalid App ID or application record removed.', 404, 'APPLICATION_NOT_FOUND');
     }
 
     // 2. Verify App Secret
@@ -278,7 +278,7 @@ export async function authenticateHwid(req: Request, res: Response) {
         details: { appId: app.appId, reason: 'INVALID_APP_CREDENTIALS' },
         status: 'FAILURE',
       });
-      return sendError(res, 'Invalid application credentials', 401, 'INVALID_APP_CREDENTIALS');
+      return sendError(res, 'App Credential Error: Invalid secret API key provided.', 401, 'INVALID_APP_CREDENTIALS');
     }
 
     // 3. Verify App Status
@@ -292,7 +292,7 @@ export async function authenticateHwid(req: Request, res: Response) {
         details: { appId: app.appId, reason: 'APPLICATION_DISABLED' },
         status: 'FAILURE',
       });
-      return sendError(res, 'Application is currently paused or disabled', 403, 'APPLICATION_DISABLED');
+      return sendError(res, 'Application Paused: Application is currently paused by admin.', 403, 'APPLICATION_DISABLED');
     }
 
     // 3.5 Version Checker Validation
@@ -311,7 +311,7 @@ export async function authenticateHwid(req: Request, res: Response) {
       });
       return sendError(
         res,
-        `Application version '${clientVer}' is outdated. Required version is '${requiredVer}'.`,
+        `Update Required: Application version '${clientVer}' is outdated. Required version is '${requiredVer}'.`,
         426,
         'VERSION_MISMATCH',
         { requiredVersion: requiredVer, downloadUrl: app.downloadUrl || null }
@@ -336,7 +336,7 @@ export async function authenticateHwid(req: Request, res: Response) {
       });
       return sendError(
         res,
-        'Machine HWID / User SID is not authorized for this application',
+        'Invalid Key / HWID: Machine SID or License Key not found.',
         404,
         'IDENTIFIER_NOT_FOUND'
       );
@@ -353,7 +353,7 @@ export async function authenticateHwid(req: Request, res: Response) {
         details: { appId: app.appId, hwid: cleanHwid, reason: 'IDENTIFIER_PAUSED' },
         status: 'FAILURE',
       });
-      return sendError(res, 'HWID access is currently paused', 403, 'IDENTIFIER_PAUSED');
+      return sendError(res, 'Access Paused: License key or HWID access is currently paused.', 403, 'IDENTIFIER_PAUSED');
     }
 
     if (hwidRecord.status === 'BANNED') {
@@ -366,7 +366,7 @@ export async function authenticateHwid(req: Request, res: Response) {
         details: { appId: app.appId, hwid: cleanHwid, reason: 'IDENTIFIER_BANNED' },
         status: 'FAILURE',
       });
-      return sendError(res, 'HWID has been banned from this application', 403, 'IDENTIFIER_BANNED');
+      return sendError(res, 'Account Banned: Your license key or machine SID has been banned.', 403, 'IDENTIFIER_BANNED');
     }
 
     // 6. Check Expiration
@@ -388,7 +388,7 @@ export async function authenticateHwid(req: Request, res: Response) {
         details: { appId: app.appId, hwid: cleanHwid, reason: 'IDENTIFIER_EXPIRED' },
         status: 'FAILURE',
       });
-      return sendError(res, 'HWID access authorization has expired', 403, 'IDENTIFIER_EXPIRED');
+      return sendError(res, 'License Expired: Your license key or HWID authorization has expired.', 403, 'IDENTIFIER_EXPIRED');
     }
 
     // 7. Update Last Auth Time

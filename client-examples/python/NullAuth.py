@@ -90,8 +90,8 @@ class NullAuth:
             "LICENSE_PAUSED": "Access Paused",
             "IDENTIFIER_PAUSED": "Access Paused",
             "HWID_MISMATCH": "HWID Mismatch",
-            "LICENSE_NOT_FOUND": "Invalid License Key",
-            "IDENTIFIER_NOT_FOUND": "Unauthorized Machine",
+            "LICENSE_NOT_FOUND": "Invalid Key / HWID",
+            "IDENTIFIER_NOT_FOUND": "Invalid Key / HWID",
             "APPLICATION_DISABLED": "Application Paused",
             "INVALID_APP_CREDENTIALS": "App Credential Error",
         }
