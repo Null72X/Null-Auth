@@ -341,10 +341,10 @@ export default function LicensesPage() {
                       <td className="p-4">
                         <Badge status={lic.effectiveStatus} />
                       </td>
-                      <td className="p-4 font-mono text-xs text-zinc-400 max-w-[140px] truncate">
+                      <td className="p-4 font-mono text-xs text-zinc-300">
                         {lic.boundHwid ? (
-                          <span title={lic.boundHwid} className="text-zinc-300">
-                            {lic.boundHwid.slice(0, 16)}...
+                          <span title={lic.boundHwid} className="font-semibold text-zinc-200">
+                            {lic.boundHwid}
                           </span>
                         ) : (
                           <span className="text-zinc-600 italic">Not Bound Yet</span>

@@ -214,8 +214,8 @@ export default function HwidPage() {
                 hwids.map((item) => (
                   <tr key={item.id} className="hover:bg-zinc-800/40 transition-colors">
                     <td className="p-4 font-mono text-xs text-zinc-300">
-                      <div className="flex items-center gap-2 max-w-[200px]">
-                        <span className="truncate" title={item.hwidHash}>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-zinc-200" title={item.hwidHash}>
                           {item.hwidHash}
                         </span>
                         <button
