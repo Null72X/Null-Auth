@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { config } from './config/index.js';
 import routes from './routes/index.js';
+import { ensureDbSchema } from './db.js';
 import { errorHandler } from './middleware/errorHandler.middleware.js';
 import { apiRateLimiter } from './middleware/rateLimiter.middleware.js';
 
@@ -38,6 +39,12 @@ app.use('/api/', apiRateLimiter);
 // Health check endpoint
 app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok', service: 'Null-Auth API', version: '1.0.0' });
+});
+
+// Middleware to ensure DB schema is migrated
+app.use(async (_req, _res, next) => {
+  await ensureDbSchema();
+  next();
 });
 
 // API Routes
