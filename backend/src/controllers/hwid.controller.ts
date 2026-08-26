@@ -16,6 +16,8 @@ export const updateHwidSchema = z.object({
   notes: z.string().optional(),
   status: z.enum(['ACTIVE', 'PAUSED', 'EXPIRED', 'BANNED']).optional(),
   expiresAt: z.string().optional(),
+  hwidHash: z.string().optional(),
+  hwid: z.string().optional(),
 });
 
 export const extendHwidSchema = z.object({
@@ -207,13 +209,14 @@ export async function addHwidEntry(req: Request, res: Response) {
 
 export async function updateHwidEntry(req: Request, res: Response) {
   const { id } = req.params;
-  const { notes, status, expiresAt } = req.body;
+  const { notes, status, expiresAt, hwid, hwidHash } = req.body;
 
   try {
     const updateData: any = {};
     if (notes !== undefined) updateData.notes = notes;
     if (status !== undefined) updateData.status = status;
     if (expiresAt) updateData.expiresAt = new Date(expiresAt);
+    if (hwid || hwidHash) updateData.hwidHash = hashHwid(hwid || hwidHash);
 
     const updated = await prisma.hwidAccess.update({
       where: { id },
