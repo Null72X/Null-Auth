@@ -15,7 +15,7 @@ interface AppOption {
 interface AddHwidModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (targetAppId?: string) => void;
   apps: AppOption[];
   defaultAppId?: string;
 }
@@ -37,9 +37,9 @@ export function AddHwidModal({
 
   useEffect(() => {
     if (isOpen) {
-      if (defaultAppId) {
+      if (defaultAppId && hwidApps.some(a => a.id === defaultAppId)) {
         setAppId(defaultAppId);
-      } else if (hwidApps.length > 0 && !appId) {
+      } else if (hwidApps.length > 0) {
         setAppId(hwidApps[0].id);
       }
     }
@@ -75,7 +75,7 @@ export function AddHwidModal({
         setHwid('');
         setNotes('');
         setDays(30);
-        onSuccess();
+        onSuccess(targetAppId);
         onClose();
       } else {
         setError(res.message || 'Failed to add HWID access.');
@@ -133,7 +133,7 @@ export function AddHwidModal({
             className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2.5 text-sm text-zinc-100 font-mono text-xs placeholder-zinc-500 focus:outline-none focus:border-red-500"
           />
           <p className="text-[11px] text-zinc-400 mt-1">
-            Raw SID or machine hash. Automatically hashed for secure storage.
+            Raw SID or machine hash. Automatically stored for secure authorization.
           </p>
         </div>
 

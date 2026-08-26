@@ -379,8 +379,12 @@ export default function HwidPage() {
       <AddHwidModal
         isOpen={isAddOpen}
         onClose={() => setIsAddOpen(false)}
-        onSuccess={loadData}
+        onSuccess={(targetAppId) => {
+          if (targetAppId) setAppFilter(targetAppId);
+          loadData();
+        }}
         apps={apps}
+        defaultAppId={appFilter}
       />
 
       {/* Extend Days Modal */}
