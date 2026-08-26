@@ -3,15 +3,41 @@
 @tailwind utilities;
 
 :root {
-  --background: #09090b;
-  --foreground: #f4f4f5;
+  --bg: #070709;
+  --card-bg: rgba(18, 18, 24, 0.75);
+  --card-hover-bg: rgba(26, 26, 36, 0.85);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-glow: rgba(239, 68, 68, 0.4);
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --accent-red: #ef4444;
+  --accent-red-glow: rgba(239, 68, 68, 0.25);
+  --accent-gradient: linear-gradient(135deg, #dc2626 0%, #ef4444 50%, #f87171 100%);
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  color: var(--text-main);
+  background: 
+    radial-gradient(circle at 50% 0%, rgba(239, 68, 68, 0.15), transparent 40%),
+    radial-gradient(circle at 100% 100%, rgba(185, 28, 28, 0.08), transparent 30%),
+    var(--bg);
+  font-family: 'Plus Jakarta Sans', sans-serif;
   overflow-x: hidden;
+  min-height: 100vh;
+  position: relative;
+}
+
+/* 32px x 32px Cyber Grid Pattern Overlay */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: 32px 32px;
+  pointer-events: none;
+  z-index: 0;
 }
 
 /* Custom Scrollbar */
@@ -21,54 +47,80 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #09090b;
+  background: #070709;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #27272a;
-  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+  background: rgba(239, 68, 68, 0.4);
 }
 
-/* Glassmorphism utility with 7px rounded corners */
+/* Glassmorphism utility with 14px rounded corners */
 .glass-panel {
-  background: rgba(24, 24, 27, 0.7);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(39, 39, 42, 0.8);
-  border-radius: 7px;
+  background: var(--card-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+  border-radius: 14px;
 }
 
 .glass-card {
-  background: rgba(24, 24, 27, 0.8);
+  position: relative;
+  background: var(--card-bg);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(39, 39, 42, 0.7);
-  border-radius: 7px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.glass-card:hover {
-  border-color: rgba(239, 68, 68, 0.4);
-  box-shadow: 0 10px 30px -10px rgba(239, 68, 68, 0.2);
-  transform: translateY(-2px);
-}
-
-/* Floating Particles Styles */
-.particles-container {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  overflow: hidden;
-}
-
-.particle {
+.glass-card::before {
+  content: '';
   position: absolute;
+  top: 0; left: 0; bottom: 0;
+  width: 3px;
+  background: transparent;
+  transition: background 0.25s;
+}
+
+.glass-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-glow);
+  background: var(--card-hover-bg);
+  box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.5), 0 0 20px rgba(239, 68, 68, 0.08);
+}
+
+.glass-card:hover::before {
+  background: var(--accent-red);
+}
+
+/* Red Gradient Button */
+.btn-red-gradient {
+  background: var(--accent-gradient);
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.35);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-red-gradient:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.5);
+  filter: brightness(1.1);
+}
+
+.btn-red-gradient:active {
+  transform: translateY(1px);
+}
+
+/* Logo Badge Dot Glow */
+.logo-badge-dot {
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  background: rgba(239, 68, 68, 0.3);
-  box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+  background: var(--accent-red);
+  box-shadow: 0 0 8px var(--accent-red);
 }

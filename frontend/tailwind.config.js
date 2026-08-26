@@ -9,22 +9,22 @@ module.exports = {
     extend: {
       borderRadius: {
         none: '0',
-        sm: '5px',
-        DEFAULT: '6px',
-        md: '7px',
-        lg: '7px',
-        xl: '7px',
-        '2xl': '7px',
-        '3xl': '7px',
+        sm: '6px',
+        DEFAULT: '10px',
+        md: '12px',
+        lg: '14px',
+        xl: '16px',
+        '2xl': '20px',
+        '3xl': '24px',
         full: '9999px',
       },
       colors: {
-        background: '#09090B',
+        background: '#070709',
         surface: {
-          DEFAULT: '#18181B',
-          hover: '#27272A',
-          border: '#27272A',
-          active: '#3F3F46',
+          DEFAULT: 'rgba(18, 18, 24, 0.75)',
+          hover: 'rgba(26, 26, 36, 0.85)',
+          border: 'rgba(255, 255, 255, 0.08)',
+          active: 'rgba(239, 68, 68, 0.4)',
         },
         brand: {
           DEFAULT: '#EF4444',
@@ -34,7 +34,7 @@ module.exports = {
         },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        sans: ['Plus Jakarta Sans', 'system-ui', '-apple-system', 'sans-serif'],
         mono: ['JetBrains Mono', 'Consolas', 'monospace'],
       },
       keyframes: {

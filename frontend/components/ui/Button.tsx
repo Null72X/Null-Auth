@@ -16,11 +16,11 @@ export function Button({
   ...props
 }: ButtonProps) {
   let variantClasses =
-    'bg-red-600 hover:bg-red-500 text-white shadow-md shadow-red-950/30 hover:shadow-red-900/40 border border-red-500/30';
+    'btn-red-gradient text-white border border-red-500/40 font-bold';
 
   if (variant === 'secondary') {
     variantClasses =
-      'bg-zinc-800/80 hover:bg-zinc-700/80 text-zinc-200 border border-zinc-700/60 shadow-sm';
+      'bg-zinc-900/80 hover:bg-zinc-800 text-zinc-200 border border-zinc-800 hover:border-zinc-700 shadow-sm backdrop-blur-md';
   } else if (variant === 'outline') {
     variantClasses =
       'bg-transparent hover:bg-zinc-800/60 text-zinc-300 border border-zinc-700 hover:border-zinc-600';
@@ -29,14 +29,14 @@ export function Button({
       'bg-red-950/80 hover:bg-red-900/90 text-red-200 border border-red-800/60 shadow-sm shadow-red-950/40';
   }
 
-  let sizeClasses = 'px-4 py-2 text-sm';
+  let sizeClasses = 'px-4 py-2.5 text-xs';
   if (size === 'sm') sizeClasses = 'px-3 py-1.5 text-xs';
-  if (size === 'lg') sizeClasses = 'px-5 py-2.5 text-base';
+  if (size === 'lg') sizeClasses = 'px-6 py-3 text-sm';
 
   return (
     <button
       disabled={disabled || isLoading}
-      className={`inline-flex items-center justify-center font-semibold rounded-[7px] transition-all duration-200 ease-out focus:outline-none focus:ring-2 focus:ring-red-500/50 active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 ${variantClasses} ${sizeClasses} ${className}`}
+      className={`inline-flex items-center justify-center font-bold tracking-wide rounded-[10px] transition-all duration-200 ease-out focus:outline-none focus:ring-2 focus:ring-red-500/50 active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 ${variantClasses} ${sizeClasses} ${className}`}
       {...props}
     >
       {isLoading && (
