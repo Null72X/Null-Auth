@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/Badge';
 import { CreateAppModal } from '@/components/modals/CreateAppModal';
 import { CreateLicenseModal } from '@/components/modals/CreateLicenseModal';
 import { AddHwidModal } from '@/components/modals/AddHwidModal';
+import { AppRecordsModal } from '@/components/modals/AppRecordsModal';
 import { ConfirmModal } from '@/components/modals/ConfirmModal';
 import { Modal } from '@/components/ui/Modal';
 import { fetchApi } from '@/lib/api';
@@ -31,6 +32,8 @@ import {
   Shield,
   Code,
   Sparkles,
+  ListFilter,
+  ExternalLink,
 } from 'lucide-react';
 
 interface AppItem {
@@ -66,6 +69,9 @@ export default function ApplicationsPage() {
   const [appToDelete, setAppToDelete] = useState<AppItem | null>(null);
   const [appToEdit, setAppToEdit] = useState<AppItem | null>(null);
   const [editName, setEditName] = useState('');
+
+  // Records View Modal State
+  const [recordsApp, setRecordsApp] = useState<AppItem | null>(null);
 
   // Secret visibility toggle per card
   const [revealedSecrets, setRevealedSecrets] = useState<Record<string, boolean>>({});
@@ -206,7 +212,7 @@ export default function ApplicationsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <Header
           title="Applications Manager"
-          subtitle="Create, configure, enforce application versions, monitor users, and control application profiles."
+          subtitle="Create, configure, view all licenses and HWID records, enforce application versions, and manage access."
         />
         <Button onClick={() => setIsCreateOpen(true)} className="gap-2 shrink-0 shadow-lg shadow-red-950/40">
           <Plus className="w-4 h-4" /> Create Application
@@ -372,7 +378,7 @@ export default function ApplicationsPage() {
             return (
               <Card
                 key={app.id}
-                className="flex flex-col justify-between space-y-5 animate-slide-up group border-zinc-800 hover:border-red-500/40"
+                className="flex flex-col justify-between space-y-5 animate-slide-up group border-zinc-800/90 hover:border-red-500/50 bg-zinc-950/80 backdrop-blur-md shadow-xl"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
                 <div className="space-y-4">
@@ -406,7 +412,7 @@ export default function ApplicationsPage() {
                           setEditVersion(app.version || '1.0.0');
                           setEditDownloadUrl(app.downloadUrl || '');
                         }}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-800 hover:bg-zinc-700 text-[10px] font-mono font-bold text-amber-400 border border-zinc-700 transition-colors"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-[10px] font-mono font-bold text-amber-400 border border-zinc-800 transition-colors"
                         title="Click to edit required app version"
                       >
                         <Tag className="w-3 h-3" /> v{app.version || '1.0.0'}
@@ -415,7 +421,7 @@ export default function ApplicationsPage() {
                   </div>
 
                   {/* HIGH-END APPLICATION CREDENTIALS BLOCK */}
-                  <div className="p-3.5 rounded-[7px] bg-zinc-950/90 border border-zinc-800/80 space-y-2 font-mono text-xs shadow-inner">
+                  <div className="p-3.5 rounded-[7px] bg-zinc-900/90 border border-zinc-800/80 space-y-2 font-mono text-xs shadow-inner">
                     {/* App ID Row */}
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider flex items-center gap-1.5 shrink-0">
@@ -425,7 +431,7 @@ export default function ApplicationsPage() {
                         <span className="text-red-400 font-bold truncate">{app.appId}</span>
                         <button
                           onClick={() => copyAppId(app.appId)}
-                          className="p-1 rounded-[5px] bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors shrink-0"
+                          className="p-1 rounded-[5px] bg-zinc-950 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors shrink-0 border border-zinc-800"
                           title="Copy App ID"
                         >
                           {copiedAppId === app.appId ? (
@@ -438,7 +444,7 @@ export default function ApplicationsPage() {
                     </div>
 
                     {/* App Secret Row */}
-                    <div className="flex items-center justify-between gap-2 border-t border-zinc-900/90 pt-2">
+                    <div className="flex items-center justify-between gap-2 border-t border-zinc-800/90 pt-2">
                       <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider flex items-center gap-1.5 shrink-0">
                         <Shield className="w-3 h-3 text-amber-400" /> Secret Key
                       </span>
@@ -450,7 +456,7 @@ export default function ApplicationsPage() {
                         </span>
                         <button
                           onClick={() => toggleRevealSecret(app.id)}
-                          className="p-1 rounded-[5px] bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors shrink-0"
+                          className="p-1 rounded-[5px] bg-zinc-950 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors shrink-0 border border-zinc-800"
                           title={isSecretRevealed ? 'Hide Secret' : 'Reveal Secret'}
                         >
                           {isSecretRevealed ? (
@@ -461,7 +467,7 @@ export default function ApplicationsPage() {
                         </button>
                         <button
                           onClick={() => copySecret(app.secret)}
-                          className="p-1 rounded-[5px] bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors shrink-0"
+                          className="p-1 rounded-[5px] bg-zinc-950 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors shrink-0 border border-zinc-800"
                           title="Copy Secret Key"
                         >
                           {copiedSecret === app.secret ? (
@@ -475,7 +481,7 @@ export default function ApplicationsPage() {
                   </div>
 
                   {/* Free Trial Mode Toggle Block */}
-                  <div className="p-3 rounded-[7px] bg-zinc-950 border border-zinc-800/80 space-y-2">
+                  <div className="p-3 rounded-[7px] bg-zinc-900/90 border border-zinc-800/80 space-y-2">
                     <div className="flex items-center justify-between gap-3">
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-200">
@@ -526,10 +532,12 @@ export default function ApplicationsPage() {
                     )}
                   </div>
 
-                  {/* Active User Progress Meter */}
-                  <div className="space-y-1.5 pt-1">
+                  {/* Active User Progress Meter & Records Count */}
+                  <div className="space-y-2 pt-1">
                     <div className="flex items-center justify-between text-xs font-semibold">
-                      <span className="text-zinc-400">Active Users</span>
+                      <span className="text-zinc-400 flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-zinc-500" /> Active Users
+                      </span>
                       <span className="text-emerald-400">
                         {app.activeUsers} <span className="text-zinc-500 font-normal">/ {app.totalUsers} Total</span>
                       </span>
@@ -544,8 +552,8 @@ export default function ApplicationsPage() {
                 </div>
 
                 {/* Card Actions Footer */}
-                <div className="pt-4 border-t border-zinc-800/80 space-y-3">
-                  {/* Quick Action Button for Generating Keys or Adding HWID */}
+                <div className="pt-4 border-t border-zinc-800/80 space-y-2">
+                  {/* Primary Quick Action Button */}
                   {app.type === 'LICENSE' ? (
                     <Button
                       variant="secondary"
@@ -566,14 +574,25 @@ export default function ApplicationsPage() {
                     </Button>
                   )}
 
-                  {/* Icon Actions */}
-                  <div className="flex items-center justify-between gap-2 text-xs">
+                  {/* View All Licenses / HWIDs Button */}
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setRecordsApp(app)}
+                    className="w-full gap-2 border-zinc-800 hover:border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-xs font-semibold text-amber-400"
+                  >
+                    <ListFilter className="w-3.5 h-3.5" />
+                    {app.type === 'LICENSE' ? 'Show All Licenses' : 'Show All HWID Whitelists'} ({app.totalUsers})
+                  </Button>
+
+                  {/* Secondary Icon Actions */}
+                  <div className="flex items-center justify-between gap-2 text-xs pt-1">
                     <div className="flex items-center gap-1.5">
                       <Button
                         variant="secondary"
                         size="sm"
                         onClick={() => setSelectedAppSecret(app)}
-                        title="View Full Credentials & SDK Code"
+                        title="View Full Credentials & Integration Info"
                       >
                         <Code className="w-3.5 h-3.5 mr-1 text-red-400" /> Credentials
                       </Button>
@@ -595,11 +614,11 @@ export default function ApplicationsPage() {
                       >
                         {app.status === 'ACTIVE' ? (
                           <>
-                            <Pause className="w-3.5 h-3.5 mr-1 text-amber-400" /> Pause
+                            <Pause className="w-3.5 h-3.5 text-amber-400" />
                           </>
                         ) : (
                           <>
-                            <Play className="w-3.5 h-3.5 mr-1 text-emerald-400" /> Resume
+                            <Play className="w-3.5 h-3.5 text-emerald-400" />
                           </>
                         )}
                       </Button>
@@ -619,6 +638,14 @@ export default function ApplicationsPage() {
           })}
         </div>
       )}
+
+      {/* View All Licenses & HWIDs Modal */}
+      <AppRecordsModal
+        isOpen={!!recordsApp}
+        onClose={() => setRecordsApp(null)}
+        app={recordsApp}
+        onRefreshApps={loadApps}
+      />
 
       {/* Create App Modal */}
       <CreateAppModal
@@ -649,7 +676,7 @@ export default function ApplicationsPage() {
         />
       )}
 
-      {/* View Full Credentials & Integration Modal */}
+      {/* View Full Credentials Modal */}
       <Modal
         isOpen={!!selectedAppSecret}
         onClose={() => setSelectedAppSecret(null)}
