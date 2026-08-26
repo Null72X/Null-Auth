@@ -33,7 +33,8 @@ import {
   Code,
   Sparkles,
   ListFilter,
-  ExternalLink,
+  Download,
+  Settings2,
 } from 'lucide-react';
 
 interface AppItem {
@@ -405,17 +406,24 @@ export default function ApplicationsPage() {
 
                     <div className="flex flex-col items-end gap-1.5">
                       <Badge status={app.status} />
-                      {/* Version Tag Pill */}
+
+                      {/* ULTRA-PREMIUM VERSION CONTROL BUTTON */}
                       <button
                         onClick={() => {
                           setAppToEditVersion(app);
                           setEditVersion(app.version || '1.0.0');
                           setEditDownloadUrl(app.downloadUrl || '');
                         }}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-[10px] font-mono font-bold text-amber-400 border border-zinc-800 transition-colors"
-                        title="Click to edit required app version"
+                        className="group/ver relative inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-amber-950/70 via-zinc-900 to-amber-950/50 hover:from-amber-900/80 hover:to-amber-900/60 text-[11px] font-mono font-extrabold text-amber-300 border border-amber-500/40 hover:border-amber-400 shadow-md shadow-amber-950/40 transition-all duration-200 hover:scale-105 active:scale-95"
+                        title="Click to manage version enforcement & auto-update download link"
                       >
-                        <Tag className="w-3 h-3" /> v{app.version || '1.0.0'}
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-400" />
+                        </span>
+                        <Tag className="w-3 h-3 text-amber-400 group-hover/ver:rotate-12 transition-transform" />
+                        <span className="tracking-wide">v{app.version || '1.0.0'}</span>
+                        <Settings2 className="w-2.5 h-2.5 text-amber-400/70 opacity-0 group-hover/ver:opacity-100 transition-opacity ml-0.5" />
                       </button>
                     </div>
                   </div>
@@ -730,7 +738,7 @@ export default function ApplicationsPage() {
             {/* Version */}
             <div className="flex items-center justify-between gap-2 border-t border-zinc-900 pt-2.5">
               <span className="text-zinc-500 font-bold uppercase tracking-wider text-[10px]">Required Version</span>
-              <span className="text-emerald-400 font-bold">v{selectedAppSecret?.version || '1.0.0'}</span>
+              <span className="text-amber-400 font-bold">v{selectedAppSecret?.version || '1.0.0'}</span>
             </div>
           </div>
 
