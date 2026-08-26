@@ -280,12 +280,14 @@ export default function LicensesPage() {
               onChange={(e) => setAppFilter(e.target.value)}
               className="bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-zinc-200 focus:outline-none focus:border-red-500"
             >
-              <option value="">All Applications</option>
-              {apps.map((app) => (
-                <option key={app.id} value={app.id}>
-                  {app.name}
-                </option>
-              ))}
+              <option value="">All License Applications</option>
+              {apps
+                .filter((a) => a.type === 'LICENSE')
+                .map((app) => (
+                  <option key={app.id} value={app.id}>
+                    {app.name}
+                  </option>
+                ))}
             </select>
           </div>
         </div>

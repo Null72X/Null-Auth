@@ -243,7 +243,7 @@ export default function HwidPage() {
               onChange={(e) => setAppFilter(e.target.value)}
               className="bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-zinc-200 focus:outline-none focus:border-purple-500"
             >
-              <option value="">All Applications</option>
+              <option value="">All HWID Applications</option>
               {apps
                 .filter((a) => a.type === 'HWID')
                 .map((app) => (
