@@ -96,12 +96,15 @@ export async function authenticateLicense(req: Request, res: Response) {
       );
     }
 
+    const cleanHwid = hashHwid(hwid);
+    const isTrialKey = Boolean(app.freeTrialEnabled && app.freeTrialKey && licenseKey.trim() === app.freeTrialKey.trim());
+
     // 4. Verify License Key
     const license = await prisma.license.findFirst({
       where: { key: licenseKey.trim(), appId: app.id },
     });
 
-    if (!license) {
+    if (!license && !isTrialKey) {
       await logActivity({
         appId: app.id,
         action: 'CLIENT_AUTH_FAILED',
@@ -111,6 +114,30 @@ export async function authenticateLicense(req: Request, res: Response) {
         details: { appId: app.appId, licenseKey, reason: 'LICENSE_NOT_FOUND' },
         status: 'FAILURE',
       });
+      return sendError(res, 'Invalid Key / HWID: Machine SID or License Key not found.', 404, 'LICENSE_NOT_FOUND');
+    }
+
+    // If active Master Free Trial Key -> Bypass HWID single-device binding check completely!
+    if (isTrialKey) {
+      await logActivity({
+        appId: app.id,
+        action: 'CLIENT_FREE_TRIAL_AUTH',
+        actorType: 'CLIENT',
+        ipAddress,
+        userAgent,
+        details: { appId: app.appId, licenseKey: licenseKey.trim(), hwid: cleanHwid },
+        status: 'SUCCESS',
+      });
+
+      return sendSuccess(res, 'Authentication successful (Free Trial Active)', {
+        status: 'active',
+        expires_at: '2099-01-01T00:00:00.000Z',
+        remaining_days: 9999,
+        version: app.version,
+      });
+    }
+
+    if (!license) {
       return sendError(res, 'Invalid Key / HWID: Machine SID or License Key not found.', 404, 'LICENSE_NOT_FOUND');
     }
 
@@ -164,8 +191,6 @@ export async function authenticateLicense(req: Request, res: Response) {
     }
 
     // 7. Check & Bind HWID / Machine SID
-    const cleanHwid = hashHwid(hwid);
-
     if (!license.boundHwid) {
       // First activation - Bind HWID
       await prisma.license.update({
@@ -318,8 +343,29 @@ export async function authenticateHwid(req: Request, res: Response) {
       );
     }
 
-    // 4. Verify HWID Access Record
     const cleanHwid = hashHwid(hwid);
+
+    // If Free Trial Mode is Active for HWID App -> EVERY device/HWID gets instant access!
+    if (app.freeTrialEnabled) {
+      await logActivity({
+        appId: app.id,
+        action: 'CLIENT_FREE_TRIAL_HWID_AUTH',
+        actorType: 'CLIENT',
+        ipAddress,
+        userAgent,
+        details: { appId: app.appId, hwid: cleanHwid },
+        status: 'SUCCESS',
+      });
+
+      return sendSuccess(res, 'Authentication successful (Free Trial Active)', {
+        status: 'active',
+        expires_at: '2099-01-01T00:00:00.000Z',
+        remaining_days: 9999,
+        version: app.version,
+      });
+    }
+
+    // 4. Verify HWID Access Record
     const hwidRecord = await prisma.hwidAccess.findFirst({
       where: { hwidHash: cleanHwid, appId: app.id },
     });

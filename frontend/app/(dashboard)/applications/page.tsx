@@ -42,6 +42,8 @@ interface AppItem {
   status: 'ACTIVE' | 'PAUSED';
   version: string;
   downloadUrl: string | null;
+  freeTrialEnabled: boolean;
+  freeTrialKey: string | null;
   createdAt: string;
   activeUsers: number;
   expiredUsers: number;
@@ -64,7 +66,7 @@ export default function ApplicationsPage() {
   const [appToDelete, setAppToDelete] = useState<AppItem | null>(null);
   const [appToEdit, setAppToEdit] = useState<AppItem | null>(null);
   const [editName, setEditName] = useState('');
-  
+
   // Secret visibility toggle per card
   const [revealedSecrets, setRevealedSecrets] = useState<Record<string, boolean>>({});
 
@@ -130,6 +132,15 @@ export default function ApplicationsPage() {
     await fetchApi(`/admin/apps/${app.id}/status`, {
       method: 'PATCH',
       body: JSON.stringify({ status: newStatus }),
+    });
+    loadApps();
+  };
+
+  const handleToggleFreeTrial = async (app: AppItem) => {
+    const newEnabled = !app.freeTrialEnabled;
+    await fetchApi(`/admin/apps/${app.id}/free-trial`, {
+      method: 'PATCH',
+      body: JSON.stringify({ enabled: newEnabled }),
     });
     loadApps();
   };
@@ -461,6 +472,58 @@ export default function ApplicationsPage() {
                         </button>
                       </div>
                     </div>
+                  </div>
+
+                  {/* Free Trial Mode Toggle Block */}
+                  <div className="p-3 rounded-[7px] bg-zinc-950 border border-zinc-800/80 space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-200">
+                          <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Free Trial Mode
+                        </div>
+                        <p className="text-[10px] text-zinc-500">
+                          {app.type === 'LICENSE'
+                            ? (app.freeTrialEnabled ? 'Active: Universal Free Trial Key' : 'Enable to generate free trial key')
+                            : (app.freeTrialEnabled ? 'Active: All devices allowed' : 'Enable to allow all devices')}
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={() => handleToggleFreeTrial(app)}
+                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                          app.freeTrialEnabled ? 'bg-emerald-500' : 'bg-zinc-800'
+                        }`}
+                        title={app.freeTrialEnabled ? 'Click to Disable Free Trial' : 'Click to Enable Free Trial (Generates fresh key)'}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                            app.freeTrialEnabled ? 'translate-x-4' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    {/* Free Trial Active Banner */}
+                    {app.freeTrialEnabled && (
+                      <div className="p-2 rounded-[5px] bg-emerald-950/40 border border-emerald-800/50 flex items-center justify-between gap-2 text-xs mt-1">
+                        <div className="flex items-center gap-2 truncate">
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                          <span className="text-emerald-300 font-mono font-bold truncate text-[11px]">
+                            {app.type === 'LICENSE' ? (app.freeTrialKey || 'FREE-TRIAL-ACTIVE') : 'FREE TRIAL: All HWIDs Authorized'}
+                          </span>
+                        </div>
+
+                        {app.type === 'LICENSE' && app.freeTrialKey && (
+                          <button
+                            onClick={() => copySecret(app.freeTrialKey!)}
+                            className="p-1 rounded-[4px] bg-emerald-900/60 hover:bg-emerald-800/80 text-emerald-200 transition-colors shrink-0 text-[10px] font-bold flex items-center gap-1"
+                            title="Copy Master Free Trial Key"
+                          >
+                            {copiedSecret === app.freeTrialKey ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />} Copy Key
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Active User Progress Meter */}

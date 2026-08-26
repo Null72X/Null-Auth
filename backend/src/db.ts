@@ -16,6 +16,8 @@ export async function ensureDbSchema() {
   try {
     await prisma.$executeRawUnsafe(`ALTER TABLE "Application" ADD COLUMN IF NOT EXISTS "version" TEXT NOT NULL DEFAULT '1.0.0';`);
     await prisma.$executeRawUnsafe(`ALTER TABLE "Application" ADD COLUMN IF NOT EXISTS "downloadUrl" TEXT;`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE "Application" ADD COLUMN IF NOT EXISTS "freeTrialEnabled" BOOLEAN NOT NULL DEFAULT false;`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE "Application" ADD COLUMN IF NOT EXISTS "freeTrialKey" TEXT;`);
     globalForPrisma.dbMigrated = true;
   } catch (err) {
     // Ignore migration errors if already exists

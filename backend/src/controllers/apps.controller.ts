@@ -25,6 +25,10 @@ export const updateAppVersionSchema = z.object({
   downloadUrl: z.string().optional().nullable(),
 });
 
+export const updateFreeTrialSchema = z.object({
+  enabled: z.boolean(),
+});
+
 export async function listApps(req: Request, res: Response) {
   try {
     const apps = await prisma.application.findMany({
@@ -90,6 +94,8 @@ export async function listApps(req: Request, res: Response) {
           status: app.status,
           version: app.version || '1.0.0',
           downloadUrl: app.downloadUrl || null,
+          freeTrialEnabled: app.freeTrialEnabled || false,
+          freeTrialKey: app.freeTrialKey || null,
           createdAt: app.createdAt,
           updatedAt: app.updatedAt,
           activeUsers,
@@ -179,7 +185,6 @@ export async function createApp(req: Request, res: Response) {
 
   try {
     let appId = generateAppId();
-    // Ensure App ID uniqueness
     let exists = await prisma.application.findUnique({ where: { appId } });
     while (exists) {
       appId = generateAppId();
@@ -294,6 +299,72 @@ export async function toggleAppStatus(req: Request, res: Response) {
     return sendSuccess(res, `Application ${status.toLowerCase()}d successfully`, updated);
   } catch (error: any) {
     return sendError(res, 'Failed to update application status', 500, error.message);
+  }
+}
+
+export async function toggleFreeTrial(req: Request, res: Response) {
+  const { id } = req.params;
+  const { enabled } = req.body;
+
+  try {
+    const app = await prisma.application.findUnique({ where: { id } });
+    if (!app) {
+      return sendError(res, 'Application not found', 404);
+    }
+
+    let newTrialKey: string | null = app.freeTrialKey;
+
+    if (enabled) {
+      if (app.type === 'LICENSE') {
+        // Generate a fresh unique master free trial key every time Free Trial is enabled
+        const part1 = Math.random().toString(36).substring(2, 6).toUpperCase();
+        const part2 = Math.random().toString(36).substring(2, 6).toUpperCase();
+        newTrialKey = `FREE-TRIAL-${part1}-${part2}`;
+
+        const expiresAt = new Date();
+        expiresAt.setFullYear(expiresAt.getFullYear() + 10);
+
+        await prisma.license.create({
+          data: {
+            key: newTrialKey,
+            appId: app.id,
+            status: 'ACTIVE',
+            expiresAt,
+            notes: 'Dynamic Master Free Trial Key',
+          },
+        });
+      }
+    } else {
+      if (app.type === 'LICENSE' && app.freeTrialKey) {
+        // Expire the old free trial key
+        await prisma.license.updateMany({
+          where: { key: app.freeTrialKey, appId: app.id },
+          data: { status: 'EXPIRED' },
+        }).catch(() => {});
+      }
+    }
+
+    const updated = await prisma.application.update({
+      where: { id },
+      data: {
+        freeTrialEnabled: enabled,
+        freeTrialKey: enabled ? newTrialKey : app.freeTrialKey,
+      },
+    });
+
+    await logActivity({
+      appId: updated.id,
+      action: enabled ? 'APP_FREE_TRIAL_ENABLE' : 'APP_FREE_TRIAL_DISABLE',
+      actorType: 'ADMIN',
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+      details: { appId: updated.appId, freeTrialEnabled: enabled, freeTrialKey: updated.freeTrialKey },
+      status: 'SUCCESS',
+    });
+
+    return sendSuccess(res, `Free trial ${enabled ? 'enabled' : 'disabled'} successfully`, updated);
+  } catch (error: any) {
+    return sendError(res, 'Failed to update free trial status', 500, error.message);
   }
 }
 
