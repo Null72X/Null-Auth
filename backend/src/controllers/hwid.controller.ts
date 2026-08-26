@@ -153,12 +153,31 @@ export async function addHwidEntry(req: Request, res: Response) {
       },
     });
 
-    if (existing) {
-      return sendError(res, 'This HWID/identifier is already authorized for this application', 400);
-    }
-
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + days);
+
+    if (existing) {
+      const updated = await prisma.hwidAccess.update({
+        where: { id: existing.id },
+        data: {
+          status: 'ACTIVE',
+          expiresAt,
+          notes: notes !== undefined ? notes : existing.notes,
+        },
+      });
+
+      await logActivity({
+        appId: app.id,
+        action: 'HWID_REACTIVATE',
+        actorType: 'ADMIN',
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+        details: { hwidHash, days, appId: app.appId },
+        status: 'SUCCESS',
+      });
+
+      return sendSuccess(res, 'HWID access authorized and reactivated successfully', updated, 200);
+    }
 
     const newEntry = await prisma.hwidAccess.create({
       data: {
