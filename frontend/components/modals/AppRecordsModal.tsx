@@ -347,7 +347,7 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
                   {/* Expiration Info Footer */}
                   <div className="flex items-center justify-between text-[10px] text-zinc-500 pt-0.5">
                     <span>
-                      Expires: {new Date(r.expiresAt).toLocaleDateString()}
+                      Expires: {new Date(r.expiresAt).toLocaleDateString()} &bull; Last Auth: {r.lastLoginAt || r.lastAuthAt ? new Date(r.lastLoginAt || r.lastAuthAt).toLocaleString() : 'Never'}
                     </span>
                     <span className="text-emerald-400 font-bold">
                       {r.remainingDays} Days Left

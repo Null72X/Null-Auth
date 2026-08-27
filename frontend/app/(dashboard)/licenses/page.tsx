@@ -336,6 +336,7 @@ export default function LicensesPage() {
                 <th className="p-4">Status</th>
                 <th className="p-4">Bound Machine SID / HWID</th>
                 <th className="p-4">Expiration</th>
+                <th className="p-4">Last Auth</th>
                 <th className="p-4">Notes</th>
                 <th className="p-4 text-right">Actions</th>
               </tr>
@@ -343,13 +344,13 @@ export default function LicensesPage() {
             <tbody className="divide-y divide-zinc-800/60">
               {isLoading ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-xs text-zinc-500 animate-pulse">
+                  <td colSpan={9} className="p-8 text-center text-xs text-zinc-500 animate-pulse">
                     Loading licenses...
                   </td>
                 </tr>
               ) : licenses.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-xs text-zinc-500">
+                  <td colSpan={9} className="p-8 text-center text-xs text-zinc-500">
                     No licenses found matching criteria.
                   </td>
                 </tr>
@@ -421,6 +422,9 @@ export default function LicensesPage() {
                             {new Date(lic.expiresAt).toLocaleDateString()}
                           </span>
                         </div>
+                      </td>
+                      <td className="p-4 text-xs font-mono text-zinc-400">
+                        {lic.lastLoginAt ? new Date(lic.lastLoginAt).toLocaleString() : 'Never'}
                       </td>
                       <td className="p-4 text-xs text-zinc-400 max-w-[140px] truncate">
                         {lic.notes ? lic.notes : <span className="text-zinc-600 italic">—</span>}
