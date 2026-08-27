@@ -564,21 +564,19 @@ export default function ApplicationsPage() {
                   {/* Primary Quick Action Button */}
                   {app.type === 'LICENSE' ? (
                     <Button
-                      variant="secondary"
                       size="sm"
                       onClick={() => setQuickLicenseApp(app)}
-                      className="w-full gap-2 border-red-900/30 hover:border-red-500/40 text-xs font-semibold text-zinc-200"
+                      className="w-full gap-2 text-xs font-bold btn-red-gradient shadow-md shadow-red-950/40"
                     >
-                      <Plus className="w-3.5 h-3.5 text-red-400" /> Generate License Keys
+                      <Sparkles className="w-3.5 h-3.5" /> Generate License Keys
                     </Button>
                   ) : (
                     <Button
-                      variant="secondary"
                       size="sm"
                       onClick={() => setQuickHwidApp(app)}
-                      className="w-full gap-2 border-purple-900/30 hover:border-purple-500/40 text-xs font-semibold text-zinc-200"
+                      className="w-full gap-2 text-xs font-bold bg-gradient-to-r from-purple-950 via-purple-900 to-purple-800 hover:from-purple-900 hover:to-purple-700 text-white border border-purple-500/40 shadow-md shadow-purple-950/40"
                     >
-                      <Plus className="w-3.5 h-3.5 text-purple-400" /> Authorize HWID User
+                      <ShieldCheck className="w-3.5 h-3.5" /> Authorize HWID User
                     </Button>
                   )}
 
@@ -587,10 +585,13 @@ export default function ApplicationsPage() {
                     variant="secondary"
                     size="sm"
                     onClick={() => setRecordsApp(app)}
-                    className="w-full gap-2 border-zinc-800 hover:border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-xs font-semibold text-amber-400"
+                    className="w-full gap-2 border-zinc-800 hover:border-amber-500/40 bg-zinc-900/90 hover:bg-zinc-800 text-xs font-mono font-bold text-amber-400 group/rec"
                   >
-                    <ListFilter className="w-3.5 h-3.5" />
-                    {app.type === 'LICENSE' ? 'Show All Licenses' : 'Show All HWID Whitelists'} ({app.totalUsers})
+                    <ListFilter className="w-3.5 h-3.5 text-amber-400 group-hover/rec:rotate-180 transition-transform duration-300" />
+                    <span>{app.type === 'LICENSE' ? 'Show All Licenses' : 'Show All HWID Whitelists'}</span>
+                    <span className="ml-auto px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[10px]">
+                      {app.totalUsers}
+                    </span>
                   </Button>
 
                   {/* Secondary Icon Actions */}
