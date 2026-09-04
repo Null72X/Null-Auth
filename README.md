@@ -145,7 +145,7 @@ from NullAuth import NullAuth
 
 # 1. Initialize Null-Auth SDK Client
 auth = NullAuth(
-    app_id="NA-13026130",
+    app_id="NA-13026330",
     secret="nas_334106af8244ffc4284df3f2c31709011681d10cfa37e67a",
     version="1.0.0"
 )
