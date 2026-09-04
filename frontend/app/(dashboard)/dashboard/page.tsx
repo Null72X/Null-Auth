@@ -29,6 +29,8 @@ import {
   Radio,
   CheckCircle2,
   XCircle,
+  Copy,
+  Check,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -48,6 +50,11 @@ export default function DashboardOverviewPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [appsList, setAppsList] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Application Window Console State
+  const [appFilterTab, setAppFilterTab] = useState<'ALL' | 'LICENSE' | 'HWID'>('ALL');
+  const [copiedAppId, setCopiedAppId] = useState<string | null>(null);
+  const [targetAppForModal, setTargetAppForModal] = useState<string | undefined>(undefined);
 
   // Live Terminal Stream State
   const [logsList, setLogsList] = useState<any[]>([]);
@@ -127,6 +134,15 @@ export default function DashboardOverviewPage() {
     const passRate = total > 0 ? Math.round((passed / total) * 100) : 100;
     return { total, passed, blocked, passRate };
   }, [logsList]);
+
+  // Filtered Dashboard Applications
+  const filteredDashboardApps = useMemo(() => {
+    return appsList.filter((app) => {
+      if (appFilterTab === 'LICENSE') return app.type === 'LICENSE';
+      if (appFilterTab === 'HWID') return app.type === 'HWID';
+      return true;
+    });
+  }, [appsList, appFilterTab]);
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -239,57 +255,174 @@ export default function DashboardOverviewPage() {
 
       {/* Two Column Main Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Applications Summary & Quick Manage */}
-        <Card className="space-y-4 animate-slide-up" style={{ animationDelay: '200ms' }}>
-          <div className="flex items-center justify-between border-b border-zinc-800/80 pb-4">
-            <div className="flex items-center gap-2">
-              <AppWindow className="w-5 h-5 text-red-400" />
-              <h2 className="text-base font-bold text-white">Recent Applications</h2>
+        {/* Cyberpunk Application Console Window */}
+        <Card className="space-y-4 animate-slide-up border-zinc-800/90 bg-zinc-950/80 backdrop-blur-md shadow-2xl flex flex-col justify-between" style={{ animationDelay: '200ms' }}>
+          <div className="space-y-3">
+            {/* Console Window Header Bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800/80 pb-3">
+              <div className="flex items-center gap-2.5">
+                {/* Simulated Linux / Mac Terminal Window Control Dots */}
+                <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-zinc-900 border border-zinc-800">
+                  <span className="w-2 h-2 rounded-full bg-red-500/80" />
+                  <span className="w-2 h-2 rounded-full bg-amber-500/80" />
+                  <span className="w-2 h-2 rounded-full bg-emerald-500/80" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <AppWindow className="w-4 h-4 text-red-400" />
+                  <h2 className="text-sm font-bold font-mono text-white tracking-tight">
+                    app-manager.console
+                  </h2>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateAppOpen(true)}
+                  className="px-2.5 py-1 rounded text-[11px] font-mono font-bold bg-red-950 hover:bg-red-900 text-red-300 border border-red-800/70 shadow-sm transition-all flex items-center gap-1.5"
+                >
+                  <Plus className="w-3 h-3" /> New App
+                </button>
+                <Link
+                  href="/applications"
+                  className="px-2.5 py-1 rounded text-[11px] font-mono text-zinc-400 hover:text-white bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 transition-all flex items-center gap-1 group"
+                >
+                  <span>All Apps</span>
+                  <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                </Link>
+              </div>
             </div>
-            <Link
-              href="/applications"
-              className="text-xs font-bold text-red-400 hover:text-red-300 flex items-center gap-1 group"
-            >
-              View All Apps <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-            </Link>
+
+            {/* Category Filter Switcher */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px] font-mono">
+              {[
+                { id: 'ALL', label: `All (${appsList.length})` },
+                { id: 'LICENSE', label: `License (${appsList.filter((a) => a.type === 'LICENSE').length})` },
+                { id: 'HWID', label: `HWID (${appsList.filter((a) => a.type === 'HWID').length})` },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setAppFilterTab(tab.id as any)}
+                  className={`px-2.5 py-1 rounded-md transition-all font-semibold ${
+                    appFilterTab === tab.id
+                      ? 'bg-zinc-800 text-white border border-zinc-700'
+                      : 'bg-zinc-950/60 text-zinc-500 hover:text-zinc-300 border border-zinc-900 hover:border-zinc-800'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Scrollable Applications List Box */}
+            <div className="space-y-2 max-h-[340px] overflow-y-auto custom-scrollbar pr-1">
+              {isLoading ? (
+                <div className="py-12 text-center text-xs font-mono text-zinc-500 animate-pulse flex items-center justify-center gap-2">
+                  <AppWindow className="w-4 h-4 text-zinc-600 animate-spin" />
+                  <span>Loading applications catalog...</span>
+                </div>
+              ) : filteredDashboardApps.length === 0 ? (
+                <div className="py-12 text-center text-xs font-mono text-zinc-600 space-y-2">
+                  <p>[CATALOG_EMPTY] No applications matching filter.</p>
+                  <Button onClick={() => setIsCreateAppOpen(true)} size="sm" className="gap-1.5 text-xs">
+                    <Plus className="w-3.5 h-3.5" /> Create Application
+                  </Button>
+                </div>
+              ) : (
+                filteredDashboardApps.map((app) => (
+                  <div
+                    key={app.id}
+                    className="p-3 rounded-lg border border-zinc-800/80 bg-zinc-950/70 hover:border-zinc-700 transition-all font-mono text-xs flex flex-col gap-2 group"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5 overflow-hidden">
+                        <div
+                          className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border ${
+                            app.type === 'LICENSE'
+                              ? 'bg-blue-950/60 border-blue-800/50 text-blue-400'
+                              : 'bg-purple-950/60 border-purple-800/50 text-purple-400'
+                          }`}
+                        >
+                          {app.type === 'LICENSE' ? <Key className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                        </div>
+                        <div className="truncate">
+                          <h4 className="text-xs font-bold text-white group-hover:text-red-400 transition-colors truncate">
+                            {app.name}
+                          </h4>
+                          <div className="flex items-center gap-1.5 text-[11px] text-zinc-500">
+                            <span className="text-zinc-400 font-bold">{app.appId}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(app.appId);
+                                setCopiedAppId(app.appId);
+                                setTimeout(() => setCopiedAppId(null), 2000);
+                              }}
+                              className="hover:text-white transition-colors"
+                              title="Copy App ID"
+                            >
+                              {copiedAppId === app.appId ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-zinc-900 text-amber-400 border border-zinc-800 font-bold">
+                          v{app.version || '1.0.0'}
+                        </span>
+                        <Badge status={app.status} />
+                      </div>
+                    </div>
+
+                    {/* Bottom row: User count & Quick Modal launcher */}
+                    <div className="flex items-center justify-between pt-1.5 border-t border-zinc-900 text-[11px] text-zinc-400">
+                      <span className="text-zinc-500">
+                        {app.activeUsers ?? 0} active users
+                      </span>
+                      {app.type === 'LICENSE' ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTargetAppForModal(app.id);
+                            setIsGenerateLicenseOpen(true);
+                          }}
+                          className="px-2 py-0.5 rounded bg-zinc-900 hover:bg-zinc-800 text-blue-400 hover:text-blue-300 border border-zinc-800 text-[10px] font-bold transition-all flex items-center gap-1"
+                        >
+                          <Key className="w-2.5 h-2.5" /> + Key
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTargetAppForModal(app.id);
+                            setIsAddHwidOpen(true);
+                          }}
+                          className="px-2 py-0.5 rounded bg-zinc-900 hover:bg-zinc-800 text-purple-400 hover:text-purple-300 border border-zinc-800 text-[10px] font-bold transition-all flex items-center gap-1"
+                        >
+                          <ShieldCheck className="w-2.5 h-2.5" /> + HWID
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
 
-          <div className="space-y-3">
-            {isLoading ? (
-              <div className="py-8 text-center text-xs text-zinc-500 animate-pulse">
-                Loading applications...
-              </div>
-            ) : stats?.recentApps && stats.recentApps.length > 0 ? (
-              stats.recentApps.map((app) => (
-                <div
-                  key={app.id}
-                  className="flex items-center justify-between p-3.5 rounded-xl bg-zinc-950/60 border border-zinc-800/60 hover:border-red-500/40 transition-all group"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-zinc-800/80 flex items-center justify-center text-zinc-300 text-xs font-bold font-mono border border-zinc-700/50 group-hover:border-red-500/40 transition-colors">
-                      {app.appId.slice(3, 5)}
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-zinc-100 group-hover:text-red-400 transition-colors">
-                        {app.name}
-                      </h4>
-                      <p className="text-xs font-mono text-zinc-400">{app.appId}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2.5">
-                    <Badge status={app.type} />
-                    <Badge status={app.status} />
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="py-8 text-center text-xs text-zinc-500 space-y-2">
-                <p>No applications created yet.</p>
-                <Button onClick={() => setIsCreateAppOpen(true)} size="sm" className="gap-1.5">
-                  <Plus className="w-3.5 h-3.5" /> Create Application
-                </Button>
-              </div>
-            )}
+          {/* Application Console Telemetry Footer Ticker */}
+          <div className="pt-3 border-t border-zinc-800/80 flex items-center justify-between text-[11px] font-mono text-zinc-400">
+            <div className="flex items-center gap-3">
+              <span className="text-zinc-400">
+                Total: <strong className="text-white">{appsList.length}</strong>
+              </span>
+              <span className="text-emerald-400">
+                Active: <strong className="text-emerald-400">{appsList.filter((a) => a.status === 'ACTIVE').length}</strong>
+              </span>
+            </div>
+
+            <span className="text-zinc-600">catalog: synchronized</span>
           </div>
         </Card>
 
@@ -510,16 +643,24 @@ export default function DashboardOverviewPage() {
 
       <CreateLicenseModal
         isOpen={isGenerateLicenseOpen}
-        onClose={() => setIsGenerateLicenseOpen(false)}
+        onClose={() => {
+          setIsGenerateLicenseOpen(false);
+          setTargetAppForModal(undefined);
+        }}
         onSuccess={loadData}
         apps={appsList}
+        defaultAppId={targetAppForModal}
       />
 
       <AddHwidModal
         isOpen={isAddHwidOpen}
-        onClose={() => setIsAddHwidOpen(false)}
+        onClose={() => {
+          setIsAddHwidOpen(false);
+          setTargetAppForModal(undefined);
+        }}
         onSuccess={loadData}
         apps={appsList}
+        defaultAppId={targetAppForModal}
       />
     </div>
   );
