@@ -35,6 +35,9 @@ import {
   ListFilter,
   Download,
   Settings2,
+  GripVertical,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 interface AppItem {
@@ -88,11 +91,115 @@ export default function ApplicationsPage() {
   const [copiedAppId, setCopiedAppId] = useState<string | null>(null);
   const [copiedSecret, setCopiedSecret] = useState<string | null>(null);
 
+  // Drag & Reorder State
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [draggedOverId, setDraggedOverId] = useState<string | null>(null);
+
+  const applySavedOrder = (loadedApps: AppItem[]): AppItem[] => {
+    try {
+      const saved = typeof window !== 'undefined' ? localStorage.getItem('null_auth_apps_order') : null;
+      if (!saved) return loadedApps;
+      const orderIds: string[] = JSON.parse(saved);
+      if (!Array.isArray(orderIds) || orderIds.length === 0) return loadedApps;
+
+      const map = new Map<string, AppItem>();
+      loadedApps.forEach((a) => map.set(a.id, a));
+
+      const ordered: AppItem[] = [];
+      orderIds.forEach((id) => {
+        const item = map.get(id);
+        if (item) {
+          ordered.push(item);
+          map.delete(id);
+        }
+      });
+      // Append any remaining apps
+      map.forEach((item) => ordered.push(item));
+      return ordered;
+    } catch {
+      return loadedApps;
+    }
+  };
+
+  const saveOrder = (orderedApps: AppItem[]) => {
+    try {
+      if (typeof window !== 'undefined') {
+        const orderIds = orderedApps.map((a) => a.id);
+        localStorage.setItem('null_auth_apps_order', JSON.stringify(orderIds));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    e.dataTransfer.setData('text/plain', id);
+    setDraggedId(id);
+  };
+
+  const handleDragOver = (e: React.DragEvent, id: string) => {
+    e.preventDefault();
+    if (draggedOverId !== id) {
+      setDraggedOverId(id);
+    }
+  };
+
+  const handleDragLeave = () => {
+    // Leave intact
+  };
+
+  const handleDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    const sourceId = e.dataTransfer.getData('text/plain') || draggedId;
+    setDraggedId(null);
+    setDraggedOverId(null);
+
+    if (!sourceId || sourceId === targetId) return;
+
+    const currentApps = [...apps];
+    const sourceIndex = currentApps.findIndex((a) => a.id === sourceId);
+    const targetIndex = currentApps.findIndex((a) => a.id === targetId);
+
+    if (sourceIndex === -1 || targetIndex === -1) return;
+
+    const [movedApp] = currentApps.splice(sourceIndex, 1);
+    currentApps.splice(targetIndex, 0, movedApp);
+
+    setApps(currentApps);
+    saveOrder(currentApps);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedId(null);
+    setDraggedOverId(null);
+  };
+
+  const moveApp = (appId: string, direction: number) => {
+    const visibleIndex = filteredApps.findIndex((a) => a.id === appId);
+    if (visibleIndex === -1) return;
+    const targetVisibleIndex = visibleIndex + direction;
+    if (targetVisibleIndex < 0 || targetVisibleIndex >= filteredApps.length) return;
+
+    const targetApp = filteredApps[targetVisibleIndex];
+
+    const currentApps = [...apps];
+    const sourceIdx = currentApps.findIndex((a) => a.id === appId);
+    const targetIdx = currentApps.findIndex((a) => a.id === targetApp.id);
+
+    if (sourceIdx === -1 || targetIdx === -1) return;
+
+    const [movedApp] = currentApps.splice(sourceIdx, 1);
+    currentApps.splice(targetIdx, 0, movedApp);
+
+    setApps(currentApps);
+    saveOrder(currentApps);
+  };
+
   const loadApps = async () => {
     setIsLoading(true);
     const res = await fetchApi('/admin/apps');
     if (res.success && res.data) {
-      setApps(res.data);
+      setApps(applySavedOrder(res.data));
     }
     setIsLoading(false);
   };
@@ -377,35 +484,83 @@ export default function ApplicationsPage() {
             const isSecretRevealed = !!revealedSecrets[app.id];
 
             return (
-              <Card
+              <div
                 key={app.id}
-                className="flex flex-col justify-between space-y-5 animate-slide-up group border-zinc-800/90 hover:border-red-500/50 bg-zinc-950/80 backdrop-blur-md shadow-xl"
-                style={{ animationDelay: `${index * 50}ms` }}
+                draggable
+                onDragStart={(e) => handleDragStart(e, app.id)}
+                onDragOver={(e) => handleDragOver(e, app.id)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, app.id)}
+                onDragEnd={handleDragEnd}
+                className={`transition-all duration-200 h-full flex flex-col ${
+                  draggedOverId === app.id
+                    ? 'ring-2 ring-red-500 rounded-xl scale-[1.02] shadow-xl shadow-red-950/50'
+                    : ''
+                } ${draggedId === app.id ? 'opacity-40 scale-[0.98]' : 'opacity-100'}`}
               >
-                <div className="space-y-4">
-                  {/* App Header & Title */}
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-base font-bold text-white tracking-wide group-hover:text-red-400 transition-colors">
-                          {app.name}
-                        </h3>
-                        <button
-                          onClick={() => {
-                            setAppToEdit(app);
-                            setEditName(app.name);
-                          }}
-                          className="text-zinc-500 hover:text-zinc-300 transition-colors p-1"
-                          title="Edit Application Name"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
+                <Card
+                  className="flex flex-col justify-between space-y-5 animate-slide-up group border-zinc-800/90 hover:border-red-500/50 bg-zinc-950/80 backdrop-blur-md shadow-xl h-full"
+                  style={{ animationDelay: `${index * 50}ms` }}
+                >
+                  <div className="space-y-4">
+                    {/* App Header & Title */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-base font-bold text-white tracking-wide group-hover:text-red-400 transition-colors">
+                            {app.name}
+                          </h3>
+                          <button
+                            onClick={() => {
+                              setAppToEdit(app);
+                              setEditName(app.name);
+                            }}
+                            className="text-zinc-500 hover:text-zinc-300 transition-colors p-1"
+                            title="Edit Application Name"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge status={app.type} />
+                          {/* Reorder / Arrange Widget */}
+                          <div
+                            className="inline-flex items-center gap-0.5 bg-zinc-900/90 border border-zinc-800/80 rounded px-1.5 py-0.5 text-zinc-400"
+                            title="Drag card to reorder or use arrows"
+                          >
+                            <span className="cursor-grab active:cursor-grabbing p-0.5 hover:text-white" title="Drag to reorder">
+                              <GripVertical className="w-3 h-3 text-zinc-400" />
+                            </span>
+                            <button
+                              type="button"
+                              disabled={index === 0}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                moveApp(app.id, -1);
+                              }}
+                              className="p-0.5 hover:text-white disabled:opacity-20 disabled:hover:text-zinc-500 transition-colors"
+                              title="Move left"
+                            >
+                              <ChevronLeft className="w-3 h-3" />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={index === filteredApps.length - 1}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                moveApp(app.id, 1);
+                              }}
+                              className="p-0.5 hover:text-white disabled:opacity-20 disabled:hover:text-zinc-500 transition-colors"
+                              title="Move right"
+                            >
+                              <ChevronRight className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                      <Badge status={app.type} />
-                    </div>
 
-                    <div className="flex flex-col items-end gap-1.5">
-                      <Badge status={app.status} />
+                      <div className="flex flex-col items-end gap-1.5">
+                        <Badge status={app.status} />
 
                       {/* ULTRA-PREMIUM VERSION CONTROL BUTTON */}
                       <button
@@ -643,7 +798,8 @@ export default function ApplicationsPage() {
                   </div>
                 </div>
               </Card>
-            );
+            </div>
+          );
           })}
         </div>
       )}
