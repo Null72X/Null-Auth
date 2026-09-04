@@ -28,6 +28,7 @@ import {
   ShieldCheck,
   Clock,
   AlertTriangle,
+  Cpu,
 } from 'lucide-react';
 
 interface LicenseItem {
@@ -71,6 +72,7 @@ export default function LicensesPage() {
   const [editNotes, setEditNotes] = useState('');
 
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [copiedHwid, setCopiedHwid] = useState<string | null>(null);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -191,6 +193,12 @@ export default function LicensesPage() {
     navigator.clipboard.writeText(key);
     setCopiedKey(key);
     setTimeout(() => setCopiedKey(null), 2000);
+  };
+
+  const copyHwid = (hwid: string) => {
+    navigator.clipboard.writeText(hwid);
+    setCopiedHwid(hwid);
+    setTimeout(() => setCopiedHwid(null), 2000);
   };
 
   return (
@@ -331,10 +339,9 @@ export default function LicensesPage() {
                     )}
                   </button>
                 </th>
-                <th className="p-4">License Key</th>
+                <th className="p-4">License Key & Machine Binding</th>
                 <th className="p-4">Application</th>
                 <th className="p-4">Status</th>
-                <th className="p-4">Bound Machine SID / HWID</th>
                 <th className="p-4">Expiration</th>
                 <th className="p-4">Last Auth</th>
                 <th className="p-4">Notes</th>
@@ -344,13 +351,13 @@ export default function LicensesPage() {
             <tbody className="divide-y divide-zinc-800/60">
               {isLoading ? (
                 <tr>
-                  <td colSpan={9} className="p-8 text-center text-xs text-zinc-500 animate-pulse">
+                  <td colSpan={8} className="p-8 text-center text-xs text-zinc-500 animate-pulse">
                     Loading licenses...
                   </td>
                 </tr>
               ) : licenses.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="p-8 text-center text-xs text-zinc-500">
+                  <td colSpan={8} className="p-8 text-center text-xs text-zinc-500">
                     No licenses found matching criteria.
                   </td>
                 </tr>
@@ -378,22 +385,56 @@ export default function LicensesPage() {
                           )}
                         </button>
                       </td>
-                      <td className="p-4 font-mono font-bold text-red-400">
-                        <div className="flex items-center gap-2">
-                          <span className="bg-zinc-950 px-2.5 py-1 rounded-lg border border-zinc-800">
-                            {lic.key}
-                          </span>
-                          <button
-                            onClick={() => copyKey(lic.key)}
-                            className="p-1 rounded text-zinc-500 hover:text-zinc-200 transition-colors"
-                            title="Copy License Key"
-                          >
-                            {copiedKey === lic.key ? (
-                              <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      {/* Two-line License Key & Bound Machine HWID/SID */}
+                      <td className="p-4">
+                        <div className="flex flex-col gap-1.5 min-w-[230px] max-w-[320px]">
+                          {/* Line 1: License Key */}
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-red-400 bg-zinc-950/90 px-2.5 py-1 rounded-md border border-zinc-800 text-xs tracking-wider shadow-sm select-all">
+                              {lic.key}
+                            </span>
+                            <button
+                              onClick={() => copyKey(lic.key)}
+                              className="p-1 rounded hover:bg-zinc-800 text-zinc-500 hover:text-zinc-200 transition-colors"
+                              title="Copy License Key"
+                            >
+                              {copiedKey === lic.key ? (
+                                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                              ) : (
+                                <Copy className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          </div>
+
+                          {/* Line 2: Bound Machine HWID / SID */}
+                          <div className="flex items-center gap-1.5 text-xs">
+                            <Cpu className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+                            {lic.boundHwid ? (
+                              <div className="flex items-center gap-1.5 overflow-hidden">
+                                <span
+                                  title={lic.boundHwid}
+                                  className="font-mono text-[11px] text-zinc-300 bg-zinc-900/90 px-2 py-0.5 rounded border border-zinc-800/70 truncate max-w-[210px]"
+                                >
+                                  {lic.boundHwid}
+                                </span>
+                                <button
+                                  onClick={() => copyHwid(lic.boundHwid!)}
+                                  className="p-0.5 rounded hover:bg-zinc-800 text-zinc-500 hover:text-zinc-200 transition-colors shrink-0"
+                                  title="Copy Bound HWID"
+                                >
+                                  {copiedHwid === lic.boundHwid ? (
+                                    <Check className="w-3 h-3 text-emerald-400" />
+                                  ) : (
+                                    <Copy className="w-3 h-3" />
+                                  )}
+                                </button>
+                              </div>
                             ) : (
-                              <Copy className="w-3.5 h-3.5" />
+                              <span className="text-[11px] text-zinc-500/70 italic">
+                                Not Bound Yet
+                              </span>
                             )}
-                          </button>
+                          </div>
                         </div>
                       </td>
                       <td className="p-4">
@@ -403,15 +444,6 @@ export default function LicensesPage() {
                       </td>
                       <td className="p-4">
                         <Badge status={lic.effectiveStatus} />
-                      </td>
-                      <td className="p-4 font-mono text-xs text-zinc-300">
-                        {lic.boundHwid ? (
-                          <span title={lic.boundHwid} className="font-semibold text-zinc-200 bg-zinc-950 px-2 py-1 rounded border border-zinc-800/60">
-                            {lic.boundHwid}
-                          </span>
-                        ) : (
-                          <span className="text-zinc-600 italic">Not Bound Yet</span>
-                        )}
                       </td>
                       <td className="p-4 text-xs">
                         <div className="space-y-1">
