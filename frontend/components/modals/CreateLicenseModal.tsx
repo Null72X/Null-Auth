@@ -24,7 +24,7 @@ interface CreateLicenseModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  apps: AppOption[];
+  apps: any[];
   defaultAppId?: string;
 }
 

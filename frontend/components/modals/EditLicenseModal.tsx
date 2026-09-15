@@ -20,28 +20,25 @@ import {
 export interface LicenseItem {
   id: string;
   key: string;
-  appId: string;
-  status: 'ACTIVE' | 'PAUSED' | 'EXPIRED' | 'BANNED';
+  appId?: string;
+  status: 'ACTIVE' | 'PAUSED' | 'EXPIRED' | 'BANNED' | string;
   effectiveStatus?: string;
-  boundHwid: string | null;
+  boundHwid?: string | null;
   expiresAt: string;
-  clientName: string | null;
+  clientName?: string | null;
   remainingDays?: number;
-  firstActivatedAt: string | null;
-  lastLoginAt: string | null;
-  application?: {
-    id: string;
-    appId: string;
-    name: string;
-    status: string;
-  };
+  firstActivatedAt?: string | null;
+  lastLoginAt?: string | null;
+  createdAt?: string;
+  application?: any;
+  [key: string]: any;
 }
 
 interface EditLicenseModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  license: LicenseItem | null;
+  license: any;
 }
 
 export function EditLicenseModal({

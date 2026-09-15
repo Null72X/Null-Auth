@@ -35,7 +35,7 @@ interface AddHwidModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (targetAppId?: string) => void;
-  apps: AppOption[];
+  apps: any[];
   defaultAppId?: string;
 }
 

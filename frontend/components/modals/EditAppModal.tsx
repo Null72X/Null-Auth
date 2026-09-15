@@ -22,28 +22,29 @@ import {
 
 export interface AppItem {
   id: string;
-  appId: string;
+  appId?: string;
   name: string;
-  secret: string;
-  type: 'LICENSE' | 'HWID';
-  status: 'ACTIVE' | 'PAUSED';
-  version: string;
-  downloadUrl: string | null;
-  freeTrialEnabled: boolean;
-  freeTrialKey: string | null;
+  secret?: string;
+  type?: 'LICENSE' | 'HWID' | string;
+  status?: 'ACTIVE' | 'PAUSED' | string;
+  version?: string;
+  downloadUrl?: string | null;
+  freeTrialEnabled?: boolean;
+  freeTrialKey?: string | null;
   discordWebhookUrl?: string | null;
-  createdAt: string;
-  activeUsers: number;
-  expiredUsers: number;
-  totalUsers: number;
-  lastActivity: string | null;
+  createdAt?: string;
+  activeUsers?: number;
+  expiredUsers?: number;
+  totalUsers?: number;
+  lastActivity?: string | null;
+  [key: string]: any;
 }
 
 interface EditAppModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  app: AppItem | null;
+  app: any;
 }
 
 export function EditAppModal({

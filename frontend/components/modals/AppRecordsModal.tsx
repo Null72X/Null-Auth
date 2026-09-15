@@ -39,7 +39,7 @@ interface AppItem {
 interface AppRecordsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  app: AppItem | null;
+  app: any;
   onRefreshApps: () => void;
 }
 

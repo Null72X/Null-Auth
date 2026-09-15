@@ -18,26 +18,23 @@ import {
 export interface HwidItem {
   id: string;
   hwidHash: string;
-  appId: string;
-  status: 'ACTIVE' | 'PAUSED' | 'EXPIRED' | 'BANNED';
+  appId?: string;
+  status: 'ACTIVE' | 'PAUSED' | 'EXPIRED' | 'BANNED' | string;
   effectiveStatus?: string;
   expiresAt: string;
-  clientName: string | null;
+  clientName?: string | null;
   remainingDays?: number;
-  lastAuthAt: string | null;
-  application?: {
-    id: string;
-    appId: string;
-    name: string;
-    status: string;
-  };
+  lastAuthAt?: string | null;
+  createdAt?: string;
+  application?: any;
+  [key: string]: any;
 }
 
 interface EditHwidModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  item: HwidItem | null;
+  item: any;
 }
 
 export function EditHwidModal({
