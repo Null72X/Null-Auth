@@ -93,14 +93,11 @@ export async function listHwidEntries(req: Request, res: Response) {
       };
     });
 
-    return sendSuccess(res, 'HWID access entries retrieved successfully', {
-      entries: formatted,
-      pagination: {
-        total: totalCount,
-        page: pageNum,
-        limit: limitNum,
-        totalPages: Math.ceil(totalCount / limitNum),
-      },
+    return sendSuccess(res, 'HWID access entries retrieved successfully', formatted, 200, {
+      total: totalCount,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(totalCount / limitNum),
     });
   } catch (error: any) {
     return sendError(res, 'Failed to fetch HWID entries', 500, error.message);

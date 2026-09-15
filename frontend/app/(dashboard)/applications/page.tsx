@@ -200,7 +200,8 @@ export default function ApplicationsPage() {
     setIsLoading(true);
     const res = await fetchApi('/admin/apps');
     if (res.success && res.data) {
-      setApps(applySavedOrder(res.data));
+      const list = Array.isArray(res.data) ? res.data : res.data.apps || [];
+      setApps(applySavedOrder(list));
     }
     setIsLoading(false);
   };

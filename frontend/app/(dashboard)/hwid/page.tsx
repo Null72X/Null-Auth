@@ -83,10 +83,14 @@ export default function HwidPage() {
     ]);
 
     if (hwidRes.success && hwidRes.data) {
-      setHwids(hwidRes.data);
+      const list = Array.isArray(hwidRes.data)
+        ? hwidRes.data
+        : hwidRes.data.entries || hwidRes.data.hwids || [];
+      setHwids(list);
     }
     if (appRes.success && appRes.data) {
-      setApps(appRes.data);
+      const appList = Array.isArray(appRes.data) ? appRes.data : appRes.data.apps || [];
+      setApps(appList);
     }
     setIsLoading(false);
   };

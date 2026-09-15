@@ -89,12 +89,12 @@ export default function DashboardOverviewPage() {
       setStats(statsRes.data);
     }
     if (appsRes.success && appsRes.data) {
-      setAppsList(appsRes.data);
+      setAppsList(Array.isArray(appsRes.data) ? appsRes.data : appsRes.data.apps || []);
     }
     if (logsRes.success && logsRes.data) {
-      setLogsList(logsRes.data);
+      setLogsList(Array.isArray(logsRes.data) ? logsRes.data : logsRes.data.logs || []);
     } else if (statsRes.success && statsRes.data?.recentLogs) {
-      setLogsList(statsRes.data.recentLogs);
+      setLogsList(Array.isArray(statsRes.data.recentLogs) ? statsRes.data.recentLogs : []);
     }
     setIsLoading(false);
   };

@@ -105,14 +105,11 @@ export async function listLicenses(req: Request, res: Response) {
       };
     });
 
-    return sendSuccess(res, 'Licenses retrieved successfully', {
-      licenses: formatted,
-      pagination: {
-        total: totalCount,
-        page: pageNum,
-        limit: limitNum,
-        totalPages: Math.ceil(totalCount / limitNum),
-      },
+    return sendSuccess(res, 'Licenses retrieved successfully', formatted, 200, {
+      total: totalCount,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(totalCount / limitNum),
     });
   } catch (error: any) {
     return sendError(res, 'Failed to fetch licenses', 500, error.message);

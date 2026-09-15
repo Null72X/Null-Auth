@@ -89,10 +89,14 @@ export default function LicensesPage() {
     ]);
 
     if (licRes.success && licRes.data) {
-      setLicenses(licRes.data);
+      const list = Array.isArray(licRes.data)
+        ? licRes.data
+        : licRes.data.licenses || [];
+      setLicenses(list);
     }
     if (appRes.success && appRes.data) {
-      setApps(appRes.data);
+      const appList = Array.isArray(appRes.data) ? appRes.data : appRes.data.apps || [];
+      setApps(appList);
     }
     setIsLoading(false);
   };

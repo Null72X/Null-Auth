@@ -64,7 +64,10 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
 
     const res = await fetchApi(endpoint);
     if (res.success && res.data) {
-      setRecords(res.data);
+      const list = Array.isArray(res.data)
+        ? res.data
+        : res.data.licenses || res.data.entries || [];
+      setRecords(list);
     }
     setIsLoading(false);
   };
