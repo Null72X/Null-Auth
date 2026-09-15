@@ -4,15 +4,18 @@ import { prisma } from '../db.js';
 import { sendSuccess, sendError } from '../utils/response.js';
 import { hashHwid } from '../services/hash.service.js';
 import { logActivity } from '../services/logger.service.js';
+import { notifyHwidWhitelisted } from '../services/discord.service.js';
 
 export const addHwidSchema = z.object({
   appId: z.string().min(1, 'Application ID is required'),
   hwid: z.string().min(1, 'Hardware / User Identifier is required'),
   days: z.number().int().min(1).default(30),
+  clientName: z.string().optional(),
   notes: z.string().optional(),
 });
 
 export const updateHwidSchema = z.object({
+  clientName: z.string().optional(),
   notes: z.string().optional(),
   status: z.enum(['ACTIVE', 'PAUSED', 'EXPIRED', 'BANNED']).optional(),
   expiresAt: z.string().optional(),
@@ -72,7 +75,7 @@ export async function listHwidEntries(req: Request, res: Response) {
       take: limitNum,
     });
 
-    const formatted = entries.map((entry) => {
+    const formatted = entries.map((entry: any) => {
       const isExpired = entry.expiresAt <= now;
       let effectiveStatus = entry.status;
       if (entry.status === 'ACTIVE' && isExpired) {
@@ -84,29 +87,35 @@ export async function listHwidEntries(req: Request, res: Response) {
 
       return {
         ...entry,
+        clientName: entry.clientName || entry.notes || null,
         effectiveStatus,
         remainingDays,
       };
     });
 
-    return sendSuccess(res, 'HWID access entries retrieved successfully', formatted, 200, {
-      totalCount,
-      page: pageNum,
-      limit: limitNum,
-      totalPages: Math.ceil(totalCount / limitNum),
+    return sendSuccess(res, 'HWID access entries retrieved successfully', {
+      entries: formatted,
+      pagination: {
+        total: totalCount,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(totalCount / limitNum),
+      },
     });
   } catch (error: any) {
     return sendError(res, 'Failed to fetch HWID entries', 500, error.message);
   }
 }
 
-export async function getHwidById(req: Request, res: Response) {
+export async function getHwidEntryById(req: Request, res: Response) {
   const { id } = req.params;
 
   try {
-    const entry = await prisma.hwidAccess.findUnique({
+    const entry: any = await prisma.hwidAccess.findUnique({
       where: { id },
-      include: { application: true },
+      include: {
+        application: true,
+      },
     });
 
     if (!entry) {
@@ -118,8 +127,9 @@ export async function getHwidById(req: Request, res: Response) {
     const diffTime = entry.expiresAt.getTime() - now.getTime();
     const remainingDays = diffTime > 0 ? Math.ceil(diffTime / (1000 * 60 * 60 * 24)) : 0;
 
-    return sendSuccess(res, 'HWID entry retrieved', {
+    return sendSuccess(res, 'HWID entry retrieved successfully', {
       ...entry,
+      clientName: entry.clientName || entry.notes || null,
       effectiveStatus: entry.status === 'ACTIVE' && isExpired ? 'EXPIRED' : entry.status,
       remainingDays,
     });
@@ -129,7 +139,8 @@ export async function getHwidById(req: Request, res: Response) {
 }
 
 export async function addHwidEntry(req: Request, res: Response) {
-  const { appId, hwid, days = 30, notes } = req.body;
+  const { appId, hwid, days = 30, clientName, notes } = req.body;
+  const resolvedClientName = (clientName !== undefined ? clientName : notes) || null;
 
   try {
     const app = await prisma.application.findFirst({
@@ -159,12 +170,12 @@ export async function addHwidEntry(req: Request, res: Response) {
     expiresAt.setDate(expiresAt.getDate() + days);
 
     if (existing) {
-      const updated = await prisma.hwidAccess.update({
+      const updated: any = await prisma.hwidAccess.update({
         where: { id: existing.id },
         data: {
           status: 'ACTIVE',
           expiresAt,
-          notes: notes !== undefined ? notes : existing.notes,
+          notes: resolvedClientName !== null ? resolvedClientName : (existing as any).notes,
         },
       });
 
@@ -174,20 +185,23 @@ export async function addHwidEntry(req: Request, res: Response) {
         actorType: 'ADMIN',
         ipAddress: req.ip,
         userAgent: req.headers['user-agent'],
-        details: { hwidHash, days, appId: app.appId },
+        details: { hwidHash, days, appId: app.appId, clientName: resolvedClientName },
         status: 'SUCCESS',
       });
 
-      return sendSuccess(res, 'HWID access authorized and reactivated successfully', updated, 200);
+      return sendSuccess(res, 'HWID access authorized and reactivated successfully', {
+        ...updated,
+        clientName: updated.clientName || updated.notes || null,
+      }, 200);
     }
 
-    const newEntry = await prisma.hwidAccess.create({
+    const newEntry: any = await prisma.hwidAccess.create({
       data: {
         appId: app.id,
         hwidHash,
         status: 'ACTIVE',
         expiresAt,
-        notes: notes || null,
+        notes: resolvedClientName,
       },
     });
 
@@ -197,11 +211,28 @@ export async function addHwidEntry(req: Request, res: Response) {
       actorType: 'ADMIN',
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
-      details: { hwidHash, days, appId: app.appId },
+      details: { hwidHash, days, appId: app.appId, clientName: resolvedClientName },
       status: 'SUCCESS',
     });
 
-    return sendSuccess(res, 'HWID access authorized successfully', newEntry, 201);
+    // Dispatch Discord Webhook
+    try {
+      await notifyHwidWhitelisted({
+        appName: app.name,
+        appId: app.appId,
+        hwidHash,
+        clientName: resolvedClientName,
+        days,
+        adminIp: req.ip,
+      });
+    } catch (discordErr) {
+      console.warn('[Discord Webhook Error]:', discordErr);
+    }
+
+    return sendSuccess(res, 'HWID access authorized successfully', {
+      ...newEntry,
+      clientName: newEntry.clientName || newEntry.notes || null,
+    }, 201);
   } catch (error: any) {
     return sendError(res, 'Failed to add HWID entry', 500, error.message);
   }
@@ -209,16 +240,29 @@ export async function addHwidEntry(req: Request, res: Response) {
 
 export async function updateHwidEntry(req: Request, res: Response) {
   const { id } = req.params;
-  const { notes, status, expiresAt, hwid, hwidHash } = req.body;
+  const { clientName, notes, status, expiresAt, hwid, hwidHash } = req.body;
 
   try {
+    const existing = await prisma.hwidAccess.findUnique({ where: { id } });
+    if (!existing) {
+      return sendError(res, 'HWID entry not found', 404);
+    }
+
     const updateData: any = {};
-    if (notes !== undefined) updateData.notes = notes;
+    const resolvedClientName = clientName !== undefined ? clientName : notes;
+    if (resolvedClientName !== undefined) {
+      updateData.notes = resolvedClientName ? resolvedClientName.trim() : null;
+    }
     if (status !== undefined) updateData.status = status;
     if (expiresAt) updateData.expiresAt = new Date(expiresAt);
-    if (hwid || hwidHash) updateData.hwidHash = hashHwid(hwid || hwidHash);
+    if (hwid || hwidHash) {
+      const raw = (hwid || hwidHash).trim();
+      updateData.hwidHash = raw.length === 64 && /^[0-9a-fA-F]+$/.test(raw)
+        ? raw
+        : hashHwid(raw);
+    }
 
-    const updated = await prisma.hwidAccess.update({
+    const updated: any = await prisma.hwidAccess.update({
       where: { id },
       data: updateData,
     });
@@ -233,7 +277,10 @@ export async function updateHwidEntry(req: Request, res: Response) {
       status: 'SUCCESS',
     });
 
-    return sendSuccess(res, 'HWID entry updated successfully', updated);
+    return sendSuccess(res, 'HWID entry updated successfully', {
+      ...updated,
+      clientName: updated.clientName || updated.notes || null,
+    });
   } catch (error: any) {
     return sendError(res, 'Failed to update HWID entry', 500, error.message);
   }

@@ -7,24 +7,30 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { CreateLicenseModal } from '@/components/modals/CreateLicenseModal';
 import { ConfirmModal } from '@/components/modals/ConfirmModal';
+import { EditLicenseModal } from '@/components/modals/EditLicenseModal';
 import { Modal } from '@/components/ui/Modal';
 import { fetchApi } from '@/lib/api';
 import {
-  Plus,
   Key,
-  Search,
+  Plus,
   RefreshCw,
   Trash2,
   Pause,
   Play,
-  Ban,
   Calendar,
   RotateCcw,
   Edit2,
   Copy,
   Check,
+  Search,
   CheckSquare,
   Square,
+  Ban,
+  Filter,
+  Layers,
+  Sparkles,
+  SlidersHorizontal,
+  ChevronDown,
   ShieldCheck,
   Clock,
   AlertTriangle,
@@ -40,7 +46,7 @@ interface LicenseItem {
   boundHwid: string | null;
   expiresAt: string;
   remainingDays: number;
-  notes: string | null;
+  clientName: string | null;
   firstActivatedAt: string | null;
   lastLoginAt: string | null;
   createdAt: string;
@@ -68,8 +74,7 @@ export default function LicensesPage() {
   const [extendDays, setExtendDays] = useState(30);
   const [licenseToResetHwid, setLicenseToResetHwid] = useState<LicenseItem | null>(null);
   const [manualHwid, setManualHwid] = useState('');
-  const [licenseToEditNotes, setLicenseToEditNotes] = useState<LicenseItem | null>(null);
-  const [editNotes, setEditNotes] = useState('');
+  const [licenseToEdit, setLicenseToEdit] = useState<LicenseItem | null>(null);
 
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [copiedHwid, setCopiedHwid] = useState<string | null>(null);
@@ -134,17 +139,6 @@ export default function LicensesPage() {
     });
     setLicenseToResetHwid(null);
     setManualHwid('');
-    loadData();
-  };
-
-  const handleEditNotes = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!licenseToEditNotes) return;
-    await fetchApi(`/admin/licenses/${licenseToEditNotes.id}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ notes: editNotes }),
-    });
-    setLicenseToEditNotes(null);
     loadData();
   };
 
@@ -263,7 +257,7 @@ export default function LicensesPage() {
             <Search className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3" />
             <input
               type="text"
-              placeholder="Search by license key (NULL-XXXX), notes, or bound Windows SID..."
+              placeholder="Search by license key (NULL-XXXX), Client Name, or bound Windows SID..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-red-500/80"
@@ -344,7 +338,7 @@ export default function LicensesPage() {
                 <th className="p-4">Status</th>
                 <th className="p-4">Expiration</th>
                 <th className="p-4">Last Auth</th>
-                <th className="p-4">Notes</th>
+                <th className="p-4">Client Name</th>
                 <th className="p-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -369,14 +363,14 @@ export default function LicensesPage() {
                   return (
                     <tr
                       key={lic.id}
-                      className={`hover:bg-zinc-800/40 transition-colors ${
+                      className={`hover:bg-zinc-900/40 transition-colors ${
                         isSelected ? 'bg-red-950/20' : ''
                       }`}
                     >
                       <td className="p-4">
                         <button
                           onClick={() => toggleSelectOne(lic.id)}
-                          className="text-zinc-400 hover:text-zinc-200"
+                          className="text-zinc-500 hover:text-zinc-300"
                         >
                           {isSelected ? (
                             <CheckSquare className="w-4 h-4 text-red-500" />
@@ -420,7 +414,7 @@ export default function LicensesPage() {
                                 <button
                                   onClick={() => copyHwid(lic.boundHwid!)}
                                   className="p-0.5 rounded hover:bg-zinc-800 text-zinc-500 hover:text-zinc-200 transition-colors shrink-0"
-                                  title="Copy Bound HWID"
+                                  title="Copy Bound Machine SID"
                                 >
                                   {copiedHwid === lic.boundHwid ? (
                                     <Check className="w-3 h-3 text-emerald-400" />
@@ -430,8 +424,8 @@ export default function LicensesPage() {
                                 </button>
                               </div>
                             ) : (
-                              <span className="text-[11px] text-zinc-500/70 italic">
-                                Not Bound Yet
+                              <span className="text-[11px] text-zinc-500 italic">
+                                Unbound (First machine will lock)
                               </span>
                             )}
                           </div>
@@ -458,11 +452,19 @@ export default function LicensesPage() {
                       <td className="p-4 text-xs font-mono text-zinc-400">
                         {lic.lastLoginAt ? new Date(lic.lastLoginAt).toLocaleString() : 'Never'}
                       </td>
-                      <td className="p-4 text-xs text-zinc-400 max-w-[140px] truncate">
-                        {lic.notes ? lic.notes : <span className="text-zinc-600 italic">—</span>}
+                      <td className="p-4 text-xs text-zinc-300 font-medium max-w-[140px] truncate">
+                        {lic.clientName ? lic.clientName : <span className="text-zinc-600 italic">—</span>}
                       </td>
                       <td className="p-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => setLicenseToEdit(lic)}
+                            title="Edit License (Key, Client, Expiry, HWID)"
+                            className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white transition-colors active:scale-95 flex items-center gap-1 font-semibold text-xs"
+                          >
+                            <Edit2 className="w-3.5 h-3.5 text-red-400" />
+                            <span className="hidden sm:inline text-[11px]">Edit</span>
+                          </button>
                           <button
                             onClick={() => setLicenseToExtend(lic)}
                             title="Add / Remove Days"
@@ -479,16 +481,6 @@ export default function LicensesPage() {
                             className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors active:scale-95"
                           >
                             <RotateCcw className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setLicenseToEditNotes(lic);
-                              setEditNotes(lic.notes || '');
-                            }}
-                            title="Edit Notes"
-                            className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors active:scale-95"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() =>
@@ -615,33 +607,13 @@ export default function LicensesPage() {
         </form>
       </Modal>
 
-      {/* Edit Notes Modal */}
-      <Modal
-        isOpen={!!licenseToEditNotes}
-        onClose={() => setLicenseToEditNotes(null)}
-        title="Edit Admin Notes"
-      >
-        <form onSubmit={handleEditNotes} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">
-              Notes
-            </label>
-            <input
-              type="text"
-              value={editNotes}
-              onChange={(e) => setEditNotes(e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2.5 text-sm text-zinc-100 focus:outline-none focus:border-red-500"
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
-            <Button type="button" variant="secondary" onClick={() => setLicenseToEditNotes(null)}>
-              Cancel
-            </Button>
-            <Button type="submit">Save Notes</Button>
-          </div>
-        </form>
-      </Modal>
+      {/* Full Edit License Modal */}
+      <EditLicenseModal
+        isOpen={!!licenseToEdit}
+        onClose={() => setLicenseToEdit(null)}
+        onSuccess={loadData}
+        license={licenseToEdit}
+      />
 
       {/* Delete Confirmation */}
       <ConfirmModal

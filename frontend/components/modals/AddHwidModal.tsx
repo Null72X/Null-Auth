@@ -28,7 +28,7 @@ interface AuthorizedHwidItem {
   hwid: string;
   hwidHash: string;
   expiresAt: string;
-  notes?: string;
+  clientName?: string;
 }
 
 interface AddHwidModalProps {
@@ -52,7 +52,7 @@ export function AddHwidModal({
   const [hwid, setHwid] = useState('');
   const [hwidBatchText, setHwidBatchText] = useState('');
   const [days, setDays] = useState(30);
-  const [notes, setNotes] = useState('');
+  const [clientName, setClientName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,7 +66,7 @@ export function AddHwidModal({
       setAuthorizedBatch(null);
       setError(null);
       setCopiedAll(false);
-      setCopiedItem(null);
+      setClientName('');
       if (defaultAppId && hwidApps.some((a) => a.id === defaultAppId)) {
         setAppId(defaultAppId);
       } else if (hwidApps.length > 0 && !appId) {
@@ -80,9 +80,9 @@ export function AddHwidModal({
   // Calculate batch count
   const batchCount = useMemo(() => {
     return hwidBatchText
-      .split(/[\n,]+/)
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0).length;
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0).length;
   }, [hwidBatchText]);
 
   // Dynamic Expiration Preview Text
@@ -97,7 +97,7 @@ export function AddHwidModal({
     })} (${days} days)`;
   }, [days]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleAuthorize = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
@@ -105,20 +105,20 @@ export function AddHwidModal({
     const targetAppId = selectedAppId;
 
     if (!targetAppId) {
-      setError('Please create or select an HWID-access application first.');
+      setError('Please select an authorized HWID-mode application.');
       setIsLoading(false);
       return;
     }
 
     const hwidList = isBatchMode
       ? hwidBatchText
-          .split(/[\n,]+/)
-          .map((s) => s.trim())
-          .filter((s) => s.length > 0)
-      : [hwid.trim()].filter(Boolean);
+          .split('\n')
+          .map((line) => line.trim())
+          .filter((line) => line.length > 0)
+      : [hwid.trim()];
 
-    if (hwidList.length === 0) {
-      setError('Please enter at least one valid Machine SID / HWID.');
+    if (hwidList.length === 0 || (!isBatchMode && !hwid.trim())) {
+      setError('Please provide at least one valid Windows Machine SID / HWID.');
       setIsLoading(false);
       return;
     }
@@ -135,7 +135,7 @@ export function AddHwidModal({
               appId: targetAppId,
               hwid: h,
               days: Number(days),
-              notes: notes.trim() || undefined,
+              clientName: clientName.trim() || undefined,
             }),
           });
 
@@ -145,7 +145,7 @@ export function AddHwidModal({
               hwid: h,
               hwidHash: res.data.hwidHash || h,
               expiresAt: res.data.expiresAt || new Date().toISOString(),
-              notes: notes.trim() || undefined,
+              clientName: clientName.trim() || undefined,
             });
           } else {
             failures.push(`"${h.slice(0, 20)}": ${res.message || 'Failed'}`);
@@ -190,7 +190,7 @@ export function AddHwidModal({
     const allText = authorizedBatch
       .map(
         (b) =>
-          `HWID: ${b.hwid}\nHash: ${b.hwidHash}\nExpires: ${b.expiresAt}\nNotes: ${b.notes || 'None'}\n---`
+          `HWID: ${b.hwid}\nHash: ${b.hwidHash}\nExpires: ${b.expiresAt}\nClient Name: ${b.clientName || 'None'}\n---`
       )
       .join('\n');
     const element = document.createElement('a');
@@ -206,7 +206,7 @@ export function AddHwidModal({
     setAuthorizedBatch(null);
     setHwid('');
     setHwidBatchText('');
-    setNotes('');
+    setClientName('');
     setDays(30);
     setError(null);
   };
@@ -376,17 +376,17 @@ export function AddHwidModal({
             </div>
           </div>
 
-          {/* Admin Notes / Customer Tag */}
+          {/* Client Name */}
           <div>
             <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">
-              Customer / Device Notes (Optional)
+              Client Name (Optional)
             </label>
             <input
               type="text"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="e.g. Authorized tester / Workstation Office #12"
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-[10px] px-3.5 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-purple-500"
+              value={clientName}
+              onChange={(e) => setClientName(e.target.value)}
+              placeholder="e.g. John Doe / Office Workstation #12"
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-[10px] px-3.5 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-purple-500 transition-colors"
             />
           </div>
 

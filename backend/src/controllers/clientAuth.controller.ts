@@ -4,6 +4,7 @@ import { prisma } from '../db.js';
 import { sendSuccess, sendError } from '../utils/response.js';
 import { hashHwid } from '../services/hash.service.js';
 import { logActivity } from '../services/logger.service.js';
+import { notifyClientAuthSuccess, notifySecurityAlert } from '../services/discord.service.js';
 
 export const licenseAuthSchema = z.object({
   appId: z.string().min(1, 'appId is required'),
@@ -213,6 +214,18 @@ export async function authenticateLicense(req: Request, res: Response) {
       });
     } else if (license.boundHwid !== cleanHwid) {
       // HWID Mismatch
+      try {
+        await notifySecurityAlert({
+          appName: app.name,
+          appId: app.appId,
+          reason: 'HWID Mismatch (Unauthorized Machine SID)',
+          keyOrHwid: license.key,
+          clientName: (license as any).clientName || (license as any).notes,
+          ip: typeof ipAddress === 'string' ? ipAddress : undefined,
+          hwid,
+        });
+      } catch (e) {}
+
       await logActivity({
         appId: app.id,
         action: 'CLIENT_AUTH_FAILED',
@@ -252,11 +265,26 @@ export async function authenticateLicense(req: Request, res: Response) {
       status: 'SUCCESS',
     });
 
+    const clientName = (license as any).clientName || (license as any).notes || null;
+
+    // Discord Notification
+    try {
+      await notifyClientAuthSuccess({
+        appName: app.name,
+        appId: app.appId,
+        clientName,
+        keyOrHwid: license.key,
+        ip: typeof ipAddress === 'string' ? ipAddress : undefined,
+        version: clientVer || app.version,
+      });
+    } catch (discordErr) {}
+
     const remainingMs = license.expiresAt.getTime() - now.getTime();
     const remainingDays = Math.max(0, Math.ceil(remainingMs / (1000 * 60 * 60 * 24)));
 
     return sendSuccess(res, 'Authentication successful', {
       status: 'active',
+      client_name: clientName,
       expires_at: license.expiresAt.toISOString(),
       remaining_days: remainingDays,
       first_activated_at: license.firstActivatedAt
@@ -453,11 +481,26 @@ export async function authenticateHwid(req: Request, res: Response) {
       status: 'SUCCESS',
     });
 
+    const clientName = (hwidRecord as any).clientName || (hwidRecord as any).notes || null;
+
+    // Discord Notification
+    try {
+      await notifyClientAuthSuccess({
+        appName: app.name,
+        appId: app.appId,
+        clientName,
+        keyOrHwid: cleanHwid.substring(0, 16) + '...',
+        ip: typeof ipAddress === 'string' ? ipAddress : undefined,
+        version: clientVer || app.version,
+      });
+    } catch (discordErr) {}
+
     const remainingMs = hwidRecord.expiresAt.getTime() - now.getTime();
     const remainingDays = Math.max(0, Math.ceil(remainingMs / (1000 * 60 * 60 * 24)));
 
     return sendSuccess(res, 'Authentication successful', {
       status: 'active',
+      client_name: clientName,
       expires_at: hwidRecord.expiresAt.toISOString(),
       remaining_days: remainingDays,
       version: app.version,

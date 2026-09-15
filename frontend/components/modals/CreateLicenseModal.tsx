@@ -17,7 +17,7 @@ interface GeneratedLicense {
   id: string;
   key: string;
   expiresAt: string;
-  notes?: string;
+  clientName?: string;
 }
 
 interface CreateLicenseModalProps {
@@ -39,7 +39,7 @@ export function CreateLicenseModal({
   const [appId, setAppId] = useState(defaultAppId || '');
   const [quantity, setQuantity] = useState(1);
   const [days, setDays] = useState(30);
-  const [notes, setNotes] = useState('');
+  const [clientName, setClientName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,6 +53,7 @@ export function CreateLicenseModal({
       setGeneratedBatch(null);
       setError(null);
       setCopiedAll(false);
+      setClientName('');
       if (defaultAppId && licenseApps.some((a) => a.id === defaultAppId)) {
         setAppId(defaultAppId);
       } else if (licenseApps.length > 0 && !appId) {
@@ -83,12 +84,24 @@ export function CreateLicenseModal({
           appId: targetAppId,
           quantity: Number(quantity),
           days: Number(days),
-          notes,
+          clientName: clientName.trim() || undefined,
         }),
       });
 
       if (res.success && res.data) {
         setGeneratedBatch(res.data);
+        
+        // Auto-copy license key(s) directly to clipboard!
+        try {
+          const keysToCopy = res.data.map((l: any) => l.key).join('\n');
+          if (navigator.clipboard) {
+            await navigator.clipboard.writeText(keysToCopy);
+            setCopiedAll(true);
+          }
+        } catch (clipErr) {
+          console.warn('Clipboard write permission denied:', clipErr);
+        }
+
         onSuccess();
       } else {
         setError(res.message || 'Failed to generate licenses.');
@@ -229,17 +242,17 @@ export function CreateLicenseModal({
             </div>
           </div>
 
-          {/* Admin Notes / Customer Tag */}
+          {/* Client Name */}
           <div>
             <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">
-              Customer / Reseller Notes (Optional)
+              Client Name (Optional)
             </label>
             <input
               type="text"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="e.g. Reseller Order #482 / Customer John Doe"
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-[10px] px-3.5 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-red-500"
+              value={clientName}
+              onChange={(e) => setClientName(e.target.value)}
+              placeholder="e.g. John Doe / discord_user / Order #104"
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-[10px] px-3.5 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-red-500 transition-colors"
             />
           </div>
 
@@ -258,14 +271,19 @@ export function CreateLicenseModal({
           <div className="flex items-center justify-between p-3.5 rounded-[10px] bg-emerald-950/40 border border-emerald-800/60 text-xs">
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-emerald-300 font-bold">
-                Successfully Generated {generatedBatch.length} License Key(s)!
-              </span>
+              <div>
+                <span className="text-emerald-300 font-bold block">
+                  Generated {generatedBatch.length} License Key(s)!
+                </span>
+                <span className="text-emerald-400/80 text-[11px] font-mono">
+                  ✓ Automatically copied to clipboard
+                </span>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <Button size="sm" variant="secondary" onClick={copyAllKeys} className="gap-1.5 text-xs font-bold">
                 {copiedAll ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                Copy All Keys
+                {copiedAll ? 'Copied!' : 'Copy Again'}
               </Button>
               <Button size="sm" onClick={downloadTxtFile} className="gap-1.5 text-xs font-bold">
                 <Download className="w-3.5 h-3.5" /> Download TXT

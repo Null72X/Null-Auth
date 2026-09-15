@@ -4,6 +4,7 @@ import appsRoutes from './apps.routes.js';
 import licensesRoutes from './licenses.routes.js';
 import hwidRoutes from './hwid.routes.js';
 import logsRoutes from './logs.routes.js';
+import settingsRoutes from './settings.routes.js';
 import clientAuthRoutes from './clientAuth.routes.js';
 
 const router = Router();
@@ -14,6 +15,7 @@ router.use('/admin/apps', appsRoutes);
 router.use('/admin/licenses', licensesRoutes);
 router.use('/admin/hwid', hwidRoutes);
 router.use('/admin/logs', logsRoutes);
+router.use('/admin/settings', settingsRoutes);
 router.use('/client', clientAuthRoutes);
 
 export default router;

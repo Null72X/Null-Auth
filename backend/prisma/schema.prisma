@@ -27,6 +27,7 @@ model Application {
   downloadUrl      String?      // Optional update download link
   freeTrialEnabled Boolean      @default(false)
   freeTrialKey     String?      // Dynamic master trial key for LICENSE apps
+  discordWebhookUrl String?     // Custom Discord Webhook URL for this application
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 
@@ -45,7 +46,7 @@ model License {
   status           String      @default("ACTIVE") // "ACTIVE", "PAUSED", "EXPIRED", "BANNED"
   boundHwid        String?     // Hashed or sanitized machine SID / HWID
   expiresAt        DateTime
-  notes            String?
+  clientName       String?     @map("notes")
   firstActivatedAt DateTime?
   lastLoginAt      DateTime?
   createdAt        DateTime    @default(now())
@@ -64,7 +65,7 @@ model HwidAccess {
   application Application @relation(fields: [appId], references: [id], onDelete: Cascade)
   status      String      @default("ACTIVE") // "ACTIVE", "PAUSED", "EXPIRED", "BANNED"
   expiresAt   DateTime
-  notes       String?
+  clientName  String?     @map("notes")
   lastAuthAt  DateTime?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
@@ -74,6 +75,14 @@ model HwidAccess {
   @@index([hwidHash])
   @@index([status])
   @@index([expiresAt])
+}
+
+model Setting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model ActivityLog {

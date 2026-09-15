@@ -22,6 +22,7 @@ router.get('/', listHwidEntries);
 router.get('/:id', getHwidById);
 router.post('/', validateBody(addHwidSchema), addHwidEntry);
 router.patch('/:id', validateBody(updateHwidSchema), updateHwidEntry);
+router.put('/:id', validateBody(updateHwidSchema), updateHwidEntry);
 router.patch('/:id/status', toggleHwidStatus);
 router.post('/:id/extend', validateBody(extendHwidSchema), extendHwid);
 router.delete('/:id', deleteHwidEntry);

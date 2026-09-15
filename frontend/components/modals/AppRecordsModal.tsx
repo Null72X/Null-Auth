@@ -174,13 +174,13 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
       if (app?.type === 'LICENSE') {
         return (
           r.key?.toLowerCase().includes(query) ||
-          r.notes?.toLowerCase().includes(query) ||
+          (r.clientName || r.notes)?.toLowerCase().includes(query) ||
           r.boundHwid?.toLowerCase().includes(query)
         );
       } else {
         return (
           r.hwidHash?.toLowerCase().includes(query) ||
-          r.notes?.toLowerCase().includes(query)
+          (r.clientName || r.notes)?.toLowerCase().includes(query)
         );
       }
     });
@@ -227,8 +227,8 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
               type="text"
               placeholder={
                 app.type === 'LICENSE'
-                  ? 'Search by license key, bound Machine SID, or notes...'
-                  : 'Search by authorized Machine SID or notes...'
+                  ? 'Search by license key, bound Machine SID, or Client Name...'
+                  : 'Search by authorized Machine SID or Client Name...'
               }
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -418,9 +418,9 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
                     </div>
 
                     <div className="flex items-center gap-2">
-                      {r.notes && (
-                        <span className="text-zinc-400 italic truncate max-w-[150px]">
-                          "{r.notes}"
+                      {(r.clientName || r.notes) && (
+                        <span className="text-zinc-300 font-medium truncate max-w-[180px] bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800 text-[11px]">
+                          Client: {r.clientName || r.notes}
                         </span>
                       )}
                       <span className="text-emerald-400 font-mono font-bold">

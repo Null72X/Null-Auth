@@ -3,6 +3,7 @@ import {
   listApps,
   getAppById,
   createApp,
+  updateApp,
   updateAppName,
   updateAppVersion,
   toggleAppStatus,
@@ -25,6 +26,8 @@ router.use(requireAdminAuth);
 router.get('/', listApps);
 router.get('/:id', getAppById);
 router.post('/', validateBody(createAppSchema), createApp);
+router.put('/:id', updateApp);
+router.patch('/:id', updateApp);
 router.patch('/:id/name', validateBody(updateAppNameSchema), updateAppName);
 router.patch('/:id/version', validateBody(updateAppVersionSchema), updateAppVersion);
 router.patch('/:id/status', validateBody(updateAppStatusSchema), toggleAppStatus);

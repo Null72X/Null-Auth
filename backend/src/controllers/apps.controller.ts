@@ -247,6 +247,50 @@ export async function updateAppName(req: Request, res: Response) {
   }
 }
 
+export async function updateApp(req: Request, res: Response) {
+  const { id } = req.params;
+  const { name, version, downloadUrl, status, freeTrialEnabled, freeTrialKey, discordWebhookUrl, secret } = req.body;
+
+  try {
+    const existing = await prisma.application.findFirst({
+      where: { OR: [{ id }, { appId: id }] },
+    });
+
+    if (!existing) {
+      return sendError(res, 'Application not found', 404);
+    }
+
+    const updateData: any = {};
+    if (name !== undefined) updateData.name = name.trim();
+    if (version !== undefined) updateData.version = version.trim();
+    if (downloadUrl !== undefined) updateData.downloadUrl = downloadUrl ? downloadUrl.trim() : null;
+    if (status !== undefined) updateData.status = status;
+    if (freeTrialEnabled !== undefined) updateData.freeTrialEnabled = Boolean(freeTrialEnabled);
+    if (freeTrialKey !== undefined) updateData.freeTrialKey = freeTrialKey ? freeTrialKey.trim() : null;
+    if (discordWebhookUrl !== undefined) updateData.discordWebhookUrl = discordWebhookUrl ? discordWebhookUrl.trim() : null;
+    if (secret !== undefined && secret.trim()) updateData.secret = secret.trim();
+
+    const updated = await prisma.application.update({
+      where: { id: existing.id },
+      data: updateData,
+    });
+
+    await logActivity({
+      appId: updated.id,
+      action: 'APP_UPDATE',
+      actorType: 'ADMIN',
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+      details: { appId: updated.appId, updates: updateData },
+      status: 'SUCCESS',
+    });
+
+    return sendSuccess(res, 'Application updated successfully', updated);
+  } catch (error: any) {
+    return sendError(res, 'Failed to update application', 500, error.message);
+  }
+}
+
 export async function updateAppVersion(req: Request, res: Response) {
   const { id } = req.params;
   const { version, downloadUrl } = req.body;

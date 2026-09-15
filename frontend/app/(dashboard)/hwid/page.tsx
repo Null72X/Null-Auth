@@ -7,22 +7,28 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { AddHwidModal } from '@/components/modals/AddHwidModal';
 import { ConfirmModal } from '@/components/modals/ConfirmModal';
+import { EditHwidModal } from '@/components/modals/EditHwidModal';
 import { Modal } from '@/components/ui/Modal';
 import { fetchApi } from '@/lib/api';
 import {
-  Plus,
   ShieldCheck,
-  Search,
+  Plus,
+  RefreshCw,
   Trash2,
   Pause,
   Play,
   Calendar,
+  Search,
+  CheckSquare,
+  Square,
+  Sparkles,
+  Cpu,
+  Layers,
   Edit2,
   Copy,
   Check,
   Ban,
   Clock,
-  RotateCcw,
 } from 'lucide-react';
 
 interface HwidItem {
@@ -33,7 +39,7 @@ interface HwidItem {
   effectiveStatus: string;
   expiresAt: string;
   remainingDays: number;
-  notes: string | null;
+  clientName: string | null;
   lastAuthAt: string | null;
   createdAt: string;
   application?: {
@@ -62,8 +68,7 @@ export default function HwidPage() {
   const [itemToChangeHwid, setItemToChangeHwid] = useState<HwidItem | null>(null);
   const [newHwidString, setNewHwidString] = useState('');
 
-  const [itemToEditNotes, setItemToEditNotes] = useState<HwidItem | null>(null);
-  const [editNotes, setEditNotes] = useState('');
+  const [itemToEdit, setItemToEdit] = useState<HwidItem | null>(null);
 
   const [copiedHwid, setCopiedHwid] = useState<string | null>(null);
 
@@ -127,17 +132,6 @@ export default function HwidPage() {
     });
     setItemToChangeHwid(null);
     setNewHwidString('');
-    loadData();
-  };
-
-  const handleEditNotes = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!itemToEditNotes) return;
-    await fetchApi(`/admin/hwid/${itemToEditNotes.id}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ notes: editNotes }),
-    });
-    setItemToEditNotes(null);
     loadData();
   };
 
@@ -218,7 +212,7 @@ export default function HwidPage() {
             <Search className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3" />
             <input
               type="text"
-              placeholder="Search by Windows SID / HWID string or notes..."
+              placeholder="Search by Windows SID / HWID string or Client Name..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-purple-500/80"
@@ -267,7 +261,7 @@ export default function HwidPage() {
                 <th className="p-4">Status</th>
                 <th className="p-4">Expiration</th>
                 <th className="p-4">Last Auth</th>
-                <th className="p-4">Notes</th>
+                <th className="p-4">Client Name</th>
                 <th className="p-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -328,18 +322,27 @@ export default function HwidPage() {
                         ? new Date(item.lastAuthAt).toLocaleString()
                         : 'Never'}
                     </td>
-                    <td className="p-4 text-xs text-zinc-300 max-w-[160px] truncate">
-                      {item.notes || <span className="text-zinc-600 italic">No notes</span>}
+                    <td className="p-4 text-xs text-zinc-300 font-medium max-w-[160px] truncate">
+                      {item.clientName || <span className="text-zinc-600 italic">—</span>}
                     </td>
                     <td className="p-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => setItemToEdit(item)}
+                          title="Edit HWID Record (SID, Client, Expiry, Status)"
+                          className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white transition-colors active:scale-95 flex items-center gap-1 font-semibold text-xs border border-zinc-700/60"
+                        >
+                          <Edit2 className="w-3.5 h-3.5 text-purple-400" />
+                          <span className="hidden sm:inline text-[11px]">Edit</span>
+                        </button>
+
                         {/* HWID Changer Button */}
                         <button
                           onClick={() => {
                             setItemToChangeHwid(item);
                             setNewHwidString(item.hwidHash);
                           }}
-                          title="Change HWID String (HWID Changer)"
+                          title="Change HWID String"
                           className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-purple-400 hover:text-purple-300 transition-colors active:scale-95 border border-zinc-700/60"
                         >
                           <RotateCcw className="w-3.5 h-3.5" />
@@ -353,16 +356,6 @@ export default function HwidPage() {
                           <Calendar className="w-3.5 h-3.5" />
                         </button>
 
-                        <button
-                          onClick={() => {
-                            setItemToEditNotes(item);
-                            setEditNotes(item.notes || '');
-                          }}
-                          title="Edit Notes"
-                          className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors active:scale-95"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
                         <button
                           onClick={() =>
                             handleToggleStatus(
@@ -487,33 +480,13 @@ export default function HwidPage() {
         </form>
       </Modal>
 
-      {/* Edit Notes Modal */}
-      <Modal
-        isOpen={!!itemToEditNotes}
-        onClose={() => setItemToEditNotes(null)}
-        title="Edit Admin Notes"
-      >
-        <form onSubmit={handleEditNotes} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">
-              Notes
-            </label>
-            <input
-              type="text"
-              value={editNotes}
-              onChange={(e) => setEditNotes(e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2.5 text-sm text-zinc-100 focus:outline-none focus:border-purple-500"
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
-            <Button type="button" variant="secondary" onClick={() => setItemToEditNotes(null)}>
-              Cancel
-            </Button>
-            <Button type="submit">Save Notes</Button>
-          </div>
-        </form>
-      </Modal>
+      {/* Full Edit HWID Record Modal */}
+      <EditHwidModal
+        isOpen={!!itemToEdit}
+        onClose={() => setItemToEdit(null)}
+        onSuccess={loadData}
+        item={itemToEdit}
+      />
 
       {/* Delete Confirmation */}
       <ConfirmModal

@@ -10,6 +10,7 @@ import { CreateLicenseModal } from '@/components/modals/CreateLicenseModal';
 import { AddHwidModal } from '@/components/modals/AddHwidModal';
 import { AppRecordsModal } from '@/components/modals/AppRecordsModal';
 import { ConfirmModal } from '@/components/modals/ConfirmModal';
+import { EditAppModal } from '@/components/modals/EditAppModal';
 import { Modal } from '@/components/ui/Modal';
 import { fetchApi } from '@/lib/api';
 import {
@@ -907,30 +908,13 @@ export default function ApplicationsPage() {
         </div>
       </Modal>
 
-      {/* Edit App Name Modal */}
-      <Modal isOpen={!!appToEdit} onClose={() => setAppToEdit(null)} title="Edit Application Name">
-        <form onSubmit={handleUpdateName} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">
-              New Application Name
-            </label>
-            <input
-              type="text"
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              required
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-[7px] px-3.5 py-2.5 text-sm text-zinc-100 focus:outline-none focus:border-red-500"
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
-            <Button type="button" variant="secondary" onClick={() => setAppToEdit(null)}>
-              Cancel
-            </Button>
-            <Button type="submit">Save Changes</Button>
-          </div>
-        </form>
-      </Modal>
+      {/* Full Edit Application Modal */}
+      <EditAppModal
+        isOpen={!!appToEdit}
+        onClose={() => setAppToEdit(null)}
+        onSuccess={loadApps}
+        app={appToEdit}
+      />
 
       {/* Edit App Version & Download URL Modal */}
       <Modal

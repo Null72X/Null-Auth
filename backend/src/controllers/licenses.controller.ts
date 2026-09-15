@@ -5,16 +5,20 @@ import { sendSuccess, sendError } from '../utils/response.js';
 import { generateLicenseKey } from '../utils/generator.js';
 import { hashHwid } from '../services/hash.service.js';
 import { logActivity } from '../services/logger.service.js';
+import { notifyLicenseCreated } from '../services/discord.service.js';
 
 export const generateLicenseSchema = z.object({
   appId: z.string().min(1, 'Application ID is required'),
   quantity: z.number().int().min(1).max(100).default(1),
   days: z.number().int().min(1).default(30),
-  notes: z.string().optional(),
+  clientName: z.string().optional(),
+  notes: z.string().optional(), // backwards compatibility
 });
 
 export const updateLicenseSchema = z.object({
-  notes: z.string().optional(),
+  key: z.string().optional(),
+  clientName: z.string().optional(),
+  notes: z.string().optional(), // backwards compatibility
   status: z.enum(['ACTIVE', 'PAUSED', 'EXPIRED', 'BANNED']).optional(),
   boundHwid: z.string().nullable().optional(),
   expiresAt: z.string().optional(), // ISO date string
@@ -83,7 +87,7 @@ export async function listLicenses(req: Request, res: Response) {
       take: limitNum,
     });
 
-    const formatted = licenses.map((lic) => {
+    const formatted = licenses.map((lic: any) => {
       const isExpired = lic.expiresAt <= now;
       let effectiveStatus = lic.status;
       if (lic.status === 'ACTIVE' && isExpired) {
@@ -95,16 +99,20 @@ export async function listLicenses(req: Request, res: Response) {
 
       return {
         ...lic,
+        clientName: lic.clientName || lic.notes || null,
         effectiveStatus,
         remainingDays,
       };
     });
 
-    return sendSuccess(res, 'Licenses retrieved successfully', formatted, 200, {
-      totalCount,
-      page: pageNum,
-      limit: limitNum,
-      totalPages: Math.ceil(totalCount / limitNum),
+    return sendSuccess(res, 'Licenses retrieved successfully', {
+      licenses: formatted,
+      pagination: {
+        total: totalCount,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(totalCount / limitNum),
+      },
     });
   } catch (error: any) {
     return sendError(res, 'Failed to fetch licenses', 500, error.message);
@@ -115,25 +123,33 @@ export async function getLicenseById(req: Request, res: Response) {
   const { id } = req.params;
 
   try {
-    const license = await prisma.license.findUnique({
-      where: { id },
+    const lic: any = await prisma.license.findFirst({
+      where: {
+        OR: [{ id }, { key: id }],
+      },
       include: {
         application: true,
       },
     });
 
-    if (!license) {
+    if (!lic) {
       return sendError(res, 'License not found', 404);
     }
 
     const now = new Date();
-    const isExpired = license.expiresAt <= now;
-    const diffTime = license.expiresAt.getTime() - now.getTime();
+    const isExpired = lic.expiresAt <= now;
+    let effectiveStatus = lic.status;
+    if (lic.status === 'ACTIVE' && isExpired) {
+      effectiveStatus = 'EXPIRED';
+    }
+
+    const diffTime = lic.expiresAt.getTime() - now.getTime();
     const remainingDays = diffTime > 0 ? Math.ceil(diffTime / (1000 * 60 * 60 * 24)) : 0;
 
-    return sendSuccess(res, 'License retrieved', {
-      ...license,
-      effectiveStatus: license.status === 'ACTIVE' && isExpired ? 'EXPIRED' : license.status,
+    return sendSuccess(res, 'License retrieved successfully', {
+      ...lic,
+      clientName: lic.clientName || lic.notes || null,
+      effectiveStatus,
       remainingDays,
     });
   } catch (error: any) {
@@ -142,7 +158,8 @@ export async function getLicenseById(req: Request, res: Response) {
 }
 
 export async function generateLicenses(req: Request, res: Response) {
-  const { appId, quantity = 1, days = 30, notes } = req.body;
+  const { appId, quantity = 1, days = 30, clientName, notes } = req.body;
+  const resolvedClientName = (clientName !== undefined ? clientName : notes) || null;
 
   try {
     const app = await prisma.application.findFirst({
@@ -161,6 +178,7 @@ export async function generateLicenses(req: Request, res: Response) {
     expiresAt.setDate(expiresAt.getDate() + days);
 
     const createdLicenses = [];
+    const createdKeys: string[] = [];
 
     for (let i = 0; i < quantity; i++) {
       let key = generateLicenseKey();
@@ -170,17 +188,23 @@ export async function generateLicenses(req: Request, res: Response) {
         exists = await prisma.license.findUnique({ where: { key } });
       }
 
-      const lic = await prisma.license.create({
-        data: {
-          key,
-          appId: app.id,
-          status: 'ACTIVE',
-          expiresAt,
-          notes: notes || null,
-        },
+      const licData: any = {
+        key,
+        appId: app.id,
+        status: 'ACTIVE',
+        expiresAt,
+        notes: resolvedClientName,
+      };
+
+      const lic: any = await prisma.license.create({
+        data: licData,
       });
 
-      createdLicenses.push(lic);
+      createdLicenses.push({
+        ...lic,
+        clientName: resolvedClientName,
+      });
+      createdKeys.push(key);
     }
 
     await logActivity({
@@ -189,9 +213,23 @@ export async function generateLicenses(req: Request, res: Response) {
       actorType: 'ADMIN',
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
-      details: { quantity, days, appId: app.appId },
+      details: { quantity, days, appId: app.appId, clientName: resolvedClientName },
       status: 'SUCCESS',
     });
+
+    // Dispatch Discord Webhook
+    try {
+      await notifyLicenseCreated({
+        appName: app.name,
+        appId: app.appId,
+        keys: createdKeys,
+        clientName: resolvedClientName,
+        days,
+        adminIp: req.ip,
+      });
+    } catch (discordErr) {
+      console.warn('[Discord Webhook Error]:', discordErr);
+    }
 
     return sendSuccess(res, `Successfully generated ${quantity} license key(s)`, createdLicenses, 201);
   } catch (error: any) {
@@ -201,22 +239,56 @@ export async function generateLicenses(req: Request, res: Response) {
 
 export async function updateLicense(req: Request, res: Response) {
   const { id } = req.params;
-  const { notes, status, boundHwid, expiresAt } = req.body;
+  const { key, clientName, notes, status, boundHwid, expiresAt } = req.body;
 
   try {
+    const existing = await prisma.license.findFirst({
+      where: { OR: [{ id }, { key: id }] },
+    });
+
+    if (!existing) {
+      return sendError(res, 'License not found', 404);
+    }
+
     const updateData: any = {};
 
-    if (notes !== undefined) updateData.notes = notes;
-    if (status !== undefined) updateData.status = status;
-    if (boundHwid !== undefined) {
-      updateData.boundHwid = boundHwid ? hashHwid(boundHwid) : null;
+    // Allow editing the license key string
+    if (key && key.trim() !== existing.key) {
+      const trimmedKey = key.trim().toUpperCase();
+      const duplicate = await prisma.license.findUnique({ where: { key: trimmedKey } });
+      if (duplicate && duplicate.id !== existing.id) {
+        return sendError(res, 'License key already exists', 400);
+      }
+      updateData.key = trimmedKey;
     }
+
+    const resolvedClientName = clientName !== undefined ? clientName : notes;
+    if (resolvedClientName !== undefined) {
+      updateData.notes = resolvedClientName ? resolvedClientName.trim() : null;
+    }
+
+    if (status !== undefined) {
+      updateData.status = status;
+    }
+
+    if (boundHwid !== undefined) {
+      // If empty string or null, unbind HWID
+      if (!boundHwid || boundHwid.trim() === '') {
+        updateData.boundHwid = null;
+      } else {
+        // If already looks like a sha256 hash (64 hex chars), keep it; otherwise hash it
+        updateData.boundHwid = boundHwid.length === 64 && /^[0-9a-fA-F]+$/.test(boundHwid)
+          ? boundHwid
+          : hashHwid(boundHwid);
+      }
+    }
+
     if (expiresAt) {
       updateData.expiresAt = new Date(expiresAt);
     }
 
-    const updated = await prisma.license.update({
-      where: { id },
+    const updated: any = await prisma.license.update({
+      where: { id: existing.id },
       data: updateData,
     });
 
@@ -230,7 +302,10 @@ export async function updateLicense(req: Request, res: Response) {
       status: 'SUCCESS',
     });
 
-    return sendSuccess(res, 'License updated successfully', updated);
+    return sendSuccess(res, 'License updated successfully', {
+      ...updated,
+      clientName: updated.clientName || updated.notes || null,
+    });
   } catch (error: any) {
     return sendError(res, 'Failed to update license', 500, error.message);
   }

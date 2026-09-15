@@ -26,6 +26,7 @@ router.get('/', listLicenses);
 router.get('/:id', getLicenseById);
 router.post('/generate', validateBody(generateLicenseSchema), generateLicenses);
 router.patch('/:id', validateBody(updateLicenseSchema), updateLicense);
+router.put('/:id', validateBody(updateLicenseSchema), updateLicense);
 router.patch('/:id/status', toggleLicenseStatus);
 router.post('/:id/extend', validateBody(extendLicenseSchema), extendLicense);
 router.post('/:id/reset-hwid', validateBody(setLicenseHwidSchema), resetLicenseHwid);
