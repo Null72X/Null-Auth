@@ -9,9 +9,10 @@ interface ModalProps {
   title: string;
   children: React.ReactNode;
   maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | 'full';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | 'full';
 }
 
-export function Modal({ isOpen, onClose, title, children, maxWidth = 'md' }: ModalProps) {
+export function Modal({ isOpen, onClose, title, children, maxWidth = 'md', size }: ModalProps) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -32,16 +33,17 @@ export function Modal({ isOpen, onClose, title, children, maxWidth = 'md' }: Mod
 
   if (!isOpen) return null;
 
+  const effectiveSize = size || maxWidth;
   let widthClass = 'max-w-md';
-  if (maxWidth === 'sm') widthClass = 'max-w-sm';
-  if (maxWidth === 'lg') widthClass = 'max-w-lg';
-  if (maxWidth === 'xl') widthClass = 'max-w-xl';
-  if (maxWidth === '2xl') widthClass = 'max-w-2xl';
-  if (maxWidth === '3xl') widthClass = 'max-w-3xl';
-  if (maxWidth === '4xl') widthClass = 'max-w-4xl';
-  if (maxWidth === '5xl') widthClass = 'max-w-5xl';
-  if (maxWidth === '6xl') widthClass = 'max-w-6xl';
-  if (maxWidth === 'full') widthClass = 'max-w-[95vw]';
+  if (effectiveSize === 'sm') widthClass = 'max-w-sm';
+  if (effectiveSize === 'lg') widthClass = 'max-w-lg';
+  if (effectiveSize === 'xl') widthClass = 'max-w-xl';
+  if (effectiveSize === '2xl') widthClass = 'max-w-2xl';
+  if (effectiveSize === '3xl') widthClass = 'max-w-3xl';
+  if (effectiveSize === '4xl') widthClass = 'max-w-4xl';
+  if (effectiveSize === '5xl') widthClass = 'max-w-5xl';
+  if (effectiveSize === '6xl') widthClass = 'max-w-6xl';
+  if (effectiveSize === 'full') widthClass = 'max-w-[95vw]';
 
   return (
     <div

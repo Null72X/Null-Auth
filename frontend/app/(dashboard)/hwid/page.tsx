@@ -29,6 +29,7 @@ import {
   Check,
   Ban,
   Clock,
+  RotateCcw,
 } from 'lucide-react';
 
 interface HwidItem {
