@@ -68,7 +68,7 @@ export async function listLicenses(req: Request, res: Response) {
     const s = search.trim();
     whereClause.OR = [
       { key: { contains: s } },
-      { notes: { contains: s } },
+      { clientName: { contains: s } },
       { boundHwid: { contains: s } },
     ];
   }
@@ -193,7 +193,7 @@ export async function generateLicenses(req: Request, res: Response) {
         appId: app.id,
         status: 'ACTIVE',
         expiresAt,
-        notes: resolvedClientName,
+        clientName: resolvedClientName,
       };
 
       const lic: any = await prisma.license.create({
@@ -264,7 +264,7 @@ export async function updateLicense(req: Request, res: Response) {
 
     const resolvedClientName = clientName !== undefined ? clientName : notes;
     if (resolvedClientName !== undefined) {
-      updateData.notes = resolvedClientName ? resolvedClientName.trim() : null;
+      updateData.clientName = resolvedClientName ? resolvedClientName.trim() : null;
     }
 
     if (status !== undefined) {

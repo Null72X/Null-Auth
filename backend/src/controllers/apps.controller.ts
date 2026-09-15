@@ -374,7 +374,7 @@ export async function toggleFreeTrial(req: Request, res: Response) {
             appId: app.id,
             status: 'ACTIVE',
             expiresAt,
-            notes: 'Dynamic Master Free Trial Key',
+            clientName: 'Dynamic Master Free Trial Key',
           },
         });
       }

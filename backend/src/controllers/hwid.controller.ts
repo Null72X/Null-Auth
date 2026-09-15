@@ -57,7 +57,7 @@ export async function listHwidEntries(req: Request, res: Response) {
     const s = search.trim();
     whereClause.OR = [
       { hwidHash: { contains: s } },
-      { notes: { contains: s } },
+      { clientName: { contains: s } },
     ];
   }
 
@@ -87,7 +87,7 @@ export async function listHwidEntries(req: Request, res: Response) {
 
       return {
         ...entry,
-        clientName: entry.clientName || entry.notes || null,
+        clientName: entry.clientName || null,
         effectiveStatus,
         remainingDays,
       };
@@ -107,7 +107,7 @@ export async function listHwidEntries(req: Request, res: Response) {
   }
 }
 
-export async function getHwidEntryById(req: Request, res: Response) {
+export async function getHwidById(req: Request, res: Response) {
   const { id } = req.params;
 
   try {
@@ -175,7 +175,7 @@ export async function addHwidEntry(req: Request, res: Response) {
         data: {
           status: 'ACTIVE',
           expiresAt,
-          notes: resolvedClientName !== null ? resolvedClientName : (existing as any).notes,
+          clientName: resolvedClientName !== null ? resolvedClientName : (existing as any).clientName,
         },
       });
 
@@ -191,7 +191,7 @@ export async function addHwidEntry(req: Request, res: Response) {
 
       return sendSuccess(res, 'HWID access authorized and reactivated successfully', {
         ...updated,
-        clientName: updated.clientName || updated.notes || null,
+        clientName: updated.clientName || null,
       }, 200);
     }
 
@@ -201,7 +201,7 @@ export async function addHwidEntry(req: Request, res: Response) {
         hwidHash,
         status: 'ACTIVE',
         expiresAt,
-        notes: resolvedClientName,
+        clientName: resolvedClientName,
       },
     });
 
@@ -231,12 +231,14 @@ export async function addHwidEntry(req: Request, res: Response) {
 
     return sendSuccess(res, 'HWID access authorized successfully', {
       ...newEntry,
-      clientName: newEntry.clientName || newEntry.notes || null,
+      clientName: newEntry.clientName || null,
     }, 201);
   } catch (error: any) {
     return sendError(res, 'Failed to add HWID entry', 500, error.message);
   }
 }
+
+export const getHwidEntryById = getHwidById;
 
 export async function updateHwidEntry(req: Request, res: Response) {
   const { id } = req.params;
@@ -251,7 +253,7 @@ export async function updateHwidEntry(req: Request, res: Response) {
     const updateData: any = {};
     const resolvedClientName = clientName !== undefined ? clientName : notes;
     if (resolvedClientName !== undefined) {
-      updateData.notes = resolvedClientName ? resolvedClientName.trim() : null;
+      updateData.clientName = resolvedClientName ? resolvedClientName.trim() : null;
     }
     if (status !== undefined) updateData.status = status;
     if (expiresAt) updateData.expiresAt = new Date(expiresAt);
