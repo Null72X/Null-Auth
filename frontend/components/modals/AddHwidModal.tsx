@@ -97,7 +97,7 @@ export function AddHwidModal({
     })} (${days} days)`;
   }, [days]);
 
-  const handleAuthorize = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
@@ -170,6 +170,8 @@ export function AddHwidModal({
       setIsLoading(false);
     }
   };
+
+  const handleAuthorize = handleSubmit;
 
   const copyIndividualHwid = (hwidString: string) => {
     navigator.clipboard.writeText(hwidString);
