@@ -17,6 +17,7 @@ namespace NullAuthClient
         public string FirstActivated { get; set; } = "";
         public string Hwid { get; set; } = "";
         public string Version { get; set; } = "";
+        public string Ip { get; set; } = "";
     }
 
     public class NullAuthResult
@@ -212,6 +213,7 @@ namespace NullAuthClient
                             Status = d.TryGetProperty("status", out var s) ? s.GetString() : "active",
                             Expires = d.TryGetProperty("expires_at", out var e) ? e.GetString() : "",
                             RemainingDays = d.TryGetProperty("remaining_days", out var r) ? r.GetInt32() : 0,
+                            Ip = d.TryGetProperty("ip", out var ip) ? ip.GetString() : "",
                         };
                     }
                 }

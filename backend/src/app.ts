@@ -6,8 +6,22 @@ import routes from './routes/index.js';
 import { ensureDbSchema } from './db.js';
 import { errorHandler } from './middleware/errorHandler.middleware.js';
 import { apiRateLimiter } from './middleware/rateLimiter.middleware.js';
+import { extractClientIp } from './utils/ip.js';
 
 const app = express();
+
+// Trust reverse proxies (Vercel Edge, Cloudflare, AWS CloudFront)
+app.set('trust proxy', true);
+
+// Extract and normalize real client IP address for all requests
+app.use((req, _res, next) => {
+  const realIp = extractClientIp(req);
+  Object.defineProperty(req, 'ip', {
+    value: realIp,
+    configurable: true,
+  });
+  next();
+});
 
 // Security headers
 app.use(

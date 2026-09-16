@@ -42,6 +42,7 @@ class UserData:
         self.hwid = str(data.get("hwid", ""))
         self.version = str(data.get("version", ""))
         self.download_url = str(data.get("downloadUrl", "")) if data.get("downloadUrl") else None
+        self.ip = str(data.get("ip", ""))
 
     def get(self, key: str, default=None):
         """Allows dynamic access to any field returned in response data."""

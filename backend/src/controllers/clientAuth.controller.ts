@@ -5,6 +5,7 @@ import { sendSuccess, sendError } from '../utils/response.js';
 import { hashHwid } from '../services/hash.service.js';
 import { logActivity } from '../services/logger.service.js';
 import { notifyClientAuthSuccess, notifySecurityAlert } from '../services/discord.service.js';
+import { extractClientIp } from '../utils/ip.js';
 
 export const licenseAuthSchema = z.object({
   appId: z.string().min(1, 'appId is required'),
@@ -25,7 +26,7 @@ export const hwidAuthSchema = z.object({
 
 export async function authenticateLicense(req: Request, res: Response) {
   const { appId, appSecret, licenseKey, hwid, version, clientVersion } = req.body;
-  const ipAddress = req.ip || req.socket.remoteAddress;
+  const ipAddress = extractClientIp(req);
   const userAgent = req.headers['user-agent'];
 
   try {
@@ -285,6 +286,7 @@ export async function authenticateLicense(req: Request, res: Response) {
     return sendSuccess(res, 'Authentication successful', {
       status: 'active',
       client_name: clientName,
+      ip: ipAddress,
       expires_at: license.expiresAt.toISOString(),
       remaining_days: remainingDays,
       first_activated_at: license.firstActivatedAt
@@ -299,7 +301,7 @@ export async function authenticateLicense(req: Request, res: Response) {
 
 export async function authenticateHwid(req: Request, res: Response) {
   const { appId, appSecret, hwid, version, clientVersion } = req.body;
-  const ipAddress = req.ip || req.socket.remoteAddress;
+  const ipAddress = extractClientIp(req);
   const userAgent = req.headers['user-agent'];
 
   try {
@@ -501,6 +503,7 @@ export async function authenticateHwid(req: Request, res: Response) {
     return sendSuccess(res, 'Authentication successful', {
       status: 'active',
       client_name: clientName,
+      ip: ipAddress,
       expires_at: hwidRecord.expiresAt.toISOString(),
       remaining_days: remainingDays,
       version: app.version,

@@ -6,6 +6,7 @@ import { prisma } from '../db.js';
 import { config } from '../config/index.js';
 import { sendSuccess, sendError } from '../utils/response.js';
 import { logActivity } from '../services/logger.service.js';
+import { extractClientIp } from '../utils/ip.js';
 
 export const loginSchema = z.object({
   username: z.string().min(1, 'Username is required'),
@@ -19,7 +20,7 @@ export const changePasswordSchema = z.object({
 
 export async function login(req: Request, res: Response) {
   const { username, password } = req.body;
-  const ipAddress = req.ip || req.socket.remoteAddress;
+  const ipAddress = extractClientIp(req);
   const userAgent = req.headers['user-agent'];
 
   try {
