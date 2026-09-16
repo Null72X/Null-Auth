@@ -145,8 +145,8 @@ from NullAuth import NullAuth
 
 # 1. Initialize Null-Auth SDK Client
 auth = NullAuth(
-    app_id="NA-13026330",
-    secret="nas_334106af8244ffc4284df3f2c31709011681d10cfa37e67a",
+    app_id="13026130",
+    secret="334106af8244ffc4284df3f2c31709011681d10cfa37e67a",
     version="1.0.0"
 )
 
@@ -155,7 +155,8 @@ if auth.init():
     # 3. Mode A: Authenticate using a License Key
     license_key = "NULL-ABCD-1234-EFGH"
     if auth.license(license_key):
-        print(f"Access Granted! Days remaining: {auth.user_data.remaining_days}")
+        print(f"Access Granted to {auth.user_data.client_name}!")
+        print(f"Days remaining: {auth.user_data.remaining_days}")
     else:
         print("Access Denied.")
 ```

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Null-Auth Ultra-Advanced Single-File Python SDK (KeyAuth-Style API)
-100% Error-Free & NativeAOT / Trimming Safe Production Build
+100% Error-Free & Native Production Build (Zero 3rd-Party Dependencies)
 
 Initialization:
     auth = NullAuth(app_id="13026130", secret="334106af8244ffc4284df3f2c31709011681d10cfa37e67a", version="1.0.0")
@@ -10,7 +10,7 @@ Features:
     - License Key Authentication: auth.license("NULL-XXXX-YYYY-ZZZZ")
     - HWID Whitelist Mode: auth.check_hwid()
     - Dynamic Backend Error Message Popups on Failure (Version Mismatch, Expired, Banned, Paused, HWID Mismatch, Disabled)
-    - Full Access to raw & parsed User Data fields (auth.user_data)
+    - Full Access to raw & parsed User Data fields (auth.user_data.client_name, auth.user_data.ip, auth.user_data.remaining_days)
 """
 
 import sys
@@ -36,13 +36,14 @@ class UserData:
 
         # Common parsed properties
         self.status = str(data.get("status", "unknown"))
-        self.expires = str(data.get("expires_at", ""))
+        self.client_name = str(data.get("client_name", "") or "")
+        self.expires = str(data.get("expires_at", "") or "")
         self.remaining_days = int(data.get("remaining_days", 0)) if str(data.get("remaining_days", 0)).isdigit() else 0
-        self.first_activated = str(data.get("first_activated_at", ""))
-        self.hwid = str(data.get("hwid", ""))
-        self.version = str(data.get("version", ""))
-        self.download_url = str(data.get("downloadUrl", "")) if data.get("downloadUrl") else None
-        self.ip = str(data.get("ip", ""))
+        self.first_activated = str(data.get("first_activated_at", "") or "")
+        self.hwid = str(data.get("hwid", "") or "")
+        self.version = str(data.get("version", "") or "")
+        self.download_url = str(data.get("downloadUrl", "") or "") if data.get("downloadUrl") else None
+        self.ip = str(data.get("ip", "") or "")
 
     def get(self, key: str, default=None):
         """Allows dynamic access to any field returned in response data."""
@@ -248,9 +249,14 @@ if __name__ == "__main__":
 
     if success:
         print("\n[+] ACCESS GRANTED! Software Unlocked.")
-        print(f"    Status: {auth.user_data.status}")
-        print(f"    Expires: {auth.user_data.expires}")
-        print(f"    Days Left: {auth.user_data.remaining_days}")
+        print(f"    Status:          {auth.user_data.status}")
+        if auth.user_data.client_name:
+            print(f"    Client Name:     {auth.user_data.client_name}")
+        print(f"    Days Remaining:  {auth.user_data.remaining_days}")
+        print(f"    Expires At:      {auth.user_data.expires}")
+        if auth.user_data.ip:
+            print(f"    Client IP:       {auth.user_data.ip}")
+        print(f"    HWID Bound:      {auth.user_data.hwid}")
     else:
         print("\n[-] ACCESS DENIED!")
         sys.exit(1)
