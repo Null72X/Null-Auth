@@ -265,55 +265,6 @@ export async function notifySecurityAlert(data: {
 }
 
 /**
- * Notification: Critical Security Threat (Debugger, Packet Sniffer, Reversing Tool)
- */
-export async function notifyCriticalThreat(data: {
-  appName: string;
-  appId: string;
-  threatType: string;
-  threatDetails?: string;
-  clientName?: string | null;
-  keyOrHwid?: string;
-  ip?: string;
-  hwid?: string;
-  actionTaken?: string;
-}): Promise<void> {
-  const fields: DiscordEmbedField[] = [
-    { name: 'Application', value: `**${data.appName}** (\`${data.appId}\`)`, inline: true },
-    { name: 'Threat Type', value: `🔥 **${data.threatType}**`, inline: true },
-  ];
-
-  if (data.clientName) {
-    fields.push({ name: 'Client Name', value: `**${data.clientName}**`, inline: true });
-  }
-
-  if (data.threatDetails) {
-    fields.push({ name: 'Threat Details', value: `\`${data.threatDetails}\``, inline: false });
-  }
-
-  if (data.keyOrHwid) {
-    fields.push({ name: 'Offending Key / Identifier', value: `\`${data.keyOrHwid}\``, inline: false });
-  }
-
-  if (data.hwid) {
-    fields.push({ name: 'Reported HWID', value: `\`${data.hwid.substring(0, 24)}...\``, inline: false });
-  }
-
-  fields.push({ name: 'Action Taken', value: `🔒 **${data.actionTaken || 'Access Revoked / Key Auto-Banned'}**`, inline: true });
-  fields.push({ name: 'Attacker IP', value: `\`${data.ip || 'Unknown'}\``, inline: true });
-
-  await notifyDiscordEvent({
-    appId: data.appId,
-    embed: {
-      title: '🚨 CRITICAL SECURITY THREAT DETECTED',
-      description: `A reverse-engineering or debugging tool was detected by the client defense shield. Automated sanctions applied.`,
-      color: DISCORD_COLORS.ALERT,
-      fields,
-    },
-  });
-}
-
-/**
  * Send a test webhook notification to verify Discord integration
  */
 export async function notifyTestWebhook(data: {

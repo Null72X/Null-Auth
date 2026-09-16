@@ -36,13 +36,7 @@ app.use(
     origin: true, // Accepts request origin dynamically for admin dashboard & SDK clients
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: [
-      'Content-Type',
-      'Authorization',
-      'X-Requested-With',
-      'x-null-signature',
-      'x-null-timestamp',
-    ],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   })
 );
 

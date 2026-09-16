@@ -1,11 +1,10 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
-import crypto from 'crypto';
 import { prisma } from '../db.js';
 import { sendSuccess, sendError } from '../utils/response.js';
 import { hashHwid } from '../services/hash.service.js';
 import { logActivity } from '../services/logger.service.js';
-import { notifyClientAuthSuccess, notifySecurityAlert, notifyCriticalThreat } from '../services/discord.service.js';
+import { notifyClientAuthSuccess, notifySecurityAlert } from '../services/discord.service.js';
 import { extractClientIp } from '../utils/ip.js';
 
 export const licenseAuthSchema = z.object({
@@ -24,90 +23,6 @@ export const hwidAuthSchema = z.object({
   version: z.string().optional(),
   clientVersion: z.string().optional(),
 });
-
-export const securityThreatSchema = z.object({
-  appId: z.string().min(1, 'appId is required'),
-  appSecret: z.string().min(1, 'appSecret is required'),
-  threatType: z.string().min(1, 'threatType is required'),
-  threatDetails: z.string().optional(),
-  licenseKey: z.string().optional(),
-  hwid: z.string().optional(),
-  clientVersion: z.string().optional(),
-});
-
-/**
- * Validates request timestamp and HMAC-SHA256 signature to prevent replay & tampering
- */
-function verifyReplayAndSignature(
-  req: Request,
-  secrets: string[],
-  stringToSign: string
-): { valid: boolean; error?: string; errorCode?: string } {
-  const signatureHeader = req.headers['x-null-signature'];
-  const timestampHeader = req.headers['x-null-timestamp'];
-
-  // Graceful migration: if client did not supply signature headers, permit legacy flow
-  // Graceful migration: if client did not supply signature headers, permit legacy flow
-  if (!signatureHeader && !timestampHeader) {
-    return { valid: true };
-  }
-
-  // If one header is missing or empty, allow graceful pass-through since credentials were valid
-  if (!signatureHeader || !timestampHeader) {
-    return { valid: true };
-  }
-
-  const timestamp = parseInt(Array.isArray(timestampHeader) ? timestampHeader[0] : timestampHeader, 10);
-  if (isNaN(timestamp)) {
-    return { valid: true };
-  }
-
-  // Anti-Replay: allow 10 minutes clock variance for client/server NTP discrepancies
-  const now = Date.now();
-  const diffMs = Math.abs(now - timestamp);
-  if (diffMs > 10 * 60 * 1000) {
-    return {
-      valid: false,
-      error: 'Anti-Replay Violation: Request timestamp is desynchronized by more than 10 minutes. Please verify your PC clock.',
-      errorCode: 'REPLAY_ATTACK_DETECTED',
-    };
-  }
-
-  const signature = (Array.isArray(signatureHeader) ? signatureHeader[0] : signatureHeader).trim().toLowerCase();
-  const candidateStrings = Array.isArray(stringToSign) ? stringToSign : [stringToSign];
-
-  let isMatch = false;
-  for (const secret of secrets) {
-    if (!secret) continue;
-    for (const testStr of candidateStrings) {
-      if (!testStr) continue;
-      try {
-        const computedHmac = crypto
-          .createHmac('sha256', secret)
-          .update(testStr)
-          .digest('hex')
-          .toLowerCase();
-
-        if (computedHmac.length === signature.length) {
-          if (crypto.timingSafeEqual(Buffer.from(computedHmac, 'utf-8'), Buffer.from(signature, 'utf-8'))) {
-            isMatch = true;
-            break;
-          }
-        }
-      } catch {
-        // ignore
-      }
-    }
-    if (isMatch) break;
-  }
-
-  // Resilience: If App Credentials (Secret & AppId) are verified, do NOT block legitimate users due to formatting variances
-  if (!isMatch) {
-    return { valid: true };
-  }
-
-  return { valid: true };
-}
 
 export async function authenticateLicense(req: Request, res: Response) {
   const { appId, appSecret, licenseKey, hwid, version, clientVersion } = req.body;
@@ -154,33 +69,6 @@ export async function authenticateLicense(req: Request, res: Response) {
         status: 'FAILURE',
       });
       return sendError(res, 'App Credential Error: Invalid secret API key provided.', 401, 'INVALID_APP_CREDENTIALS');
-    }
-
-    // 2.5 Verify HMAC Signature & Anti-Replay (if headers present)
-    const signatureHeader = req.headers['x-null-signature'];
-    const timestampHeader = req.headers['x-null-timestamp'];
-    if (signatureHeader || timestampHeader) {
-      const tsStr = Array.isArray(timestampHeader) ? timestampHeader[0] : (timestampHeader || '');
-      const candidateStrings = [
-        `${cleanAppId}:${licenseKey.trim()}:${hwid.trim()}:${tsStr}`,
-        `${rawAppId}:${licenseKey.trim()}:${hwid.trim()}:${tsStr}`,
-        `${cleanAppId}:${licenseKey}:${hwid}:${tsStr}`,
-        `${rawAppId}:${licenseKey}:${hwid}:${tsStr}`,
-        `${cleanAppId}:${licenseKey.trim()}:${tsStr}`,
-      ];
-      const secCheck = verifyReplayAndSignature(req, [app.secret, cleanSecret, rawSecret], candidateStrings);
-      if (!secCheck.valid) {
-        await logActivity({
-          appId: app.id,
-          action: 'CLIENT_AUTH_FAILED',
-          actorType: 'CLIENT',
-          ipAddress,
-          userAgent,
-          details: { appId: app.appId, licenseKey, reason: secCheck.errorCode || 'SIGNATURE_VERIFICATION_FAILED' },
-          status: 'FAILURE',
-        });
-        return sendError(res, secCheck.error || 'Cryptographic verification failed.', 401, secCheck.errorCode || 'SIGNATURE_VERIFICATION_FAILED');
-      }
     }
 
     // 3. Verify App Status
@@ -468,32 +356,6 @@ export async function authenticateHwid(req: Request, res: Response) {
       return sendError(res, 'App Credential Error: Invalid secret API key provided.', 401, 'INVALID_APP_CREDENTIALS');
     }
 
-    // 2.5 Verify HMAC Signature & Anti-Replay (if headers present)
-    const signatureHeader = req.headers['x-null-signature'];
-    const timestampHeader = req.headers['x-null-timestamp'];
-    if (signatureHeader || timestampHeader) {
-      const tsStr = Array.isArray(timestampHeader) ? timestampHeader[0] : (timestampHeader || '');
-      const candidateStrings = [
-        `${cleanAppId}:${hwid.trim()}:${tsStr}`,
-        `${rawAppId}:${hwid.trim()}:${tsStr}`,
-        `${cleanAppId}::${hwid.trim()}:${tsStr}`,
-        `${rawAppId}::${hwid.trim()}:${tsStr}`,
-      ];
-      const secCheck = verifyReplayAndSignature(req, [app.secret, cleanSecret, rawSecret], candidateStrings);
-      if (!secCheck.valid) {
-        await logActivity({
-          appId: app.id,
-          action: 'CLIENT_AUTH_FAILED',
-          actorType: 'CLIENT',
-          ipAddress,
-          userAgent,
-          details: { appId: app.appId, hwid, reason: secCheck.errorCode || 'SIGNATURE_VERIFICATION_FAILED' },
-          status: 'FAILURE',
-        });
-        return sendError(res, secCheck.error || 'Cryptographic verification failed.', 401, secCheck.errorCode || 'SIGNATURE_VERIFICATION_FAILED');
-      }
-    }
-
     // 3. Verify App Status
     if (app.status !== 'ACTIVE') {
       await logActivity({
@@ -670,127 +532,3 @@ export async function authenticateHwid(req: Request, res: Response) {
     return sendError(res, 'Client authentication failed', 500, error.message);
   }
 }
-
-/**
- * Endpoint for client-side SDKs to report detected debuggers, proxy sniffers, or crack attempts
- * Automatically revokes/bans the offending license key or HWID and fires a critical Discord alert.
- */
-export async function reportSecurityThreat(req: Request, res: Response) {
-  const { appId, appSecret, threatType, threatDetails, licenseKey, hwid, clientVersion } = req.body;
-  const ipAddress = extractClientIp(req);
-  const userAgent = req.headers['user-agent'];
-
-  try {
-    const rawAppId = (appId || '').trim();
-    const cleanAppId = rawAppId.replace(/^NA-/, '');
-    const rawSecret = (appSecret || '').trim();
-    const cleanSecret = rawSecret.replace(/^nas_/, '');
-
-    // 1. Fetch App
-    const app = await prisma.application.findFirst({
-      where: { OR: [{ appId: rawAppId }, { appId: cleanAppId }, { id: rawAppId }] },
-    });
-
-    if (!app) {
-      return sendError(res, 'Application Not Found: Invalid App ID.', 404, 'APPLICATION_NOT_FOUND');
-    }
-
-    // 2. Verify App Secret
-    const isSecretValid =
-      app.secret === rawSecret ||
-      app.secret === cleanSecret ||
-      app.secret.replace(/^nas_/, '') === cleanSecret;
-
-    if (!isSecretValid) {
-      return sendError(res, 'App Credential Error: Invalid secret API key.', 401, 'INVALID_APP_CREDENTIALS');
-    }
-
-    let targetClientName: string | null = null;
-    let actionTaken = 'THREAT_RECORDED';
-
-    // 3. Auto-Ban License Key if provided
-    if (licenseKey && licenseKey.trim()) {
-      const cleanKey = licenseKey.trim();
-      const license = await prisma.license.findFirst({
-        where: { key: cleanKey, appId: app.id },
-      });
-
-      if (license) {
-        targetClientName = (license as any).clientName || (license as any).notes || null;
-        if (license.status !== 'BANNED') {
-          await prisma.license.update({
-            where: { id: license.id },
-            data: { status: 'BANNED' },
-          });
-          actionTaken = 'LICENSE_AUTO_BANNED';
-        }
-      }
-    }
-
-    // 4. Auto-Ban HWID if provided and application is HWID whitelist type
-    if (hwid && hwid.trim() && app.type === 'HWID') {
-      const cleanHwid = hashHwid(hwid.trim());
-      const hwidRecord = await prisma.hwidAccess.findFirst({
-        where: { appId: app.id, hwidHash: cleanHwid },
-      });
-
-      if (hwidRecord) {
-        if (!targetClientName) {
-          targetClientName = (hwidRecord as any).clientName || (hwidRecord as any).notes || null;
-        }
-        if (hwidRecord.status !== 'BANNED') {
-          await prisma.hwidAccess.update({
-            where: { id: hwidRecord.id },
-            data: { status: 'BANNED' },
-          });
-          actionTaken = actionTaken === 'LICENSE_AUTO_BANNED' ? 'LICENSE_AND_HWID_BANNED' : 'HWID_AUTO_BANNED';
-        }
-      }
-    }
-
-    // 5. Tamper-evident Security Activity Log
-    await logActivity({
-      appId: app.id,
-      action: 'SECURITY_THREAT_DETECTED',
-      actorType: 'CLIENT',
-      ipAddress,
-      userAgent,
-      details: {
-        appId: app.appId,
-        threatType,
-        threatDetails: threatDetails || 'Client defense shield triggered',
-        licenseKey: licenseKey || null,
-        hwid: hwid || null,
-        clientName: targetClientName,
-        actionTaken,
-        clientVersion: clientVersion || null,
-      },
-      status: 'FAILURE',
-    });
-
-    // 6. Immediate High-Priority Crimson Discord Alert
-    try {
-      await notifyCriticalThreat({
-        appName: app.name,
-        appId: app.appId,
-        threatType,
-        threatDetails: threatDetails || 'Security violation detected during client execution',
-        clientName: targetClientName,
-        keyOrHwid: licenseKey || hwid,
-        ip: typeof ipAddress === 'string' ? ipAddress : undefined,
-        hwid: hwid || undefined,
-        actionTaken: actionTaken === 'LICENSE_AUTO_BANNED' ? 'License Key Automatically BANNED' : actionTaken,
-      });
-    } catch (discordErr) {
-      console.warn('[Discord Webhook] Failed to dispatch critical threat notification:', discordErr);
-    }
-
-    return sendSuccess(res, 'Security threat acknowledged and processed.', {
-      actionTaken,
-      threatType,
-    });
-  } catch (error: any) {
-    return sendError(res, 'Security threat processing failed', 500, error.message);
-  }
-}
-
