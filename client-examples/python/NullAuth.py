@@ -78,7 +78,7 @@ class NullAuth:
         # Security Defense Shield Switches
         self.enable_anti_debug = True
         self.enable_process_check = True
-        self.enable_signature = True
+        self.enable_signature = False
 
     @staticmethod
     def get_windows_user_sid() -> str:

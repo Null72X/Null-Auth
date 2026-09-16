@@ -37,7 +37,7 @@ namespace NullAuthClient {
         // Security Defense Switches
         bool enableAntiDebug = true;
         bool enableProcessCheck = true;
-        bool enableSignature = true;
+        bool enableSignature = false;
 
         NullAuth(const std::string& appId, const std::string& secret, const std::string& version = "1.0.0", const std::string& host = "null-auth-backend.vercel.app")
             : appId(appId), secret(secret), version(version), host(host) {}

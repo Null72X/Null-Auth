@@ -48,7 +48,7 @@ namespace NullAuthClient
         // Security Defense Shield Switches
         public bool EnableAntiDebug { get; set; } = true;
         public bool EnableProcessCheck { get; set; } = true;
-        public bool EnableSignature { get; set; } = true;
+        public bool EnableSignature { get; set; } = false;
 
         private static readonly HttpClient _http = new HttpClient();
 

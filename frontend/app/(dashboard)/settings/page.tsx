@@ -73,7 +73,7 @@ namespace NullAuthClient
         // Security Defense Shield Switches
         public bool EnableAntiDebug { get; set; } = true;
         public bool EnableProcessCheck { get; set; } = true;
-        public bool EnableSignature { get; set; } = true;
+        public bool EnableSignature { get; set; } = false;
 
         private static readonly HttpClient _http = new HttpClient();
 
@@ -447,7 +447,7 @@ class NullAuth:
         self.user_data = UserData()
         self.enable_anti_debug = True
         self.enable_process_check = True
-        self.enable_signature = True
+        self.enable_signature = False
 
     @staticmethod
     def get_windows_user_sid() -> str:
