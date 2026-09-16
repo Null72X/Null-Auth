@@ -12,6 +12,7 @@ namespace NullAuthClient
     public class UserData
     {
         public string Status { get; set; } = "unknown";
+        public string ClientName { get; set; } = "";
         public string Expires { get; set; } = "";
         public int RemainingDays { get; set; } = 0;
         public string FirstActivated { get; set; } = "";
@@ -211,6 +212,7 @@ namespace NullAuthClient
                         data = new UserData
                         {
                             Status = d.TryGetProperty("status", out var s) ? s.GetString() : "active",
+                            ClientName = d.TryGetProperty("client_name", out var cn) ? cn.GetString() : "",
                             Expires = d.TryGetProperty("expires_at", out var e) ? e.GetString() : "",
                             RemainingDays = d.TryGetProperty("remaining_days", out var r) ? r.GetInt32() : 0,
                             Ip = d.TryGetProperty("ip", out var ip) ? ip.GetString() : "",

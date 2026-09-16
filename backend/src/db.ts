@@ -39,6 +39,23 @@ export async function ensureDbSchema() {
     }
   }
 
+  // Normalize existing applications: strip 'NA-' and 'nas_' prefixes
+  try {
+    const existingApps = await prisma.application.findMany();
+    for (const app of existingApps) {
+      const cleanAppId = app.appId.startsWith('NA-') ? app.appId.substring(3) : app.appId;
+      const cleanSecret = app.secret.startsWith('nas_') ? app.secret.substring(4) : app.secret;
+      if (cleanAppId !== app.appId || cleanSecret !== app.secret) {
+        await prisma.application.update({
+          where: { id: app.id },
+          data: { appId: cleanAppId, secret: cleanSecret },
+        });
+      }
+    }
+  } catch (err) {
+    // Ignore if table not yet ready
+  }
+
   globalForPrisma.dbMigrated = true;
 }
 

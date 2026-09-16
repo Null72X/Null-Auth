@@ -1,18 +1,18 @@
 import crypto from 'crypto';
 
 /**
- * Generate a random, secure App ID in format: NA-XXXXXXXX (e.g. NA-48392017)
+ * Generate a random, secure App ID with numbers only (e.g. 48392017)
  */
 export function generateAppId(): string {
   const num = Math.floor(10000000 + Math.random() * 90000000);
-  return `NA-${num}`;
+  return num.toString();
 }
 
 /**
- * Generate a secure application secret key
+ * Generate a secure application secret key with raw key only
  */
 export function generateAppSecret(): string {
-  return `nas_${crypto.randomBytes(24).toString('hex')}`;
+  return crypto.randomBytes(24).toString('hex');
 }
 
 /**

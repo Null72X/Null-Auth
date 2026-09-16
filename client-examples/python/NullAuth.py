@@ -4,7 +4,7 @@ Null-Auth Ultra-Advanced Single-File Python SDK (KeyAuth-Style API)
 100% Error-Free & NativeAOT / Trimming Safe Production Build
 
 Initialization:
-    auth = NullAuth(app_id="NA-13026130", secret="nas_...", version="1.0.0")
+    auth = NullAuth(app_id="13026130", secret="334106af8244ffc4284df3f2c31709011681d10cfa37e67a", version="1.0.0")
 
 Features:
     - License Key Authentication: auth.license("NULL-XXXX-YYYY-ZZZZ")
@@ -52,8 +52,8 @@ class UserData:
 class NullAuth:
     def __init__(
         self,
-        app_id: str = "NA-13026130",
-        secret: str = "nas_334106af8244ffc4284df3f2c31709011681d10cfa37e67a",
+        app_id: str = "13026130",
+        secret: str = "334106af8244ffc4284df3f2c31709011681d10cfa37e67a",
         version: str = "1.0.0",
         server_url: str = "https://null-auth-backend.vercel.app"
     ):
@@ -221,8 +221,8 @@ if __name__ == "__main__":
 
     # Initialize Null-Auth Client (app_id, secret, version)
     auth = NullAuth(
-        app_id="NA-13026130",
-        secret="nas_334106af8244ffc4284df3f2c31709011681d10cfa37e67a",
+        app_id="13026130",
+        secret="334106af8244ffc4284df3f2c31709011681d10cfa37e67a",
         version="1.0.0"
     )
 

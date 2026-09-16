@@ -39,6 +39,8 @@ namespace NullAuthClient
     public class UserData
     {
         public string Status { get; set; } = "unknown";
+        public string ClientName { get; set; } = "";
+        public string Ip { get; set; } = "";
         public string Expires { get; set; } = "";
         public int RemainingDays { get; set; } = 0;
         public string FirstActivated { get; set; } = "";
@@ -57,7 +59,7 @@ namespace NullAuthClient
 
     /// <summary>
     /// Single-File C# SDK (NativeAOT & Trimming Safe for EXEs and DLLs)
-    /// Usage: var auth = new NullAuth("YOUR_APP_ID", "YOUR_SECRET", "1.0.0");
+    /// Usage: var auth = new NullAuth("48392017", "YOUR_RAW_SECRET", "1.0.0");
     /// </summary>
     public class NullAuth
     {
@@ -115,7 +117,7 @@ namespace NullAuthClient
             string jsonBody = $"{{\"appId\":\"{AppId}\",\"appSecret\":\"{Secret}\",\"licenseKey\":\"{key?.Trim()}\",\"hwid\":\"{sid}\",\"version\":\"{Version}\"}}";
 
             var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
-            var res = await _http.PostAsync($"{ServerUrl}/api/v1/client/license/authenticate", content);
+            var res = await _http.PostAsync($"{ServerUrl}/api/client/auth/license", content);
             string resString = await res.Content.ReadAsStringAsync();
 
             using JsonDocument doc = JsonDocument.Parse(resString);
@@ -123,7 +125,12 @@ namespace NullAuthClient
             if (success && doc.RootElement.TryGetProperty("data", out var d))
             {
                 UserData.Status = d.TryGetProperty("status", out var s) ? s.GetString() : "active";
+                UserData.ClientName = d.TryGetProperty("client_name", out var cn) ? cn.GetString() : "";
+                UserData.Ip = d.TryGetProperty("ip", out var ip) ? ip.GetString() : "";
                 UserData.RemainingDays = d.TryGetProperty("remaining_days", out var r) ? r.GetInt32() : 0;
+                UserData.Expires = d.TryGetProperty("expires_at", out var exp) ? exp.GetString() : "";
+                UserData.Hwid = sid;
+                UserData.Version = Version;
                 return true;
             }
 
@@ -137,7 +144,7 @@ namespace NullAuthClient
             string jsonBody = $"{{\"appId\":\"{AppId}\",\"appSecret\":\"{Secret}\",\"hwid\":\"{sid}\",\"version\":\"{Version}\"}}";
 
             var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
-            var res = await _http.PostAsync($"{ServerUrl}/api/v1/client/hwid/authenticate", content);
+            var res = await _http.PostAsync($"{ServerUrl}/api/client/auth/hwid", content);
             string resString = await res.Content.ReadAsStringAsync();
 
             using JsonDocument doc = JsonDocument.Parse(resString);
@@ -145,7 +152,12 @@ namespace NullAuthClient
             if (success && doc.RootElement.TryGetProperty("data", out var d))
             {
                 UserData.Status = d.TryGetProperty("status", out var s) ? s.GetString() : "active";
+                UserData.ClientName = d.TryGetProperty("client_name", out var cn) ? cn.GetString() : "";
+                UserData.Ip = d.TryGetProperty("ip", out var ip) ? ip.GetString() : "";
                 UserData.RemainingDays = d.TryGetProperty("remaining_days", out var r) ? r.GetInt32() : 0;
+                UserData.Expires = d.TryGetProperty("expires_at", out var exp) ? exp.GetString() : "";
+                UserData.Hwid = sid;
+                UserData.Version = Version;
                 return true;
             }
 
@@ -171,6 +183,7 @@ namespace NullAuthClient {
         std::string host;
 
     public:
+        // Usage: NullAuthClient::NullAuth auth("48392017", "YOUR_RAW_SECRET", "1.0.0");
         NullAuth(const std::string& appId, const std::string& secret, const std::string& version = "1.0.0", const std::string& host = "null-auth-backend.vercel.app")
             : appId(appId), secret(secret), version(version), host(host) {}
 
@@ -197,7 +210,7 @@ namespace NullAuthClient {
             
             HINTERNET hInternet = InternetOpenA("NullAuthCpp/1.0", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
             HINTERNET hConnect = InternetConnectA(hInternet, host.c_str(), INTERNET_DEFAULT_HTTPS_PORT, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
-            HINTERNET hRequest = HttpOpenRequestA(hConnect, "POST", "/api/v1/client/license/authenticate", NULL, NULL, NULL, INTERNET_FLAG_SECURE, 0);
+            HINTERNET hRequest = HttpOpenRequestA(hConnect, "POST", "/api/client/auth/license", NULL, NULL, NULL, INTERNET_FLAG_SECURE, 0);
 
             std::string headers = "Content-Type: application/json\\r\\n";
             HttpSendRequestA(hRequest, headers.c_str(), (DWORD)headers.length(), (LPVOID)body.c_str(), (DWORD)body.length());
@@ -218,17 +231,57 @@ namespace NullAuthClient {
             if (showMsgbox) MessageBoxA(0, "Authentication Failed!", "Null-Auth Error", MB_ICONERROR | MB_OK);
             return false;
         }
+
+        bool CheckHwid(bool showMsgbox = true) {
+            std::string sid = GetWindowsUserSid();
+            std::string body = "{\"appId\":\"" + appId + "\",\"appSecret\":\"" + secret + "\",\"hwid\":\"" + sid + "\",\"version\":\"" + version + "\"}";
+            
+            HINTERNET hInternet = InternetOpenA("NullAuthCpp/1.0", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
+            HINTERNET hConnect = InternetConnectA(hInternet, host.c_str(), INTERNET_DEFAULT_HTTPS_PORT, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
+            HINTERNET hRequest = HttpOpenRequestA(hConnect, "POST", "/api/client/auth/hwid", NULL, NULL, NULL, INTERNET_FLAG_SECURE, 0);
+
+            std::string headers = "Content-Type: application/json\\r\\n";
+            HttpSendRequestA(hRequest, headers.c_str(), (DWORD)headers.length(), (LPVOID)body.c_str(), (DWORD)body.length());
+
+            char buffer[2048];
+            DWORD bytesRead = 0;
+            std::string response = "";
+            while (InternetReadFile(hRequest, buffer, sizeof(buffer) - 1, &bytesRead) && bytesRead > 0) {
+                buffer[bytesRead] = '\\0';
+                response += buffer;
+            }
+
+            InternetCloseHandle(hRequest);
+            InternetCloseHandle(hConnect);
+            InternetCloseHandle(hInternet);
+
+            if (response.find("\"success\":true") != std::string::npos) return true;
+            if (showMsgbox) MessageBoxA(0, "HWID Whitelist Authorization Failed!", "Null-Auth Error", MB_ICONERROR | MB_OK);
+            return false;
+        }
     };
 }`;
 
 const PYTHON_SDK = `import urllib.request, json, subprocess, ctypes, platform
 
+class UserData:
+    def __init__(self, data: dict = None):
+        if not data: data = {}
+        self.status = str(data.get("status", "unknown"))
+        self.client_name = str(data.get("client_name", ""))
+        self.ip = str(data.get("ip", ""))
+        self.expires = str(data.get("expires_at", ""))
+        self.remaining_days = int(data.get("remaining_days", 0)) if str(data.get("remaining_days", 0)).isdigit() else 0
+        self.version = str(data.get("version", ""))
+
 class NullAuth:
+    # Usage: auth = NullAuth(app_id="48392017", secret="YOUR_RAW_SECRET", version="1.0.0")
     def __init__(self, app_id: str, secret: str, version: str = "1.0.0", server_url: str = "https://null-auth-backend.vercel.app"):
-        self.app_id = app_id.strip()
-        self.secret = secret.strip()
-        self.version = version.strip()
+        self.app_id = str(app_id).strip()
+        self.secret = str(secret).strip()
+        self.version = str(version).strip()
         self.server_url = server_url.rstrip("/")
+        self.user_data = UserData()
 
     @staticmethod
     def get_windows_user_sid() -> str:
@@ -245,15 +298,34 @@ class NullAuth:
 
     def license(self, key: str, show_msgbox: bool = True) -> bool:
         sid = self.get_windows_user_sid()
-        url = f"{self.server_url}/api/v1/client/license/authenticate"
+        url = f"{self.server_url}/api/client/auth/license"
         payload = {"appId": self.app_id, "appSecret": self.secret, "licenseKey": key.strip(), "hwid": sid, "version": self.version}
         
         req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers={"Content-Type": "application/json"}, method="POST")
         try:
             with urllib.request.urlopen(req) as res:
                 data = json.loads(res.read().decode('utf-8'))
-                if data.get("success"): return True
-                if showMsgbox: ctypes.windll.user32.MessageBoxW(0, data.get("message", "Error"), "Null-Auth Error", 16)
+                if data.get("success"):
+                    self.user_data = UserData(data.get("data", {}))
+                    return True
+                if show_msgbox: ctypes.windll.user32.MessageBoxW(0, data.get("message", "Error"), "Null-Auth Error", 16)
+        except Exception as e:
+            if show_msgbox: ctypes.windll.user32.MessageBoxW(0, str(e), "Null-Auth Network Error", 16)
+        return False
+
+    def check_hwid(self, show_msgbox: bool = True) -> bool:
+        sid = self.get_windows_user_sid()
+        url = f"{self.server_url}/api/client/auth/hwid"
+        payload = {"appId": self.app_id, "appSecret": self.secret, "hwid": sid, "version": self.version}
+        
+        req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers={"Content-Type": "application/json"}, method="POST")
+        try:
+            with urllib.request.urlopen(req) as res:
+                data = json.loads(res.read().decode('utf-8'))
+                if data.get("success"):
+                    self.user_data = UserData(data.get("data", {}))
+                    return True
+                if show_msgbox: ctypes.windll.user32.MessageBoxW(0, data.get("message", "Error"), "Null-Auth Error", 16)
         except Exception as e:
             if show_msgbox: ctypes.windll.user32.MessageBoxW(0, str(e), "Null-Auth Network Error", 16)
         return False`;

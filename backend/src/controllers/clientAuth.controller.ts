@@ -30,9 +30,14 @@ export async function authenticateLicense(req: Request, res: Response) {
   const userAgent = req.headers['user-agent'];
 
   try {
+    const rawAppId = appId.trim();
+    const cleanAppId = rawAppId.replace(/^NA-/, '');
+    const rawSecret = appSecret.trim();
+    const cleanSecret = rawSecret.replace(/^nas_/, '');
+
     // 1. Fetch App
     const app = await prisma.application.findFirst({
-      where: { OR: [{ appId }, { id: appId }] },
+      where: { OR: [{ appId: rawAppId }, { appId: cleanAppId }, { id: rawAppId }] },
     });
 
     if (!app) {
@@ -48,7 +53,12 @@ export async function authenticateLicense(req: Request, res: Response) {
     }
 
     // 2. Verify App Secret
-    if (app.secret !== appSecret) {
+    const isSecretValid =
+      app.secret === rawSecret ||
+      app.secret === cleanSecret ||
+      app.secret.replace(/^nas_/, '') === cleanSecret;
+
+    if (!isSecretValid) {
       await logActivity({
         appId: app.id,
         action: 'CLIENT_AUTH_FAILED',
@@ -305,9 +315,14 @@ export async function authenticateHwid(req: Request, res: Response) {
   const userAgent = req.headers['user-agent'];
 
   try {
+    const rawAppId = appId.trim();
+    const cleanAppId = rawAppId.replace(/^NA-/, '');
+    const rawSecret = appSecret.trim();
+    const cleanSecret = rawSecret.replace(/^nas_/, '');
+
     // 1. Fetch App
     const app = await prisma.application.findFirst({
-      where: { OR: [{ appId }, { id: appId }] },
+      where: { OR: [{ appId: rawAppId }, { appId: cleanAppId }, { id: rawAppId }] },
     });
 
     if (!app) {
@@ -323,7 +338,12 @@ export async function authenticateHwid(req: Request, res: Response) {
     }
 
     // 2. Verify App Secret
-    if (app.secret !== appSecret) {
+    const isSecretValid =
+      app.secret === rawSecret ||
+      app.secret === cleanSecret ||
+      app.secret.replace(/^nas_/, '') === cleanSecret;
+
+    if (!isSecretValid) {
       await logActivity({
         appId: app.id,
         action: 'CLIENT_AUTH_FAILED',

@@ -27,8 +27,8 @@ from NullAuth import NullAuth
 # Initialize Null-Auth Client
 auth = NullAuth(
     name="MyApplication",
-    app_id="NA-13026130",
-    secret="nas_334106af8244ffc4284df3f2c31709011681d10cfa37e67a",
+    app_id="13026130",
+    secret="334106af8244ffc4284df3f2c31709011681d10cfa37e67a",
     version="1.0.0"
 )
 

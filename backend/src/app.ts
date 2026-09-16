@@ -63,6 +63,7 @@ app.use(async (_req, _res, next) => {
 
 // API Routes
 app.use('/api/v1', routes);
+app.use('/api', routes);
 
 // Global Error Handler
 app.use(errorHandler);

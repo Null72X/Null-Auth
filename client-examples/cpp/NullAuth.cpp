@@ -164,7 +164,7 @@ int main() {
     std::cout << "     🛡️ Null-Auth Single-File C++ Application    \n";
     std::cout << "=================================================\n\n";
 
-    NullAuthClient::NullAuth auth("NA-13026130", "nas_334106af8244ffc4284df3f2c31709011681d10cfa37e67a", "1.0.0");
+    NullAuthClient::NullAuth auth("13026130", "334106af8244ffc4284df3f2c31709011681d10cfa37e67a", "1.0.0");
 
     std::string sid = NullAuthClient::NullAuth::GetWindowsUserSid();
     std::cout << "[+] Detected Windows User SID: " << sid << "\n\n";

@@ -20,8 +20,8 @@ export function SdkSnippetModal({ isOpen, onClose, app }: SdkSnippetModalProps) 
   if (!app) return null;
 
   const isLicenseMode = app.type === 'LICENSE';
-  const appId = app.appId || app.id || 'YOUR_APP_ID';
-  const appSecret = app.secret || 'YOUR_APP_SECRET';
+  const appId = (app.appId || app.id || 'YOUR_APP_ID').replace(/^NA-/, '');
+  const appSecret = (app.secret || 'YOUR_APP_SECRET').replace(/^nas_/, '');
   
   // Safe window origin fallback
   const apiBase = typeof window !== 'undefined' ? window.location.origin : 'https://your-domain.com';
