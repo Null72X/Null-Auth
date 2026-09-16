@@ -31,16 +31,17 @@ export function SdkSnippetModal({ isOpen, onClose, app }: SdkSnippetModalProps) 
   const csharpSnippet = `// -------------------------------------------------------------
 // Null-Auth C# (.NET) Integration (${app.name})
 // Mode: ${isLicenseMode ? 'License Key Mode' : 'HWID Whitelist Mode'}
-// 100% Standalone Single-File (NativeAOT Safe, Zero NuGet Dependencies)
+// 100% Standalone Single-File (NativeAOT Safe)
 // -------------------------------------------------------------
 using System;
 using System.Diagnostics;
 using System.Net.Http;
-using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System.Windows.Forms;
+using NullAuthClient;
 
 class Program
 {
@@ -51,7 +52,7 @@ class Program
         Console.WriteLine("        🛡️ ${app.name} Protection Active          ");
         Console.WriteLine("=================================================\\n");
 
-        var auth = new NullAuthClient(
+        var auth = new NullAuth(
             appId: "${appId}",
             secret: "${appSecret}",
             version: "${app.version || '1.0.0'}",
@@ -63,18 +64,18 @@ class Program
         ${
           isLicenseMode
             ? `Console.Write("Enter your License Key: ");
-        string licenseKey = Console.ReadLine()?.Trim();
+        string key = Console.ReadLine()?.Trim();
 
-        var result = await auth.AuthenticateLicenseAsync(licenseKey);`
-            : `var result = await auth.AuthenticateHwidAsync();`
+        bool success = await auth.LicenseAsync(key);`
+            : `bool success = await auth.CheckHwidAsync();`
         }
 
-        if (result.Success)
+        if (success)
         {
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine($"\\n[+] Access Granted! Welcome, {result.ClientName}");
-            Console.WriteLine($"[+] Days Remaining: {result.RemainingDays} days");
-            Console.WriteLine($"[+] Assigned IP: {result.Ip}");
+            Console.WriteLine($"\\n[+] Access Granted! Welcome, {auth.UserData.ClientName}");
+            Console.WriteLine($"[+] Days Remaining: {auth.UserData.RemainingDays} days");
+            Console.WriteLine($"[+] Assigned IP: {auth.UserData.Ip}");
             Console.ResetColor();
 
             // ---------------------------------------------------------
@@ -85,7 +86,7 @@ class Program
         else
         {
             Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"\\n[-] Authentication Failed: {result.Message} ({result.ErrorCode})");
+            Console.WriteLine("\\n[-] Authentication Failed!");
             Console.ResetColor();
             Environment.Exit(1);
         }
@@ -95,116 +96,219 @@ class Program
     }
 }
 
-// =============================================================
-// Null-Auth Single-File Client Implementation (Drop-in & Ready)
-// =============================================================
-public class NullAuthResult
+namespace NullAuthClient
 {
-    public bool Success { get; set; }
-    public string Message { get; set; }
-    public string ErrorCode { get; set; }
-    public string ClientName { get; set; } = "Client";
-    public string Ip { get; set; } = "";
-    public int RemainingDays { get; set; } = 0;
-}
-
-public class NullAuthClient
-{
-    private readonly string _appId;
-    private readonly string _secret;
-    private readonly string _version;
-    private readonly string _serverUrl;
-    private static readonly HttpClient _http = new HttpClient();
-
-    [DllImport("user32.dll", EntryPoint = "MessageBoxW", CharSet = CharSet.Unicode)]
-    private static extern int MessageBoxW(IntPtr hWnd, string text, string caption, uint type);
-
-    public NullAuthClient(string appId, string secret, string version = "1.0.0", string serverUrl = "${apiBase}")
+    public class UserData
     {
-        _appId = appId?.Trim() ?? "";
-        _secret = secret?.Trim() ?? "";
-        _version = version?.Trim() ?? "1.0.0";
-        _serverUrl = serverUrl?.TrimEnd('/') ?? "${apiBase}";
+        public string Status { get; set; } = "unknown";
+        public string ClientName { get; set; } = "";
+        public string Expires { get; set; } = "";
+        public int RemainingDays { get; set; } = 0;
+        public string FirstActivated { get; set; } = "";
+        public string Hwid { get; set; } = "";
+        public string Version { get; set; } = "";
+        public string Ip { get; set; } = "";
     }
 
-    public static string GetWindowsUserSid()
+    public class NullAuthResult
     {
-        try
-        {
-            var psi = new ProcessStartInfo("whoami", "/user")
-            {
-                RedirectStandardOutput = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-            using var process = Process.Start(psi);
-            string output = process.StandardOutput.ReadToEnd();
-            process.WaitForExit();
+        public bool Success { get; set; }
+        public string Message { get; set; }
+        public string ErrorCode { get; set; }
+        public string DownloadUrl { get; set; }
+        public UserData Data { get; set; }
+    }
 
-            foreach (string line in output.Split(new[] { '\\r', '\\n' }, StringSplitOptions.RemoveEmptyEntries))
+    public class NullAuth
+    {
+        public string AppId { get; }
+        public string Secret { get; }
+        public string Version { get; }
+        public string ServerUrl { get; }
+        public UserData UserData { get; private set; } = new UserData();
+        public bool Initialized { get; private set; } = false;
+
+        private static readonly HttpClient _http = new HttpClient();
+
+        public NullAuth(string appId, string secret, string version = "1.0.0", string serverUrl = "https://null-auth-backend.vercel.app")
+        {
+            AppId = appId?.Trim() ?? "";
+            Secret = secret?.Trim() ?? "";
+            Version = version?.Trim() ?? "1.0.0";
+            ServerUrl = serverUrl?.TrimEnd('/') ?? "https://null-auth-backend.vercel.app";
+        }
+
+        public static string GetWindowsUserSid()
+        {
+            try
             {
-                if (line.Contains("S-1-5-"))
+                ProcessStartInfo psi = new ProcessStartInfo("whoami", "/user")
                 {
-                    string[] parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                    if (parts.Length >= 2) return parts[parts.Length - 1].Trim();
+                    RedirectStandardOutput = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+
+                using Process process = Process.Start(psi);
+                string output = process.StandardOutput.ReadToEnd();
+                process.WaitForExit();
+
+                string[] lines = output.Split(new[] { '\\r', '\\n' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (string line in lines)
+                {
+                    if (line.Contains("S-1-5-"))
+                    {
+                        string[] parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                        if (parts.Length >= 2) return parts[parts.Length - 1].Trim();
+                    }
                 }
             }
+            catch { }
+
+            try { return WindowsIdentity.GetCurrent().User?.Value ?? "UNKNOWN_HWID"; }
+            catch { return "UNKNOWN_HWID"; }
         }
-        catch { }
-        try { return WindowsIdentity.GetCurrent().User?.Value ?? "UNKNOWN_HWID"; }
-        catch { return "UNKNOWN_HWID"; }
-    }
 
-    public async Task<NullAuthResult> AuthenticateLicenseAsync(string licenseKey)
-    {
-        string sid = GetWindowsUserSid();
-        string json = $"{{\\"appId\\":\\"{_appId}\\",\\"appSecret\\":\\"{_secret}\\",\\"licenseKey\\":\\"{licenseKey?.Trim()}\\",\\"hwid\\":\\"{sid}\\",\\"version\\":\\"{_version}\\"}}";
-        return await SendRequestAsync("${endpoint}", json);
-    }
-
-    public async Task<NullAuthResult> AuthenticateHwidAsync()
-    {
-        string sid = GetWindowsUserSid();
-        string json = $"{{\\"appId\\":\\"{_appId}\\",\\"appSecret\\":\\"{_secret}\\",\\"hwid\\":\\"{sid}\\",\\"version\\":\\"{_version}\\"}}";
-        return await SendRequestAsync("${endpoint}", json);
-    }
-
-    private async Task<NullAuthResult> SendRequestAsync(string url, string jsonBody)
-    {
-        try
+        public static void ShowPopup(string title, string message, MessageBoxIcon icon = MessageBoxIcon.Error)
         {
-            var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
-            var res = await _http.PostAsync(url, content);
-            string body = await res.Content.ReadAsStringAsync();
-
-            using var doc = JsonDocument.Parse(body);
-            var root = doc.RootElement;
-            bool success = root.GetProperty("success").GetBoolean();
-            string message = root.GetProperty("message").GetString();
-            string errorCode = root.TryGetProperty("error", out var err) ? err.GetString() : null;
-
-            string clientName = "Client";
-            string ip = "";
-            int remainingDays = 0;
-
-            if (root.TryGetProperty("data", out var d) && d.ValueKind == JsonValueKind.Object)
+            try
             {
-                if (d.TryGetProperty("client_name", out var cn)) clientName = cn.GetString();
-                if (d.TryGetProperty("ip", out var ipProp)) ip = ipProp.GetString();
-                if (d.TryGetProperty("remaining_days", out var rd)) remainingDays = rd.GetInt32();
+                MessageBox.Show(message, title, MessageBoxButtons.OK, icon);
+            }
+            catch
+            {
+                Console.WriteLine($"[{title}] {message}");
+            }
+        }
+
+        private void HandleError(string errCode, string serverMessage, string downloadUrl, bool showMsgbox)
+        {
+            if (!showMsgbox) return;
+
+            string title = "Null-Auth Security Alert";
+            if (errCode == "VERSION_MISMATCH") title = "Update Required";
+            else if (errCode == "LICENSE_EXPIRED" || errCode == "IDENTIFIER_EXPIRED") title = "License Expired";
+            else if (errCode == "LICENSE_BANNED" || errCode == "IDENTIFIER_BANNED") title = "Account Banned";
+            else if (errCode == "LICENSE_PAUSED" || errCode == "IDENTIFIER_PAUSED") title = "Access Paused";
+            else if (errCode == "HWID_MISMATCH") title = "HWID Mismatch";
+            else if (errCode == "LICENSE_NOT_FOUND" || errCode == "IDENTIFIER_NOT_FOUND") title = "Invalid Key / HWID";
+            else if (errCode == "APPLICATION_DISABLED") title = "Application Paused";
+
+            string popupMsg = string.IsNullOrEmpty(serverMessage) ? "Authentication request failed." : serverMessage;
+            if (errCode == "VERSION_MISMATCH" && !string.IsNullOrEmpty(downloadUrl))
+            {
+                popupMsg += $"\\n\\nDownload Update: {downloadUrl}";
             }
 
-            if (!success)
+            MessageBoxIcon icon = (errCode == "VERSION_MISMATCH" || errCode == "LICENSE_PAUSED" || errCode == "IDENTIFIER_PAUSED" || errCode == "APPLICATION_DISABLED")
+                ? MessageBoxIcon.Warning
+                : MessageBoxIcon.Error;
+
+            ShowPopup(title, popupMsg, icon);
+        }
+
+        public async Task<bool> InitAsync()
+        {
+            try
             {
-                MessageBoxW(IntPtr.Zero, message, "Null-Auth Alert", 0x00000010);
+                var response = await _http.GetAsync($"{ServerUrl}/health");
+                if (response.IsSuccessStatusCode)
+                {
+                    Initialized = true;
+                    return true;
+                }
+            }
+            catch { }
+            Initialized = false;
+            return false;
+        }
+
+        private static string EscapeJson(string str)
+        {
+            if (string.IsNullOrEmpty(str)) return "";
+            return str.Replace("\\\\", "\\\\\\\\").Replace("\\"", "\\\\\\"").Replace("\\n", "\\\\n").Replace("\\r", "\\\\r");
+        }
+
+        public async Task<bool> LicenseAsync(string key, bool showMsgbox = true)
+        {
+            string sid = GetWindowsUserSid();
+            string endpoint = $"{ServerUrl}/api/v1/client/license/authenticate";
+
+            string jsonBody = $"{{\\"appId\\":\\"{EscapeJson(AppId)}\\",\\"appSecret\\":\\"{EscapeJson(Secret)}\\",\\"licenseKey\\":\\"{EscapeJson(key?.Trim())}\\",\\"hwid\\":\\"{EscapeJson(sid)}\\",\\"version\\":\\"{EscapeJson(Version)}\\"}}";
+
+            var res = await SendRequestAsync(endpoint, jsonBody);
+            if (res.Success && res.Data != null)
+            {
+                UserData = res.Data;
+                UserData.Hwid = sid;
+                UserData.Version = Version;
+                return true;
             }
 
-            return new NullAuthResult { Success = success, Message = message, ErrorCode = errorCode, ClientName = clientName, Ip = ip, RemainingDays = remainingDays };
+            HandleError(res.ErrorCode, res.Message, res.DownloadUrl, showMsgbox);
+            return false;
         }
-        catch (Exception ex)
+
+        public async Task<bool> CheckHwidAsync(bool showMsgbox = true)
         {
-            MessageBoxW(IntPtr.Zero, ex.Message, "Null-Auth Network Error", 0x00000010);
-            return new NullAuthResult { Success = false, Message = ex.Message, ErrorCode = "NETWORK_ERROR" };
+            string sid = GetWindowsUserSid();
+            string endpoint = $"{ServerUrl}/api/v1/client/hwid/authenticate";
+
+            string jsonBody = $"{{\\"appId\\":\\"{EscapeJson(AppId)}\\",\\"appSecret\\":\\"{EscapeJson(Secret)}\\",\\"hwid\\":\\"{EscapeJson(sid)}\\",\\"version\\":\\"{EscapeJson(Version)}\\"}}";
+
+            var res = await SendRequestAsync(endpoint, jsonBody);
+            if (res.Success && res.Data != null)
+            {
+                UserData = res.Data;
+                UserData.Hwid = sid;
+                UserData.Version = Version;
+                return true;
+            }
+
+            HandleError(res.ErrorCode, res.Message, res.DownloadUrl, showMsgbox);
+            return false;
+        }
+
+        private async Task<NullAuthResult> SendRequestAsync(string endpoint, string jsonBody)
+        {
+            try
+            {
+                var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
+                var response = await _http.PostAsync(endpoint, content);
+                string resString = await response.Content.ReadAsStringAsync();
+
+                using JsonDocument doc = JsonDocument.Parse(resString);
+                var root = doc.RootElement;
+
+                bool success = root.GetProperty("success").GetBoolean();
+                string message = root.GetProperty("message").GetString();
+                string errorCode = root.TryGetProperty("error", out var err) ? err.GetString() : null;
+
+                UserData data = null;
+                string downloadUrl = null;
+
+                if (root.TryGetProperty("data", out var d))
+                {
+                    if (d.ValueKind == JsonValueKind.Object)
+                    {
+                        if (d.TryGetProperty("downloadUrl", out var dl)) downloadUrl = dl.GetString();
+                        data = new UserData
+                        {
+                            Status = d.TryGetProperty("status", out var s) ? s.GetString() : "active",
+                            ClientName = d.TryGetProperty("client_name", out var cn) ? cn.GetString() : "",
+                            Expires = d.TryGetProperty("expires_at", out var e) ? e.GetString() : "",
+                            RemainingDays = d.TryGetProperty("remaining_days", out var r) ? r.GetInt32() : 0,
+                            Ip = d.TryGetProperty("ip", out var ip) ? ip.GetString() : "",
+                        };
+                    }
+                }
+
+                return new NullAuthResult { Success = success, Message = message, ErrorCode = errorCode, DownloadUrl = downloadUrl, Data = data };
+            }
+            catch (Exception ex)
+            {
+                return new NullAuthResult { Success = false, Message = ex.Message, ErrorCode = "NETWORK_ERROR" };
+            }
         }
     }
 }

@@ -1,11 +1,11 @@
 using System;
 using System.Diagnostics;
 using System.Net.Http;
-using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 
 namespace NullAuthClient
 {
@@ -32,7 +32,6 @@ namespace NullAuthClient
 
     /// <summary>
     /// Ultra-Advanced Single-File C# SDK (NativeAOT & Trimming Safe)
-    /// Zero external NuGet or Windows Forms dependencies (uses native Win32 P/Invoke)
     /// Initialization: new NullAuth(appId, secret, version)
     /// </summary>
     public class NullAuth
@@ -45,9 +44,6 @@ namespace NullAuthClient
         public bool Initialized { get; private set; } = false;
 
         private static readonly HttpClient _http = new HttpClient();
-
-        [DllImport("user32.dll", EntryPoint = "MessageBoxW", CharSet = CharSet.Unicode)]
-        private static extern int MessageBoxW(IntPtr hWnd, string text, string caption, uint type);
 
         public NullAuth(string appId = "13026130", string secret = "334106af8244ffc4284df3f2c31709011681d10cfa37e67a", string version = "1.0.0", string serverUrl = "https://null-auth-backend.vercel.app")
         {
@@ -88,11 +84,11 @@ namespace NullAuthClient
             catch { return "UNKNOWN_HWID"; }
         }
 
-        public static void ShowPopup(string title, string message, uint iconType = 0x00000010 /* MB_ICONERROR */)
+        public static void ShowPopup(string title, string message, MessageBoxIcon icon = MessageBoxIcon.Error)
         {
             try
             {
-                MessageBoxW(IntPtr.Zero, message, title, iconType | 0x00000000 /* MB_OK */);
+                MessageBox.Show(message, title, MessageBoxButtons.OK, icon);
             }
             catch
             {
@@ -112,7 +108,6 @@ namespace NullAuthClient
             else if (errCode == "HWID_MISMATCH") title = "HWID Mismatch";
             else if (errCode == "LICENSE_NOT_FOUND" || errCode == "IDENTIFIER_NOT_FOUND") title = "Invalid Key / HWID";
             else if (errCode == "APPLICATION_DISABLED") title = "Application Paused";
-            else if (errCode == "INVALID_APP_CREDENTIALS") title = "App Credential Error";
 
             string popupMsg = string.IsNullOrEmpty(serverMessage) ? "Authentication request failed." : serverMessage;
             if (errCode == "VERSION_MISMATCH" && !string.IsNullOrEmpty(downloadUrl))
@@ -120,9 +115,9 @@ namespace NullAuthClient
                 popupMsg += $"\n\nDownload Update: {downloadUrl}";
             }
 
-            uint icon = (errCode == "VERSION_MISMATCH" || errCode == "LICENSE_PAUSED" || errCode == "IDENTIFIER_PAUSED" || errCode == "APPLICATION_DISABLED")
-                ? 0x00000030 /* MB_ICONWARNING */
-                : 0x00000010 /* MB_ICONERROR */;
+            MessageBoxIcon icon = (errCode == "VERSION_MISMATCH" || errCode == "LICENSE_PAUSED" || errCode == "IDENTIFIER_PAUSED" || errCode == "APPLICATION_DISABLED")
+                ? MessageBoxIcon.Warning
+                : MessageBoxIcon.Error;
 
             ShowPopup(title, popupMsg, icon);
         }
@@ -232,83 +227,6 @@ namespace NullAuthClient
             {
                 return new NullAuthResult { Success = false, Message = ex.Message, ErrorCode = "NETWORK_ERROR" };
             }
-        }
-    }
-
-    // =========================================================================
-    // RUNNABLE USAGE SAMPLE (.NET Console)
-    // =========================================================================
-    internal class Program
-    {
-        static async Task Main(string[] args)
-        {
-            Console.Title = "Null-Auth Single File C# Client";
-            Console.WriteLine("=================================================");
-            Console.WriteLine("      🛡️ Null-Auth Single-File C# (.NET) Client   ");
-            Console.WriteLine("=================================================\n");
-
-            var auth = new NullAuth(
-                appId: "13026130",
-                secret: "334106af8244ffc4284df3f2c31709011681d10cfa37e67a",
-                version: "1.0.0"
-            );
-
-            Console.WriteLine("[*] Connecting to Null-Auth cloud server...");
-            if (!await auth.InitAsync())
-            {
-                NullAuth.ShowPopup("Connection Error", "Failed to connect to Null-Auth cloud server.", 0x00000010);
-                return;
-            }
-
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine($"[+] Connected to Null-Auth! Version: {auth.Version}");
-            Console.WriteLine($"[+] Windows Machine SID: {NullAuth.GetWindowsUserSid()}\n");
-            Console.ResetColor();
-
-            Console.WriteLine("Select Authentication Method:");
-            Console.WriteLine("  1. Method 1: License Key + Machine SID Binding");
-            Console.WriteLine("  2. Method 2: HWID Whitelist Only (No License Key)");
-            Console.Write("\nEnter Choice (1 or 2): ");
-
-            string choice = Console.ReadLine()?.Trim();
-            bool success = false;
-
-            if (choice == "1")
-            {
-                Console.Write("\nEnter License Key (e.g. NULL-ABCD-1234-EFGH): ");
-                string licenseKey = Console.ReadLine()?.Trim();
-                Console.WriteLine("\n[*] Authenticating License Key...");
-                success = await auth.LicenseAsync(licenseKey, showMsgbox: true);
-            }
-            else
-            {
-                Console.WriteLine("\n[*] Authenticating Machine HWID...");
-                success = await auth.CheckHwidAsync(showMsgbox: true);
-            }
-
-            if (success)
-            {
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("\n[+] ACCESS GRANTED! Application Unlocked.");
-                Console.WriteLine($"    Status:          {auth.UserData.Status}");
-                if (!string.IsNullOrEmpty(auth.UserData.ClientName))
-                    Console.WriteLine($"    Client Name:     {auth.UserData.ClientName}");
-                Console.WriteLine($"    Days Remaining:  {auth.UserData.RemainingDays} days");
-                Console.WriteLine($"    Expires At:      {auth.UserData.Expires}");
-                if (!string.IsNullOrEmpty(auth.UserData.Ip))
-                    Console.WriteLine($"    Assigned IP:     {auth.UserData.Ip}");
-                Console.WriteLine($"    HWID Bound:      {auth.UserData.Hwid}");
-                Console.ResetColor();
-            }
-            else
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("\n[-] ACCESS DENIED!");
-                Console.ResetColor();
-            }
-
-            Console.WriteLine("\nPress Enter to exit...");
-            Console.ReadLine();
         }
     }
 }
