@@ -4,6 +4,8 @@ import { prisma } from '../db.js';
 import { sendSuccess, sendError } from '../utils/response.js';
 import { generateAppId, generateAppSecret } from '../utils/generator.js';
 import { logActivity } from '../services/logger.service.js';
+import { notifyTestWebhook } from '../services/discord.service.js';
+import { extractClientIp } from '../utils/ip.js';
 
 export const createAppSchema = z.object({
   name: z.string().min(2, 'Application name must be at least 2 characters').max(64),
@@ -96,6 +98,7 @@ export async function listApps(req: Request, res: Response) {
           downloadUrl: app.downloadUrl || null,
           freeTrialEnabled: app.freeTrialEnabled || false,
           freeTrialKey: app.freeTrialKey || null,
+          discordWebhookUrl: (app as any).discordWebhookUrl || null,
           createdAt: app.createdAt,
           updatedAt: app.updatedAt,
           activeUsers,
@@ -464,3 +467,44 @@ export async function deleteApp(req: Request, res: Response) {
     return sendError(res, 'Failed to delete application', 500, error.message);
   }
 }
+
+export async function testAppWebhook(req: Request, res: Response) {
+  const { id } = req.params;
+  const ipAddress = extractClientIp(req);
+
+  try {
+    const app = await prisma.application.findFirst({
+      where: { OR: [{ id }, { appId: id }] },
+    });
+
+    if (!app) {
+      return sendError(res, 'Application not found', 404);
+    }
+
+    const result = await notifyTestWebhook({
+      appName: app.name,
+      appId: app.appId,
+      id: app.id,
+      adminIp: ipAddress,
+    });
+
+    if (!result.success) {
+      return sendError(res, result.error || 'Failed to dispatch Discord webhook test notification', 400);
+    }
+
+    await logActivity({
+      appId: app.id,
+      action: 'ADMIN_TEST_WEBHOOK',
+      actorType: 'ADMIN',
+      ipAddress,
+      userAgent: req.headers['user-agent'],
+      details: { appId: app.appId, name: app.name },
+      status: 'SUCCESS',
+    });
+
+    return sendSuccess(res, 'Discord test notification delivered successfully!');
+  } catch (error: any) {
+    return sendError(res, 'Failed to test Discord webhook', 500, error.message);
+  }
+}
+

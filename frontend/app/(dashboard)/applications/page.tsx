@@ -11,6 +11,7 @@ import { AddHwidModal } from '@/components/modals/AddHwidModal';
 import { AppRecordsModal } from '@/components/modals/AppRecordsModal';
 import { ConfirmModal } from '@/components/modals/ConfirmModal';
 import { EditAppModal } from '@/components/modals/EditAppModal';
+import { SdkSnippetModal } from '@/components/modals/SdkSnippetModal';
 import { Modal } from '@/components/ui/Modal';
 import { fetchApi } from '@/lib/api';
 import {
@@ -39,6 +40,10 @@ import {
   GripVertical,
   ChevronLeft,
   ChevronRight,
+  LayoutGrid,
+  Table as TableIcon,
+  Bell,
+  Send,
 } from 'lucide-react';
 
 interface AppItem {
@@ -52,6 +57,7 @@ interface AppItem {
   downloadUrl: string | null;
   freeTrialEnabled: boolean;
   freeTrialKey: string | null;
+  discordWebhookUrl?: string | null;
   createdAt: string;
   activeUsers: number;
   expiredUsers: number;
@@ -91,6 +97,16 @@ export default function ApplicationsPage() {
 
   const [copiedAppId, setCopiedAppId] = useState<string | null>(null);
   const [copiedSecret, setCopiedSecret] = useState<string | null>(null);
+
+  // View Mode: 'grid' or 'table'
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+
+  // SDK Snippet Modal State
+  const [snippetApp, setSnippetApp] = useState<AppItem | null>(null);
+
+  // Webhook Test State
+  const [testingWebhookId, setTestingWebhookId] = useState<string | null>(null);
+  const [webhookFeedback, setWebhookFeedback] = useState<{ id: string; success: boolean; message: string } | null>(null);
 
   // Drag & Reorder State
   const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -208,7 +224,45 @@ export default function ApplicationsPage() {
 
   useEffect(() => {
     loadApps();
+    if (typeof window !== 'undefined') {
+      const savedView = localStorage.getItem('null_auth_apps_view_mode');
+      if (savedView === 'grid' || savedView === 'table') {
+        setViewMode(savedView as 'grid' | 'table');
+      }
+    }
   }, []);
+
+  const switchViewMode = (mode: 'grid' | 'table') => {
+    setViewMode(mode);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('null_auth_apps_view_mode', mode);
+    }
+  };
+
+  const handleTestWebhook = async (app: AppItem) => {
+    if (!app.discordWebhookUrl) {
+      setAppToEdit(app);
+      return;
+    }
+
+    setTestingWebhookId(app.id);
+    setWebhookFeedback(null);
+    try {
+      const res = await fetchApi(`/admin/apps/${app.id}/test-webhook`, {
+        method: 'POST',
+      });
+      if (res.success) {
+        setWebhookFeedback({ id: app.id, success: true, message: 'Test ping delivered to Discord!' });
+      } else {
+        setWebhookFeedback({ id: app.id, success: false, message: res.message || 'Webhook delivery failed.' });
+      }
+    } catch (err: any) {
+      setWebhookFeedback({ id: app.id, success: false, message: 'Network error sending test ping.' });
+    } finally {
+      setTestingWebhookId(null);
+      setTimeout(() => setWebhookFeedback(null), 4000);
+    }
+  };
 
   // Filtered Applications
   const filteredApps = useMemo(() => {
@@ -454,6 +508,36 @@ export default function ApplicationsPage() {
                 HWID Whitelist
               </button>
             </div>
+
+            {/* View Mode: Grid vs Table */}
+            <div className="flex items-center p-1 bg-zinc-950 border border-zinc-800 rounded-[7px] text-xs">
+              <button
+                type="button"
+                onClick={() => switchViewMode('grid')}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] font-semibold transition-all ${
+                  viewMode === 'grid'
+                    ? 'bg-zinc-800 text-white shadow-sm'
+                    : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+                title="Card Grid View"
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Cards</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => switchViewMode('table')}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] font-semibold transition-all ${
+                  viewMode === 'table'
+                    ? 'bg-zinc-800 text-white shadow-sm'
+                    : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+                title="Compact Table View"
+              >
+                <TableIcon className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Table</span>
+              </button>
+            </div>
           </div>
         </div>
       </Card>
@@ -478,7 +562,7 @@ export default function ApplicationsPage() {
             </Button>
           )}
         </Card>
-      ) : (
+      ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredApps.map((app, index) => {
             const userRatio =
@@ -697,6 +781,65 @@ export default function ApplicationsPage() {
                     )}
                   </div>
 
+                  {/* Discord Webhook Status & Test Ping */}
+                  <div className="space-y-1.5">
+                    <div className="p-2.5 rounded-[7px] bg-zinc-900/90 border border-zinc-800/80 flex items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-2 truncate">
+                        <span
+                          className={`w-2 h-2 rounded-full shrink-0 ${
+                            app.discordWebhookUrl ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-600'
+                          }`}
+                        />
+                        <div className="truncate">
+                          <div className="flex items-center gap-1.5 text-[11px] font-bold text-zinc-300">
+                            <Bell className="w-3 h-3 text-indigo-400" />
+                            <span>Discord Webhook</span>
+                          </div>
+                          <span className="text-[10px] text-zinc-500 truncate block">
+                            {app.discordWebhookUrl ? 'Active & Receiving Alerts' : 'Not configured'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleTestWebhook(app)}
+                        disabled={testingWebhookId === app.id}
+                        className={`px-2.5 py-1 rounded-[5px] text-[11px] font-bold flex items-center gap-1 shrink-0 transition-all ${
+                          app.discordWebhookUrl
+                            ? 'bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-800/60 text-indigo-300 hover:text-white'
+                            : 'bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-400'
+                        } disabled:opacity-50`}
+                        title={app.discordWebhookUrl ? 'Send real-time test notification to Discord' : 'Configure Discord Webhook'}
+                      >
+                        {testingWebhookId === app.id ? (
+                          <RefreshCw className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Send className="w-3 h-3" />
+                        )}
+                        <span>{app.discordWebhookUrl ? 'Test Ping' : 'Configure'}</span>
+                      </button>
+                    </div>
+
+                    {/* Inline Webhook Feedback Banner */}
+                    {webhookFeedback && webhookFeedback.id === app.id && (
+                      <div
+                        className={`p-2 rounded-[5px] text-[11px] font-mono border flex items-center gap-2 transition-all ${
+                          webhookFeedback.success
+                            ? 'bg-emerald-950/60 border-emerald-800/60 text-emerald-300'
+                            : 'bg-red-950/60 border-red-800/60 text-red-300'
+                        }`}
+                      >
+                        {webhookFeedback.success ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        ) : (
+                          <Bell className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                        )}
+                        <span className="truncate">{webhookFeedback.message}</span>
+                      </div>
+                    )}
+                  </div>
+
                   {/* Active User Progress Meter & Records Count */}
                   <div className="space-y-2 pt-1">
                     <div className="flex items-center justify-between text-xs font-semibold">
@@ -757,10 +900,19 @@ export default function ApplicationsPage() {
                       <Button
                         variant="secondary"
                         size="sm"
-                        onClick={() => setSelectedAppSecret(app)}
-                        title="View Full Credentials & Integration Info"
+                        onClick={() => setSnippetApp(app)}
+                        className="border-zinc-800 hover:border-red-500/40 text-zinc-200 hover:text-white"
+                        title="Developer SDK Integration Snippets (C#, C++, Python, Node.js, cURL)"
                       >
-                        <Code className="w-3.5 h-3.5 mr-1 text-red-400" /> Credentials
+                        <Code className="w-3.5 h-3.5 mr-1 text-red-400" /> SDK Code
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setSelectedAppSecret(app)}
+                        title="View Full Credentials & Keys"
+                      >
+                        <Key className="w-3.5 h-3.5" />
                       </Button>
                       <Button
                         variant="secondary"
@@ -804,7 +956,218 @@ export default function ApplicationsPage() {
           );
           })}
         </div>
+      ) : (
+        /* Compact Table View */
+        <Card className="p-0 overflow-hidden border-zinc-800/80 bg-zinc-950 shadow-xl">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="bg-zinc-900/90 text-zinc-400 font-bold uppercase tracking-wider text-[10px] border-b border-zinc-800">
+                <tr>
+                  <th className="py-3.5 px-4">Application</th>
+                  <th className="py-3.5 px-4">Mode</th>
+                  <th className="py-3.5 px-4">Status</th>
+                  <th className="py-3.5 px-4">Version</th>
+                  <th className="py-3.5 px-4">Active Users</th>
+                  <th className="py-3.5 px-4">Discord Webhook</th>
+                  <th className="py-3.5 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-800/60">
+                {filteredApps.map((app) => {
+                  const userRatio =
+                    app.totalUsers > 0 ? Math.round((app.activeUsers / app.totalUsers) * 100) : 0;
+                  return (
+                    <tr key={app.id} className="hover:bg-zinc-900/40 transition-colors">
+                      {/* Application Info */}
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-[6px] bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 shrink-0">
+                            <AppWindow className="w-4 h-4 text-red-400" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-1.5 font-bold text-zinc-200">
+                              <span>{app.name}</span>
+                              <button
+                                onClick={() => {
+                                  setAppToEdit(app);
+                                  setEditName(app.name);
+                                }}
+                                className="text-zinc-500 hover:text-zinc-300 p-0.5"
+                                title="Edit App Name"
+                              >
+                                <Edit2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-[11px] font-mono text-zinc-500 mt-0.5">
+                              <span>{app.appId}</span>
+                              <button
+                                onClick={() => copyAppId(app.appId)}
+                                className="hover:text-zinc-300 transition-colors"
+                                title="Copy App ID"
+                              >
+                                {copiedAppId === app.appId ? (
+                                  <Check className="w-3 h-3 text-emerald-400" />
+                                ) : (
+                                  <Copy className="w-3 h-3" />
+                                )}
+                              </button>
+                            </div>
+                            {app.freeTrialEnabled && (
+                              <div className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-950/60 border border-emerald-800/40 text-[9px] font-mono text-emerald-300">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                <span>Free Trial On</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Mode Badge */}
+                      <td className="py-3.5 px-4">
+                        <Badge status={app.type} />
+                      </td>
+
+                      {/* Status Toggle */}
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-2">
+                          <Badge status={app.status} />
+                          <button
+                            onClick={() => handleToggleStatus(app)}
+                            className="p-1 rounded-[5px] bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
+                            title={app.status === 'ACTIVE' ? 'Pause Application' : 'Activate Application'}
+                          >
+                            {app.status === 'ACTIVE' ? (
+                              <Pause className="w-3 h-3 text-amber-400" />
+                            ) : (
+                              <Play className="w-3 h-3 text-emerald-400" />
+                            )}
+                          </button>
+                        </div>
+                      </td>
+
+                      {/* Version */}
+                      <td className="py-3.5 px-4 font-mono">
+                        <button
+                          onClick={() => {
+                            setAppToEditVersion(app);
+                            setEditVersion(app.version || '1.0.0');
+                            setEditDownloadUrl(app.downloadUrl || '');
+                          }}
+                          className="px-2 py-0.5 rounded-[5px] bg-amber-950/40 border border-amber-800/40 hover:border-amber-500/60 text-[11px] text-amber-400 hover:text-amber-300 font-bold transition-all"
+                          title="Click to edit required version"
+                        >
+                          v{app.version || '1.0.0'}
+                        </button>
+                      </td>
+
+                      {/* Active Users */}
+                      <td className="py-3.5 px-4">
+                        <div className="space-y-1 min-w-[120px]">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-emerald-400 font-bold">{app.activeUsers}</span>
+                            <span className="text-zinc-500">/ {app.totalUsers} Total</span>
+                          </div>
+                          <div className="w-full h-1.5 rounded-full bg-zinc-900 overflow-hidden border border-zinc-800">
+                            <div
+                              className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 rounded-full transition-all duration-500"
+                              style={{ width: `${userRatio}%` }}
+                            />
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Discord Webhook */}
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`w-2 h-2 rounded-full shrink-0 ${
+                              app.discordWebhookUrl ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-600'
+                            }`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleTestWebhook(app)}
+                            disabled={testingWebhookId === app.id}
+                            className={`px-2 py-1 rounded-[5px] text-[11px] font-bold flex items-center gap-1 transition-all ${
+                              app.discordWebhookUrl
+                                ? 'bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-800/60'
+                                : 'bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border border-zinc-800'
+                            } disabled:opacity-50`}
+                            title={app.discordWebhookUrl ? 'Send test notification to Discord' : 'Configure Discord Webhook'}
+                          >
+                            {testingWebhookId === app.id ? (
+                              <RefreshCw className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Send className="w-3 h-3" />
+                            )}
+                            <span>{app.discordWebhookUrl ? 'Test Ping' : 'Configure'}</span>
+                          </button>
+                        </div>
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-3.5 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {/* SDK Code Snippet */}
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setSnippetApp(app)}
+                            className="h-7 px-2 text-xs border-zinc-800 hover:border-red-500/40 text-zinc-200 hover:text-white"
+                            title="Developer SDK Integration Snippets"
+                          >
+                            <Code className="w-3 h-3 text-red-400 mr-1" /> SDK
+                          </Button>
+
+                          {/* Records */}
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setRecordsApp(app)}
+                            className="h-7 px-2 text-xs border-zinc-800 hover:border-amber-500/40 text-amber-400 font-mono"
+                            title={app.type === 'LICENSE' ? 'Show All Licenses' : 'Show All HWID Whitelists'}
+                          >
+                            <ListFilter className="w-3 h-3 mr-1" /> {app.totalUsers}
+                          </Button>
+
+                          {/* Edit Modal */}
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setAppToEdit(app)}
+                            className="h-7 px-2 text-xs"
+                            title="Edit Application Settings"
+                          >
+                            <Settings2 className="w-3 h-3" />
+                          </Button>
+
+                          {/* Delete */}
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            onClick={() => setAppToDelete(app)}
+                            className="h-7 px-2 text-xs"
+                            title="Delete Application"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
       )}
+
+      {/* Developer SDK Snippets Modal */}
+      <SdkSnippetModal
+        isOpen={!!snippetApp}
+        onClose={() => setSnippetApp(null)}
+        app={snippetApp}
+      />
 
       {/* View All Licenses & HWIDs Modal */}
       <AppRecordsModal

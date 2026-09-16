@@ -263,3 +263,35 @@ export async function notifySecurityAlert(data: {
     },
   });
 }
+
+/**
+ * Send a test webhook notification to verify Discord integration
+ */
+export async function notifyTestWebhook(data: {
+  appName: string;
+  appId: string;
+  id: string;
+  adminIp?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const url = await getDiscordWebhookUrl(data.id);
+  if (!url) {
+    return {
+      success: false,
+      error: 'No Discord webhook URL configured for this application or globally.',
+    };
+  }
+
+  return await sendDiscordWebhook(url, {
+    title: '🔔 Discord Webhook Test Verified',
+    description: `Successfully established communication between **Null-Auth** and Discord for **${data.appName}**!`,
+    color: DISCORD_COLORS.INFO,
+    fields: [
+      { name: 'Application', value: `**${data.appName}**`, inline: true },
+      { name: 'App ID', value: `\`${data.appId}\``, inline: true },
+      { name: 'Triggered By Admin IP', value: `\`${data.adminIp || 'Console'}\``, inline: true },
+      { name: 'Status', value: '🟢 **Operational**', inline: true },
+      { name: 'Timestamp', value: new Date().toUTCString(), inline: true },
+    ],
+  });
+}
+

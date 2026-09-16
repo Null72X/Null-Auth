@@ -10,6 +10,7 @@ import {
   toggleFreeTrial,
   regenerateSecret,
   deleteApp,
+  testAppWebhook,
   createAppSchema,
   updateAppNameSchema,
   updateAppVersionSchema,
@@ -33,6 +34,7 @@ router.patch('/:id/version', validateBody(updateAppVersionSchema), updateAppVers
 router.patch('/:id/status', validateBody(updateAppStatusSchema), toggleAppStatus);
 router.patch('/:id/free-trial', validateBody(updateFreeTrialSchema), toggleFreeTrial);
 router.post('/:id/regenerate-secret', regenerateSecret);
+router.post('/:id/test-webhook', testAppWebhook);
 router.delete('/:id', deleteApp);
 
 export default router;
