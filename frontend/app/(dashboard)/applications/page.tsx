@@ -97,6 +97,10 @@ export default function ApplicationsPage() {
 
   const [copiedAppId, setCopiedAppId] = useState<string | null>(null);
   const [copiedSecret, setCopiedSecret] = useState<string | null>(null);
+  const [copiedName, setCopiedName] = useState(false);
+  const [copiedVersion, setCopiedVersion] = useState(false);
+  const [modalShowSecret, setModalShowSecret] = useState(false);
+  const [modalShowSnippet, setModalShowSnippet] = useState(false);
 
   // View Mode: 'grid' or 'table'
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
@@ -693,38 +697,50 @@ export default function ApplicationsPage() {
                     </div>
 
                     {/* App Secret Row */}
-                    <div className="flex items-center justify-between gap-2 border-t border-zinc-800/90 pt-2">
-                      <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider flex items-center gap-1.5 shrink-0">
-                        <Shield className="w-3 h-3 text-amber-400" /> Secret Key
-                      </span>
-                      <div className="flex items-center gap-1.5 truncate">
-                        <span className="text-zinc-300 font-mono text-[11px] truncate max-w-[130px]">
-                          {isSecretRevealed
-                            ? app.secret
-                            : `${app.secret.slice(0, 6)}••••••••`}
+                    <div className="space-y-1.5 border-t border-zinc-800/90 pt-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider flex items-center gap-1.5 shrink-0">
+                          <Shield className="w-3 h-3 text-amber-400" /> Secret Key
                         </span>
-                        <button
-                          onClick={() => toggleRevealSecret(app.id)}
-                          className="p-1 rounded-[5px] bg-zinc-950 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors shrink-0 border border-zinc-800"
-                          title={isSecretRevealed ? 'Hide Secret' : 'Reveal Secret'}
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => toggleRevealSecret(app.id)}
+                            className="p-1 rounded-[5px] bg-zinc-950 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors shrink-0 border border-zinc-800"
+                            title={isSecretRevealed ? 'Hide Secret' : 'Reveal Full Secret Key'}
+                          >
+                            {isSecretRevealed ? (
+                              <EyeOff className="w-3.5 h-3.5 text-amber-400" />
+                            ) : (
+                              <Eye className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => copySecret(app.secret)}
+                            className="p-1 rounded-[5px] bg-zinc-950 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors shrink-0 border border-zinc-800"
+                            title="Copy Secret Key"
+                          >
+                            {copiedSecret === app.secret ? (
+                              <Check className="w-3.5 h-3.5 text-emerald-400" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Full Secret Display Box (Shows entire key without truncation) */}
+                      <div className="p-2 rounded-[5px] bg-zinc-950/90 border border-zinc-800/70 overflow-hidden">
+                        <span
+                          className={`font-mono text-[11px] block select-all ${
+                            isSecretRevealed
+                              ? 'text-amber-300 font-bold break-all leading-relaxed'
+                              : 'text-zinc-600 tracking-widest'
+                          }`}
                         >
-                          {isSecretRevealed ? (
-                            <EyeOff className="w-3 h-3 text-amber-400" />
-                          ) : (
-                            <Eye className="w-3 h-3" />
-                          )}
-                        </button>
-                        <button
-                          onClick={() => copySecret(app.secret)}
-                          className="p-1 rounded-[5px] bg-zinc-950 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors shrink-0 border border-zinc-800"
-                          title="Copy Secret Key"
-                        >
-                          {copiedSecret === app.secret ? (
-                            <Check className="w-3 h-3 text-emerald-400" />
-                          ) : (
-                            <Copy className="w-3 h-3" />
-                          )}
-                        </button>
+                          {isSecretRevealed ? app.secret : '••••••••••••••••••••••••••••••••'}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -1210,62 +1226,216 @@ export default function ApplicationsPage() {
       <Modal
         isOpen={!!selectedAppSecret}
         onClose={() => setSelectedAppSecret(null)}
-        title={`Application Credentials — ${selectedAppSecret?.name}`}
+        title="Application Credentials"
+        size="lg"
       >
         <div className="space-y-4">
-          <p className="text-xs text-zinc-400">
-            Use these credentials to connect your desktop client (C#, C++, or Python) to Null-Auth Private Cloud API.
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-zinc-800/80">
+            <p className="text-xs text-zinc-400">
+              Simply replace the placeholder code in the example with these
+            </p>
 
-          {/* Styled Credentials Panel */}
-          <div className="p-4 rounded-[7px] bg-zinc-950 border border-zinc-800 space-y-3 font-mono text-xs">
-            {/* App ID */}
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-zinc-500 font-bold uppercase tracking-wider text-[10px]">Application ID</span>
-              <div className="flex items-center gap-2">
-                <span className="text-red-400 font-bold">{selectedAppSecret?.appId}</span>
-                <button
-                  onClick={() => copyAppId(selectedAppSecret?.appId || '')}
-                  className="p-1 rounded-[5px] bg-zinc-900 hover:bg-zinc-800 text-zinc-300 transition-colors"
-                  title="Copy App ID"
-                >
-                  {copiedAppId === selectedAppSecret?.appId ? (
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  ) : (
-                    <Copy className="w-3.5 h-3.5" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Secret Key */}
-            <div className="flex items-center justify-between gap-2 border-t border-zinc-900 pt-2.5">
-              <span className="text-zinc-500 font-bold uppercase tracking-wider text-[10px]">Secret API Key</span>
-              <div className="flex items-center gap-2">
-                <span className="text-amber-400 font-bold truncate max-w-[200px]">{selectedAppSecret?.secret}</span>
-                <button
-                  onClick={() => copySecret(selectedAppSecret?.secret || '')}
-                  className="p-1 rounded-[5px] bg-zinc-900 hover:bg-zinc-800 text-zinc-300 transition-colors"
-                  title="Copy Secret Key"
-                >
-                  {copiedSecret === selectedAppSecret?.secret ? (
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  ) : (
-                    <Copy className="w-3.5 h-3.5" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Version */}
-            <div className="flex items-center justify-between gap-2 border-t border-zinc-900 pt-2.5">
-              <span className="text-zinc-500 font-bold uppercase tracking-wider text-[10px]">Required Version</span>
-              <span className="text-amber-400 font-bold">v{selectedAppSecret?.version || '1.0.0'}</span>
-            </div>
+            {/* Display Code Snippet Toggle */}
+            <label className="flex items-center gap-2.5 cursor-pointer text-xs text-zinc-300 select-none shrink-0">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={modalShowSnippet}
+                onClick={() => setModalShowSnippet(!modalShowSnippet)}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  modalShowSnippet ? 'bg-red-500' : 'bg-zinc-800'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                    modalShowSnippet ? 'translate-x-4' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+              <span className="font-semibold text-zinc-300">Display Code Snippet</span>
+            </label>
           </div>
 
-          <div className="flex justify-end pt-2">
-            <Button variant="secondary" onClick={() => setSelectedAppSecret(null)}>
+          {!modalShowSnippet ? (
+            <div className="space-y-3">
+              {/* Box 1: APPLICATION NAME */}
+              <div className="p-3.5 rounded-[9px] bg-zinc-950 border border-zinc-800/90 relative group hover:border-zinc-700 transition-colors">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                    Application Name
+                  </span>
+                  <button
+                    onClick={() => {
+                      if (!selectedAppSecret) return;
+                      navigator.clipboard.writeText(selectedAppSecret.name);
+                      setCopiedName(true);
+                      setTimeout(() => setCopiedName(false), 2000);
+                    }}
+                    className="p-1 rounded text-zinc-500 hover:text-white transition-colors"
+                    title="Copy Application Name"
+                  >
+                    {copiedName ? (
+                      <Check className="w-4 h-4 text-emerald-400" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+                <div className="mt-1 text-sm font-bold text-white tracking-wide">
+                  {selectedAppSecret?.name}
+                </div>
+              </div>
+
+              {/* Box 2: APPLICATION ID */}
+              <div className="p-3.5 rounded-[9px] bg-zinc-950 border border-zinc-800/90 relative group hover:border-zinc-700 transition-colors">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                    Application ID
+                  </span>
+                  <button
+                    onClick={() => copyAppId(selectedAppSecret?.appId || '')}
+                    className="p-1 rounded text-zinc-500 hover:text-white transition-colors"
+                    title="Copy Application ID"
+                  >
+                    {copiedAppId === selectedAppSecret?.appId ? (
+                      <Check className="w-4 h-4 text-emerald-400" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+                <div className="mt-1 text-sm font-mono font-bold text-red-400">
+                  {selectedAppSecret?.appId}
+                </div>
+              </div>
+
+              {/* Box 3: APPLICATION SECRET (SHOWS FULL SECRET ON TAP) */}
+              <div className="p-3.5 rounded-[9px] bg-zinc-950 border border-zinc-800/90 relative group hover:border-zinc-700 transition-colors">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                    Application Secret
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setModalShowSecret(!modalShowSecret)}
+                      className="p-1 rounded text-zinc-500 hover:text-white transition-colors flex items-center gap-1 text-[11px] font-semibold"
+                      title={modalShowSecret ? 'Hide Secret Key' : 'Show Full Secret Key'}
+                    >
+                      {modalShowSecret ? (
+                        <>
+                          <EyeOff className="w-3.5 h-3.5 text-amber-400" />
+                          <span className="text-amber-400 text-[10px]">Hide</span>
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="w-3.5 h-3.5" />
+                          <span className="text-zinc-400 text-[10px]">Show Key</span>
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => copySecret(selectedAppSecret?.secret || '')}
+                      className="p-1 rounded text-zinc-500 hover:text-white transition-colors"
+                      title="Copy Secret Key"
+                    >
+                      {copiedSecret === selectedAppSecret?.secret ? (
+                        <Check className="w-4 h-4 text-emerald-400" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Secret container: shows complete key with break-all select-all when tapped */}
+                <div className="mt-2 p-2.5 rounded-[6px] bg-zinc-900/90 border border-zinc-800/80">
+                  <span
+                    className={`font-mono text-xs block select-all transition-all ${
+                      modalShowSecret
+                        ? 'text-amber-300 font-bold break-all leading-relaxed'
+                        : 'text-zinc-600 tracking-widest blur-[3px] select-none hover:blur-none'
+                    }`}
+                  >
+                    {modalShowSecret
+                      ? selectedAppSecret?.secret
+                      : '••••••••••••••••••••••••••••••••••••••••••••••••'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Box 4: APPLICATION VERSION */}
+              <div className="p-3.5 rounded-[9px] bg-zinc-950 border border-zinc-800/90 relative group hover:border-zinc-700 transition-colors">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                    Application Version
+                  </span>
+                  <button
+                    onClick={() => {
+                      if (!selectedAppSecret) return;
+                      navigator.clipboard.writeText(selectedAppSecret.version || '1.0');
+                      setCopiedVersion(true);
+                      setTimeout(() => setCopiedVersion(false), 2000);
+                    }}
+                    className="p-1 rounded text-zinc-500 hover:text-white transition-colors"
+                    title="Copy Version"
+                  >
+                    {copiedVersion ? (
+                      <Check className="w-4 h-4 text-emerald-400" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+                <div className="mt-1 text-sm font-mono font-bold text-zinc-200">
+                  {selectedAppSecret?.version || '1.0'}
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Inline Snippet Preview When Switch is ON */
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-2.5 bg-zinc-900/90 border border-zinc-800 rounded-[7px] text-xs">
+                <span className="text-zinc-400 font-medium">Pre-filled SDK Code:</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (!selectedAppSecret) return;
+                    setSnippetApp(selectedAppSecret);
+                    setSelectedAppSecret(null);
+                  }}
+                  className="h-6 px-2 text-[11px] gap-1"
+                >
+                  <Code className="w-3 h-3 text-red-400" />
+                  <span>Open Full Multi-Language SDK</span>
+                </Button>
+              </div>
+              <pre className="p-4 rounded-[8px] bg-zinc-950 border border-zinc-800 font-mono text-xs text-zinc-300 overflow-x-auto leading-relaxed max-h-[280px]">
+                <code>{`// Null-Auth Quick Authentication
+var auth = new NullAuth(
+    appId: "${selectedAppSecret?.appId}",
+    secret: "${selectedAppSecret?.secret}",
+    version: "${selectedAppSecret?.version || '1.0'}"
+);
+
+var result = await auth.LicenseAsync("PASTE-LICENSE-KEY");
+if (result) {
+    Console.WriteLine($"Access Granted to {auth.UserData.ClientName}!");
+}`}</code>
+              </pre>
+            </div>
+          )}
+
+          <div className="flex justify-end pt-2 border-t border-zinc-800/80">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setSelectedAppSecret(null);
+                setModalShowSnippet(false);
+                setModalShowSecret(false);
+              }}
+            >
               Close
             </Button>
           </div>
