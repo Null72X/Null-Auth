@@ -58,7 +58,7 @@ namespace NullAuthClient
     }
 
     /// <summary>
-    /// Single-File C# SDK (NativeAOT & Trimming Safe for EXEs and DLLs)
+    /// Single-File C# SDK with Anti-Crack Defense Shield & HMAC Signatures
     /// Usage: var auth = new NullAuth("48392017", "YOUR_RAW_SECRET", "1.0.0");
     /// </summary>
     public class NullAuth
@@ -70,7 +70,22 @@ namespace NullAuthClient
         public UserData UserData { get; private set; } = new UserData();
         public bool Initialized { get; private set; } = false;
 
+        // Security Defense Shield Switches
+        public bool EnableAntiDebug { get; set; } = true;
+        public bool EnableProcessCheck { get; set; } = true;
+        public bool EnableSignature { get; set; } = true;
+
         private static readonly HttpClient _http = new HttpClient();
+
+        [System.Runtime.InteropServices.DllImport("kernel32.dll", ExactSpelling = true, SetLastError = true)]
+        private static extern bool CheckRemoteDebuggerPresent(IntPtr hProcess, ref bool isDebuggerPresent);
+
+        private static readonly string[] BlacklistedTools = new string[]
+        {
+            "httpdebuggerui", "httpdebugger", "fiddler", "charles", "wireshark",
+            "x64dbg", "x32dbg", "cheatengine", "ida64", "ida",
+            "processhacker", "scylla", "dnspy"
+        };
 
         public NullAuth(string appId, string secret, string version = "1.0.0", string serverUrl = "https://null-auth-backend.vercel.app")
         {
@@ -111,13 +126,96 @@ namespace NullAuthClient
             catch { return "UNKNOWN_HWID"; }
         }
 
+        public bool CheckDebugger()
+        {
+            if (Debugger.IsAttached) return true;
+            try
+            {
+                bool isRemote = false;
+                if (CheckRemoteDebuggerPresent(Process.GetCurrentProcess().Handle, ref isRemote) && isRemote)
+                    return true;
+            }
+            catch { }
+            return false;
+        }
+
+        public string DetectBlacklistedProcess()
+        {
+            try
+            {
+                foreach (var p in Process.GetProcesses())
+                {
+                    try
+                    {
+                        string name = p.ProcessName.ToLowerInvariant();
+                        foreach (var tool in BlacklistedTools)
+                        {
+                            if (name.Contains(tool)) return tool;
+                        }
+                    }
+                    catch { }
+                }
+            }
+            catch { }
+            return null;
+        }
+
+        public async Task<bool> EnforceSecurityAsync(string key = null, string hwid = null)
+        {
+            if (EnableAntiDebug && CheckDebugger())
+            {
+                try
+                {
+                    string json = $"{{\"appId\":\"{AppId}\",\"appSecret\":\"{Secret}\",\"threatType\":\"DEBUGGER_ATTACHED\",\"threatDetails\":\"Active debugger attached\",\"licenseKey\":\"{key ?? ""}\",\"hwid\":\"{hwid ?? ""}\",\"clientVersion\":\"{Version}\"}}";
+                    await _http.PostAsync($"{ServerUrl}/api/client/security/alert", new StringContent(json, Encoding.UTF8, "application/json"));
+                } catch { }
+                MessageBox.Show("Security violation: Debugger detected. Process terminating.", "Null-Auth Security Alert", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                Environment.Exit(0);
+                return false;
+            }
+
+            if (EnableProcessCheck)
+            {
+                string tool = DetectBlacklistedProcess();
+                if (!string.IsNullOrEmpty(tool))
+                {
+                    try
+                    {
+                        string json = $"{{\"appId\":\"{AppId}\",\"appSecret\":\"{Secret}\",\"threatType\":\"REVERSING_TOOL_DETECTED\",\"threatDetails\":\"Blacklisted tool: {tool}\",\"licenseKey\":\"{key ?? ""}\",\"hwid\":\"{hwid ?? ""}\",\"clientVersion\":\"{Version}\"}}";
+                        await _http.PostAsync($"{ServerUrl}/api/client/security/alert", new StringContent(json, Encoding.UTF8, "application/json"));
+                    } catch { }
+                    MessageBox.Show($"Security violation: Reversing/Proxy tool ({tool}) detected. Process terminating.", "Null-Auth Security Alert", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    Environment.Exit(0);
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         public async Task<bool> LicenseAsync(string key, bool showMsgbox = true)
         {
             string sid = GetWindowsUserSid();
-            string jsonBody = $"{{\"appId\":\"{AppId}\",\"appSecret\":\"{Secret}\",\"licenseKey\":\"{key?.Trim()}\",\"hwid\":\"{sid}\",\"version\":\"{Version}\"}}";
+            string cleanKey = key?.Trim() ?? "";
 
-            var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
-            var res = await _http.PostAsync($"{ServerUrl}/api/client/auth/license", content);
+            await EnforceSecurityAsync(cleanKey, sid);
+
+            string jsonBody = $"{{\"appId\":\"{AppId}\",\"appSecret\":\"{Secret}\",\"licenseKey\":\"{cleanKey}\",\"hwid\":\"{sid}\",\"version\":\"{Version}\"}}";
+            using var req = new HttpRequestMessage(HttpMethod.Post, $"{ServerUrl}/api/client/auth/license");
+            req.Content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
+
+            if (EnableSignature && !string.IsNullOrEmpty(Secret))
+            {
+                long ts = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                string cleanAppId = AppId.StartsWith("NA-") ? AppId.Substring(3) : AppId;
+                string toSign = $"{cleanAppId}:{cleanKey}:{sid}:{ts}";
+                using var hmac = new System.Security.Cryptography.HMACSHA256(Encoding.UTF8.GetBytes(Secret));
+                string sig = BitConverter.ToString(hmac.ComputeHash(Encoding.UTF8.GetBytes(toSign))).Replace("-", "").ToLowerInvariant();
+                req.Headers.Add("x-null-timestamp", ts.ToString());
+                req.Headers.Add("x-null-signature", sig);
+            }
+
+            var res = await _http.SendAsync(req);
             string resString = await res.Content.ReadAsStringAsync();
 
             using JsonDocument doc = JsonDocument.Parse(resString);
@@ -141,10 +239,25 @@ namespace NullAuthClient
         public async Task<bool> CheckHwidAsync(bool showMsgbox = true)
         {
             string sid = GetWindowsUserSid();
-            string jsonBody = $"{{\"appId\":\"{AppId}\",\"appSecret\":\"{Secret}\",\"hwid\":\"{sid}\",\"version\":\"{Version}\"}}";
 
-            var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
-            var res = await _http.PostAsync($"{ServerUrl}/api/client/auth/hwid", content);
+            await EnforceSecurityAsync(null, sid);
+
+            string jsonBody = $"{{\"appId\":\"{AppId}\",\"appSecret\":\"{Secret}\",\"hwid\":\"{sid}\",\"version\":\"{Version}\"}}";
+            using var req = new HttpRequestMessage(HttpMethod.Post, $"{ServerUrl}/api/client/auth/hwid");
+            req.Content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
+
+            if (EnableSignature && !string.IsNullOrEmpty(Secret))
+            {
+                long ts = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                string cleanAppId = AppId.StartsWith("NA-") ? AppId.Substring(3) : AppId;
+                string toSign = $"{cleanAppId}:{sid}:{ts}";
+                using var hmac = new System.Security.Cryptography.HMACSHA256(Encoding.UTF8.GetBytes(Secret));
+                string sig = BitConverter.ToString(hmac.ComputeHash(Encoding.UTF8.GetBytes(toSign))).Replace("-", "").ToLowerInvariant();
+                req.Headers.Add("x-null-timestamp", ts.ToString());
+                req.Headers.Add("x-null-signature", sig);
+            }
+
+            var res = await _http.SendAsync(req);
             string resString = await res.Content.ReadAsStringAsync();
 
             using JsonDocument doc = JsonDocument.Parse(resString);
@@ -169,8 +282,11 @@ namespace NullAuthClient
 
 const CPP_SDK = `#include <iostream>
 #include <string>
+#include <vector>
 #include <windows.h>
 #include <wininet.h>
+#include <tlhelp32.h>
+#include <chrono>
 
 #pragma comment(lib, "wininet.lib")
 
@@ -183,6 +299,10 @@ namespace NullAuthClient {
         std::string host;
 
     public:
+        // Security Switches
+        bool enableAntiDebug = true;
+        bool enableProcessCheck = true;
+
         // Usage: NullAuthClient::NullAuth auth("48392017", "YOUR_RAW_SECRET", "1.0.0");
         NullAuth(const std::string& appId, const std::string& secret, const std::string& version = "1.0.0", const std::string& host = "null-auth-backend.vercel.app")
             : appId(appId), secret(secret), version(version), host(host) {}
@@ -204,11 +324,51 @@ namespace NullAuthClient {
             return "UNKNOWN_HWID";
         }
 
+        bool CheckDebugger() {
+            if (IsDebuggerPresent()) return true;
+            BOOL isRemote = FALSE;
+            if (CheckRemoteDebuggerPresent(GetCurrentProcess(), &isRemote) && isRemote) return true;
+            return false;
+        }
+
+        std::string DetectBlacklistedProcess() {
+            const std::vector<std::string> tools = {"httpdebugger", "fiddler", "charles", "wireshark", "x64dbg", "cheatengine", "ida64", "dnspy"};
+            HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+            if (hSnapshot == INVALID_HANDLE_VALUE) return "";
+            PROCESSENTRY32 pe32; pe32.dwSize = sizeof(PROCESSENTRY32);
+            if (Process32First(hSnapshot, &pe32)) {
+                do {
+                    std::string proc = pe32.szExeFile;
+                    for (auto& c : proc) c = (char)tolower(c);
+                    for (const auto& t : tools) {
+                        if (proc.find(t) != std::string::npos) { CloseHandle(hSnapshot); return t; }
+                    }
+                } while (Process32Next(hSnapshot, &pe32));
+            }
+            CloseHandle(hSnapshot);
+            return "";
+        }
+
+        void EnforceSecurity() {
+            if (enableAntiDebug && CheckDebugger()) {
+                MessageBoxA(0, "Security violation: Debugger detected. Process terminating.", "Null-Auth Security Alert", MB_ICONERROR | MB_OK);
+                ExitProcess(0);
+            }
+            if (enableProcessCheck) {
+                std::string t = DetectBlacklistedProcess();
+                if (!t.empty()) {
+                    MessageBoxA(0, ("Security violation: Reversing tool (" + t + ") detected. Process terminating.").c_str(), "Null-Auth Security Alert", MB_ICONERROR | MB_OK);
+                    ExitProcess(0);
+                }
+            }
+        }
+
         bool License(const std::string& key, bool showMsgbox = true) {
+            EnforceSecurity();
             std::string sid = GetWindowsUserSid();
             std::string body = "{\"appId\":\"" + appId + "\",\"appSecret\":\"" + secret + "\",\"licenseKey\":\"" + key + "\",\"hwid\":\"" + sid + "\",\"version\":\"" + version + "\"}";
             
-            HINTERNET hInternet = InternetOpenA("NullAuthCpp/1.0", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
+            HINTERNET hInternet = InternetOpenA("NullAuthCpp/2.0", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
             HINTERNET hConnect = InternetConnectA(hInternet, host.c_str(), INTERNET_DEFAULT_HTTPS_PORT, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
             HINTERNET hRequest = HttpOpenRequestA(hConnect, "POST", "/api/client/auth/license", NULL, NULL, NULL, INTERNET_FLAG_SECURE, 0);
 
@@ -233,10 +393,11 @@ namespace NullAuthClient {
         }
 
         bool CheckHwid(bool showMsgbox = true) {
+            EnforceSecurity();
             std::string sid = GetWindowsUserSid();
             std::string body = "{\"appId\":\"" + appId + "\",\"appSecret\":\"" + secret + "\",\"hwid\":\"" + sid + "\",\"version\":\"" + version + "\"}";
             
-            HINTERNET hInternet = InternetOpenA("NullAuthCpp/1.0", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
+            HINTERNET hInternet = InternetOpenA("NullAuthCpp/2.0", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
             HINTERNET hConnect = InternetConnectA(hInternet, host.c_str(), INTERNET_DEFAULT_HTTPS_PORT, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
             HINTERNET hRequest = HttpOpenRequestA(hConnect, "POST", "/api/client/auth/hwid", NULL, NULL, NULL, INTERNET_FLAG_SECURE, 0);
 
@@ -262,7 +423,9 @@ namespace NullAuthClient {
     };
 }`;
 
-const PYTHON_SDK = `import urllib.request, json, subprocess, ctypes, platform
+const PYTHON_SDK = `import urllib.request, json, subprocess, ctypes, platform, time, hmac, hashlib, sys
+
+BLACKLISTED_TOOLS = ["httpdebugger", "fiddler", "charles", "wireshark", "x64dbg", "cheatengine", "ida64", "dnspy"]
 
 class UserData:
     def __init__(self, data: dict = None):
@@ -282,6 +445,9 @@ class NullAuth:
         self.version = str(version).strip()
         self.server_url = server_url.rstrip("/")
         self.user_data = UserData()
+        self.enable_anti_debug = True
+        self.enable_process_check = True
+        self.enable_signature = True
 
     @staticmethod
     def get_windows_user_sid() -> str:
@@ -296,12 +462,38 @@ class NullAuth:
             pass
         return "UNKNOWN_HWID"
 
+    def enforce_security(self):
+        if self.enable_anti_debug and platform.system() == "Windows":
+            if ctypes.windll.kernel32.IsDebuggerPresent() != 0:
+                ctypes.windll.user32.MessageBoxW(0, "Security violation: Debugger detected. Process terminating.", "Null-Auth Alert", 16)
+                sys.exit(0)
+        if self.enable_process_check and platform.system() == "Windows":
+            try:
+                tasks = subprocess.check_output("tasklist", shell=True, text=True, errors="ignore").lower()
+                for tool in BLACKLISTED_TOOLS:
+                    if tool in tasks:
+                        ctypes.windll.user32.MessageBoxW(0, f"Security violation: Reversing tool ({tool}) detected. Process terminating.", "Null-Auth Alert", 16)
+                        sys.exit(0)
+            except Exception:
+                pass
+
     def license(self, key: str, show_msgbox: bool = True) -> bool:
+        self.enforce_security()
         sid = self.get_windows_user_sid()
         url = f"{self.server_url}/api/client/auth/license"
-        payload = {"appId": self.app_id, "appSecret": self.secret, "licenseKey": key.strip(), "hwid": sid, "version": self.version}
+        clean_key = key.strip()
+        payload = {"appId": self.app_id, "appSecret": self.secret, "licenseKey": clean_key, "hwid": sid, "version": self.version}
         
-        req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers={"Content-Type": "application/json"}, method="POST")
+        headers = {"Content-Type": "application/json"}
+        if self.enable_signature and self.secret:
+            ts = str(int(time.time() * 1000))
+            clean_app = self.app_id[3:] if self.app_id.startswith("NA-") else self.app_id
+            to_sign = f"{clean_app}:{clean_key}:{sid}:{ts}"
+            sig = hmac.new(self.secret.encode(), to_sign.encode(), hashlib.sha256).hexdigest().lower()
+            headers["x-null-timestamp"] = ts
+            headers["x-null-signature"] = sig
+
+        req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers=headers, method="POST")
         try:
             with urllib.request.urlopen(req) as res:
                 data = json.loads(res.read().decode('utf-8'))
@@ -314,11 +506,21 @@ class NullAuth:
         return False
 
     def check_hwid(self, show_msgbox: bool = True) -> bool:
+        self.enforce_security()
         sid = self.get_windows_user_sid()
         url = f"{self.server_url}/api/client/auth/hwid"
         payload = {"appId": self.app_id, "appSecret": self.secret, "hwid": sid, "version": self.version}
         
-        req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers={"Content-Type": "application/json"}, method="POST")
+        headers = {"Content-Type": "application/json"}
+        if self.enable_signature and self.secret:
+            ts = str(int(time.time() * 1000))
+            clean_app = self.app_id[3:] if self.app_id.startswith("NA-") else self.app_id
+            to_sign = f"{clean_app}:{sid}:{ts}"
+            sig = hmac.new(self.secret.encode(), to_sign.encode(), hashlib.sha256).hexdigest().lower()
+            headers["x-null-timestamp"] = ts
+            headers["x-null-signature"] = sig
+
+        req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers=headers, method="POST")
         try:
             with urllib.request.urlopen(req) as res:
                 data = json.loads(res.read().decode('utf-8'))

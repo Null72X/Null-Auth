@@ -19,8 +19,18 @@ import platform
 import subprocess
 import ctypes
 import json
+import time
+import hmac
+import hashlib
 import urllib.request
 import urllib.error
+
+BLACKLISTED_TOOLS = [
+    "httpdebuggerui", "httpdebugger", "fiddler", "charles", "wireshark",
+    "x64dbg", "x32dbg", "cheatengine", "ida64", "ida",
+    "processhacker", "scylla", "dnspy"
+]
+
 
 
 class UserData:
@@ -65,6 +75,11 @@ class NullAuth:
         self.last_response = {}
         self.initialized = False
 
+        # Security Defense Shield Switches
+        self.enable_anti_debug = True
+        self.enable_process_check = True
+        self.enable_signature = True
+
     @staticmethod
     def get_windows_user_sid() -> str:
         """Retrieves the Windows User Security Identifier (S-1-5-21-...) via whoami /user safely."""
@@ -91,6 +106,67 @@ class NullAuth:
         else:
             print(f"[{title}] {message}")
 
+    def check_debugger(self) -> bool:
+        """Detects if an active user-mode debugger is attached to this process."""
+        if platform.system() == "Windows":
+            try:
+                return ctypes.windll.kernel32.IsDebuggerPresent() != 0
+            except Exception:
+                pass
+        return False
+
+    def detect_blacklisted_process(self) -> str:
+        """Checks currently running tasks for known reversing/sniffing tools."""
+        if platform.system() == "Windows":
+            try:
+                output = subprocess.check_output("tasklist", shell=True, stderr=subprocess.DEVNULL, timeout=5).decode(errors='ignore').lower()
+                for tool in BLACKLISTED_TOOLS:
+                    if tool in output:
+                        return tool
+            except Exception:
+                pass
+        return None
+
+    def report_threat(self, threat_type: str, details: str, key: str = None, hwid: str = None):
+        """Dispatches security threat alert beacon to Null-Auth backend trap."""
+        url = f"{self.server_url}/api/v1/client/security/alert"
+        payload = {
+            "appId": self.app_id,
+            "appSecret": self.secret,
+            "threatType": threat_type,
+            "threatDetails": details,
+            "licenseKey": key or "",
+            "hwid": hwid or "",
+            "clientVersion": self.version
+        }
+        try:
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode('utf-8'),
+                headers={"Content-Type": "application/json", "User-Agent": "NullAuthClient/2.0"},
+                method="POST"
+            )
+            with urllib.request.urlopen(req, timeout=5):
+                pass
+        except Exception:
+            pass
+
+    def enforce_security(self, key: str = None, hwid: str = None) -> bool:
+        """Executes client-side anti-crack checks before dispatching auth payloads."""
+        if self.enable_anti_debug and self.check_debugger():
+            self.report_threat("DEBUGGER_ATTACHED", "Active debugger attached to Python process", key, hwid)
+            self.show_popup("Null-Auth Security Alert", "Security violation: Debugger detected. Process terminating.", 16)
+            sys.exit(0)
+
+        if self.enable_process_check:
+            tool = self.detect_blacklisted_process()
+            if tool:
+                self.report_threat("REVERSING_TOOL_DETECTED", f"Blacklisted tool active: {tool}", key, hwid)
+                self.show_popup("Null-Auth Security Alert", f"Security violation: Reversing/Proxy tool ({tool}) detected. Process terminating.", 16)
+                sys.exit(0)
+
+        return True
+
     def handle_server_error(self, response_dict: dict, show_msgbox: bool = True):
         """Dynamically extracts error code and server message from backend response to display in popup."""
         if not show_msgbox:
@@ -112,6 +188,8 @@ class NullAuth:
             "IDENTIFIER_NOT_FOUND": "Invalid Key / HWID",
             "APPLICATION_DISABLED": "Application Paused",
             "INVALID_APP_CREDENTIALS": "App Credential Error",
+            "TAMPER_DETECTED": "Tamper Detected",
+            "REPLAY_ATTACK_DETECTED": "Replay Attack Blocked",
         }
 
         title = titles.get(err_code, "Null-Auth Security Alert")
@@ -144,16 +222,21 @@ class NullAuth:
     def license(self, key: str, show_msgbox: bool = True) -> bool:
         """METHOD 1: License Key Authentication + Bound Windows User SID + Version Check."""
         sid = self.get_windows_user_sid()
+        clean_key = str(key).strip() if key else ""
+
+        # Enforce Client-Side Shield Checks
+        self.enforce_security(clean_key, sid)
+
         url = f"{self.server_url}/api/v1/client/license/authenticate"
         payload = {
             "appId": self.app_id,
             "appSecret": self.secret,
-            "licenseKey": key.strip(),
+            "licenseKey": clean_key,
             "hwid": sid,
             "version": self.version
         }
 
-        res_dict = self._send_request(url, payload)
+        res_dict = self._send_request(url, payload, clean_key, sid)
         self.last_response = res_dict
 
         if res_dict.get("success"):
@@ -169,6 +252,10 @@ class NullAuth:
     def check_hwid(self, show_msgbox: bool = True) -> bool:
         """METHOD 2: HWID Direct Whitelist Authentication + Version Check."""
         sid = self.get_windows_user_sid()
+
+        # Enforce Client-Side Shield Checks
+        self.enforce_security(None, sid)
+
         url = f"{self.server_url}/api/v1/client/hwid/authenticate"
         payload = {
             "appId": self.app_id,
@@ -177,7 +264,7 @@ class NullAuth:
             "version": self.version
         }
 
-        res_dict = self._send_request(url, payload)
+        res_dict = self._send_request(url, payload, None, sid)
         self.last_response = res_dict
 
         if res_dict.get("success"):
@@ -190,13 +277,27 @@ class NullAuth:
         self.handle_server_error(res_dict, show_msgbox)
         return False
 
-    def _send_request(self, url: str, payload: dict) -> dict:
-        """Sends HTTP POST request safely and returns parsed JSON response dict."""
+    def _send_request(self, url: str, payload: dict, license_key: str = None, hwid: str = None) -> dict:
+        """Sends HTTP POST request safely with HMAC-SHA256 signature and returns parsed JSON response dict."""
         data_bytes = json.dumps(payload).encode('utf-8')
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": "NullAuthClient/2.0"
+        }
+
+        # Cryptographic HMAC-SHA256 Signature & Anti-Replay Headers
+        if self.enable_signature and self.secret:
+            timestamp = str(int(time.time() * 1000))
+            clean_app_id = self.app_id[3:] if self.app_id.startswith("NA-") else self.app_id
+            string_to_sign = f"{clean_app_id}:{license_key or ''}:{hwid or ''}:{timestamp}"
+            signature = hmac.new(self.secret.encode('utf-8'), string_to_sign.encode('utf-8'), hashlib.sha256).hexdigest().lower()
+            headers["x-null-timestamp"] = timestamp
+            headers["x-null-signature"] = signature
+
         req = urllib.request.Request(
             url,
             data=data_bytes,
-            headers={"Content-Type": "application/json", "User-Agent": "NullAuthClient/2.0"},
+            headers=headers,
             method="POST"
         )
         try:
