@@ -34,6 +34,11 @@ import {
   XCircle,
   Copy,
   Check,
+  Search,
+  User,
+  Laptop,
+  FileText,
+  Info,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -61,12 +66,59 @@ export default function DashboardOverviewPage() {
   const [copiedAppId, setCopiedAppId] = useState<string | null>(null);
   const [targetAppForModal, setTargetAppForModal] = useState<string | undefined>(undefined);
 
-  // Live Terminal Stream State
+  // Live Stream State
   const [logsList, setLogsList] = useState<any[]>([]);
   const [selectedFilter, setSelectedFilter] = useState<'ALL' | 'CLIENT' | 'ADMIN' | 'THREATS'>('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
   const [isRefreshingLogs, setIsRefreshingLogs] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
+
+  // Helper Functions
+  const parseLogDetails = (details: any) => {
+    if (!details) return {};
+    if (typeof details === 'object') return details;
+    try {
+      return JSON.parse(details);
+    } catch {
+      return { raw: details };
+    }
+  };
+
+  const formatActionName = (action: string) => {
+    if (!action) return 'System Event';
+    switch (action) {
+      case 'CLIENT_AUTH_SUCCESS':
+        return 'User Authentication Success';
+      case 'CLIENT_AUTH_FAILED':
+        return 'User Authentication Failed';
+      case 'CLIENT_FREE_TRIAL_USER_AUTH':
+        return 'Free Trial Authentication';
+      case 'CLIENT_HWID_BOUND':
+        return 'HWID Bound to Account';
+      case 'LICENSE_VALIDATE_SUCCESS':
+      case 'LICENSE_VALIDATE':
+        return 'License Key Verification';
+      case 'LICENSE_VALIDATE_FAILED':
+        return 'License Verification Failed';
+      case 'HWID_CHECK_SUCCESS':
+      case 'HWID_VALIDATE':
+        return 'HWID Whitelist Verification';
+      case 'HWID_CHECK_FAILED':
+        return 'HWID Verification Failed';
+      case 'LICENSE_GENERATE':
+        return 'License Key Generated';
+      case 'APP_CREATE':
+        return 'Application Created';
+      case 'USER_CREATE':
+        return 'User Account Created';
+      default:
+        return action
+          .replace(/_/g, ' ')
+          .toLowerCase()
+          .replace(/\b\w/g, (c) => c.toUpperCase());
+    }
+  };
 
   // Modals
   const [isCreateAppOpen, setIsCreateAppOpen] = useState(false);
@@ -125,12 +177,30 @@ export default function DashboardOverviewPage() {
   // Filtered Logs
   const filteredLogs = useMemo(() => {
     return logsList.filter((log) => {
-      if (selectedFilter === 'CLIENT') return log.actorType === 'CLIENT';
-      if (selectedFilter === 'ADMIN') return log.actorType === 'ADMIN';
-      if (selectedFilter === 'THREATS') return log.status === 'FAILURE';
+      if (selectedFilter === 'CLIENT' && log.actorType !== 'CLIENT') return false;
+      if (selectedFilter === 'ADMIN' && log.actorType !== 'ADMIN') return false;
+      if (selectedFilter === 'THREATS' && log.status !== 'FAILURE') return false;
+
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const detailsStr = typeof log.details === 'string' ? log.details.toLowerCase() : JSON.stringify(log.details || {}).toLowerCase();
+        const actionStr = (log.action || '').toLowerCase();
+        const ipStr = (log.ipAddress || '').toLowerCase();
+        const actorStr = (log.actorType || '').toLowerCase();
+        const appName = (appsList.find((a) => a.id === log.appId)?.name || log.appId || '').toLowerCase();
+
+        return (
+          actionStr.includes(q) ||
+          ipStr.includes(q) ||
+          actorStr.includes(q) ||
+          appName.includes(q) ||
+          detailsStr.includes(q)
+        );
+      }
+
       return true;
     });
-  }, [logsList, selectedFilter]);
+  }, [logsList, selectedFilter, searchQuery, appsList]);
 
   // Log Telemetry Summary
   const logMetrics = useMemo(() => {
@@ -281,70 +351,93 @@ export default function DashboardOverviewPage() {
         </Card>
       </div>
 
-      {/* Main Live Telemetry Section */}
+      {/* Main Live Telemetry Section - Modern Card Window UI */}
       <div className="w-full">
-        {/* Cyberpunk Live Terminal Auth Stream */}
-        <Card className="space-y-4 animate-slide-up border-zinc-800/90 bg-zinc-950/80 backdrop-blur-md shadow-2xl flex flex-col justify-between" style={{ animationDelay: '200ms' }}>
-          <div className="space-y-3">
-            {/* Terminal Header Bar */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800/80 pb-3">
-              <div className="flex items-center gap-2.5">
-                {/* Simulated Linux / Mac Terminal Window Control Dots */}
-                <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-zinc-900 border border-zinc-800">
-                  <span className="w-2 h-2 rounded-full bg-red-500/80" />
-                  <span className="w-2 h-2 rounded-full bg-amber-500/80" />
-                  <span className="w-2 h-2 rounded-full bg-emerald-500/80" />
-                </div>
-                <div className="flex items-center gap-2">
-                  <Terminal className="w-4 h-4 text-red-400" />
-                  <h2 className="text-sm font-bold font-mono text-white tracking-tight">
-                    live-auth.stream
-                  </h2>
-                </div>
+        <Card className="space-y-6 animate-slide-up border-zinc-800 bg-zinc-900/60 backdrop-blur-md shadow-xl p-6" style={{ animationDelay: '200ms' }}>
+          {/* Header Bar */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-zinc-800 pb-5">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-red-950/60 border border-red-800/60 flex items-center justify-center text-red-400 shrink-0 shadow-inner">
+                <Activity className="w-5 h-5 animate-pulse" />
               </div>
-
-              <div className="flex items-center gap-2">
-                {/* Live Radar Pulse Tag */}
-                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-950/60 border border-emerald-800/60 text-[10px] font-mono font-bold text-emerald-400">
-                  <span className="relative flex h-1.5 w-1.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
-                  </span>
-                  LIVE STREAM
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <h2 className="text-lg font-bold text-white tracking-tight">
+                    Live Authentication Stream
+                  </h2>
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-800/80 text-[10px] font-bold text-emerald-400">
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
+                    </span>
+                    LIVE FEED
+                  </div>
                 </div>
-
-                {/* Auto Refresh Toggle */}
-                <button
-                  type="button"
-                  onClick={() => setAutoRefresh(!autoRefresh)}
-                  className={`px-2 py-0.5 rounded text-[10px] font-mono border transition-all ${
-                    autoRefresh
-                      ? 'bg-zinc-900 text-zinc-300 border-zinc-700'
-                      : 'bg-zinc-950 text-zinc-500 border-zinc-800'
-                  }`}
-                  title="Toggle 10-second background polling"
-                >
-                  Auto: {autoRefresh ? 'ON' : 'OFF'}
-                </button>
-
-                {/* Manual Refresh Button */}
-                <button
-                  type="button"
-                  onClick={loadLogs}
-                  disabled={isRefreshingLogs}
-                  className="p-1 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-zinc-800 transition-colors"
-                  title="Refresh Logs Now"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingLogs ? 'animate-spin text-red-400' : ''}`} />
-                </button>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  Real-time telemetry of authentication traffic, license verification, HWID authorization, and system logs.
+                </p>
               </div>
             </div>
 
-            {/* Quick Filter Switcher */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px] font-mono">
+            {/* Controls Right */}
+            <div className="flex flex-wrap items-center gap-2.5">
+              {/* Search Bar */}
+              <div className="relative min-w-[240px] sm:min-w-[280px]">
+                <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search logs by IP, user, key, HWID..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-red-500/60 transition-all"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-zinc-500 hover:text-zinc-300"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+
+              {/* Auto Refresh Toggle */}
+              <button
+                type="button"
+                onClick={() => setAutoRefresh(!autoRefresh)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all flex items-center gap-1.5 ${
+                  autoRefresh
+                    ? 'bg-zinc-800 text-zinc-200 border-zinc-700'
+                    : 'bg-zinc-950 text-zinc-500 border-zinc-800'
+                }`}
+                title="Toggle 10-second automatic polling"
+              >
+                <Clock className="w-3.5 h-3.5" />
+                <span>Auto Polling: {autoRefresh ? 'ON' : 'OFF'}</span>
+              </button>
+
+              {/* Manual Refresh Button */}
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={loadLogs}
+                disabled={isRefreshingLogs}
+                className="gap-2 text-xs font-semibold"
+                title="Refresh Stream Now"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingLogs ? 'animate-spin text-red-400' : ''}`} />
+                <span>Refresh</span>
+              </Button>
+            </div>
+          </div>
+
+          {/* Telemetry Summary Stats Strip & Filter Tabs */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-zinc-950/50 p-3 rounded-xl border border-zinc-800/80">
+            {/* Filter Tabs */}
+            <div className="flex items-center gap-1.5 overflow-x-auto text-xs">
               {[
-                { id: 'ALL', label: `All (${logsList.length})` },
-                { id: 'CLIENT', label: 'Auth Traffic' },
+                { id: 'ALL', label: `All Events (${logsList.length})` },
+                { id: 'CLIENT', label: 'Client Traffic' },
                 { id: 'ADMIN', label: 'Admin Ops' },
                 { id: 'THREATS', label: `Alerts (${logMetrics.blocked})` },
               ].map((tab) => (
@@ -352,12 +445,12 @@ export default function DashboardOverviewPage() {
                   key={tab.id}
                   type="button"
                   onClick={() => setSelectedFilter(tab.id as any)}
-                  className={`px-2.5 py-1 rounded-md transition-all font-semibold ${
+                  className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
                     selectedFilter === tab.id
                       ? tab.id === 'THREATS' && logMetrics.blocked > 0
                         ? 'bg-red-950 text-red-400 border border-red-800'
-                        : 'bg-zinc-800 text-white border border-zinc-700'
-                      : 'bg-zinc-950/60 text-zinc-500 hover:text-zinc-300 border border-zinc-900 hover:border-zinc-800'
+                        : 'bg-red-600 text-white shadow-md shadow-red-950/50 font-semibold'
+                      : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800/60'
                   }`}
                 >
                   {tab.label}
@@ -365,128 +458,223 @@ export default function DashboardOverviewPage() {
               ))}
             </div>
 
-            {/* Terminal Logs Stream Box */}
-            <div className="space-y-2 max-h-[340px] overflow-y-auto custom-scrollbar pr-1">
-              {isLoading ? (
-                <div className="py-12 text-center text-xs font-mono text-zinc-500 animate-pulse flex items-center justify-center gap-2">
-                  <Terminal className="w-4 h-4 text-zinc-600 animate-spin" />
-                  <span>Connecting to Null-Auth telemetry stream...</span>
-                </div>
-              ) : filteredLogs.length === 0 ? (
-                <div className="py-12 text-center text-xs font-mono text-zinc-600 space-y-1">
-                  <p>[STREAM_EMPTY] No events match selected filter.</p>
-                </div>
-              ) : (
-                filteredLogs.map((log) => {
-                  const isExpanded = expandedLogId === log.id;
-                  const isFail = log.status === 'FAILURE';
+            {/* Quick Metrics Pills */}
+            <div className="flex items-center gap-3 shrink-0 text-xs">
+              <span className="flex items-center gap-1.5 text-emerald-400 font-semibold">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                {logMetrics.passed} Passed ({logMetrics.passRate}%)
+              </span>
+              {logMetrics.blocked > 0 && (
+                <span className="flex items-center gap-1.5 text-red-400 font-semibold">
+                  <XCircle className="w-4 h-4 text-red-500" />
+                  {logMetrics.blocked} Blocked
+                </span>
+              )}
+            </div>
+          </div>
 
-                  return (
+          {/* Activity Log Feed Items */}
+          <div className="space-y-3 max-h-[480px] overflow-y-auto custom-scrollbar pr-1">
+            {isLoading ? (
+              <div className="py-16 text-center text-xs text-zinc-400 animate-pulse flex flex-col items-center justify-center gap-2">
+                <RefreshCw className="w-5 h-5 text-red-500 animate-spin" />
+                <span>Loading activity log stream...</span>
+              </div>
+            ) : filteredLogs.length === 0 ? (
+              <div className="py-16 text-center text-xs text-zinc-500 space-y-1 bg-zinc-950/40 rounded-xl border border-dashed border-zinc-800">
+                <Info className="w-6 h-6 mx-auto text-zinc-600 mb-2" />
+                <p className="font-semibold text-zinc-400">No telemetry events found</p>
+                <p className="text-zinc-600 text-[11px]">
+                  {searchQuery ? 'Try clearing your search query or switching filters.' : 'No activity logs recorded yet.'}
+                </p>
+              </div>
+            ) : (
+              filteredLogs.map((log) => {
+                const isExpanded = expandedLogId === log.id;
+                const isFail = log.status === 'FAILURE';
+                const details = parseLogDetails(log.details);
+                const username = details.username || details.user || details.clientUser;
+                const licenseKey = details.licenseKey || details.key;
+                const hwid = details.hwid || details.hardwareId;
+                const reason = details.reason || details.error || details.message;
+                const matchedApp = appsList.find((a) => a.id === log.appId);
+
+                return (
+                  <div
+                    key={log.id}
+                    className={`rounded-xl border transition-all overflow-hidden ${
+                      isFail
+                        ? 'bg-red-950/10 border-red-900/40 hover:border-red-600/50 shadow-sm shadow-red-950/10'
+                        : 'bg-zinc-950/60 border-zinc-800/80 hover:border-zinc-700'
+                    }`}
+                  >
+                    {/* Main Event Row */}
                     <div
-                      key={log.id}
                       onClick={() => setExpandedLogId(isExpanded ? null : log.id)}
-                      className={`p-3 rounded-lg border transition-all cursor-pointer font-mono text-xs ${
-                        isFail
-                          ? 'bg-red-950/20 border-red-900/40 hover:border-red-500/50 shadow-sm shadow-red-950/20'
-                          : 'bg-zinc-950/70 border-zinc-800/80 hover:border-zinc-700'
-                      }`}
+                      className="p-4 cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-3"
                     >
-                      {/* Row 1: Status & Action & Time */}
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 overflow-hidden">
-                          <span
-                            className={`px-1.5 py-0.5 rounded text-[10px] font-extrabold shrink-0 border ${
-                              isFail
-                                ? 'bg-red-950 text-red-400 border-red-800 animate-pulse'
-                                : 'bg-emerald-950/60 text-emerald-400 border-emerald-800/50'
-                            }`}
-                          >
-                            {isFail ? 'FAIL' : 'PASS'}
-                          </span>
-
-                          <span className={`font-bold truncate text-xs ${isFail ? 'text-red-300' : 'text-zinc-200'}`}>
-                            {log.action}
-                          </span>
-
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-900 text-zinc-500 border border-zinc-800 shrink-0 uppercase">
-                            {log.actorType}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-1.5 shrink-0 text-zinc-500 text-[11px]">
-                          <span title={new Date(log.createdAt).toLocaleString()}>{formatRelativeTime(log.createdAt)}</span>
-                          <span className="text-zinc-600 hover:text-zinc-400">
-                            {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Row 2: IP & Details summary */}
-                      <div className="mt-1.5 flex items-center gap-3 text-[11px] text-zinc-400">
-                        <span className="flex items-center gap-1 text-zinc-500 shrink-0">
-                          <Globe className="w-3 h-3 text-zinc-600" />
-                          {log.ipAddress || 'Internal'}
-                        </span>
-                        {log.details && (
-                          <span className="text-zinc-400 truncate max-w-[280px]">
-                            {typeof log.details === 'string' ? log.details : JSON.stringify(log.details)}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Row 3: Expanded JSON Inspector */}
-                      {isExpanded && (
-                        <div className="mt-2.5 pt-2 border-t border-zinc-800/80 space-y-1.5 text-[11px]">
-                          <div className="flex items-center justify-between text-zinc-400">
-                            <span className="text-zinc-500 font-bold uppercase text-[10px]">Log Event ID:</span>
-                            <span className="font-mono text-zinc-300">{log.id}</span>
-                          </div>
-                          {log.userAgent && (
-                            <div className="text-zinc-400">
-                              <span className="text-zinc-500 font-bold uppercase text-[10px] block">User Agent:</span>
-                              <span className="text-zinc-400 break-all">{log.userAgent}</span>
+                      {/* Left: Status Icon & Details */}
+                      <div className="flex items-start gap-3 overflow-hidden">
+                        <div className="mt-0.5 shrink-0">
+                          {isFail ? (
+                            <div className="w-8 h-8 rounded-lg bg-red-950/80 border border-red-800/80 flex items-center justify-center text-red-400">
+                              <XCircle className="w-4 h-4" />
+                            </div>
+                          ) : (
+                            <div className="w-8 h-8 rounded-lg bg-emerald-950/80 border border-emerald-800/80 flex items-center justify-center text-emerald-400">
+                              <CheckCircle2 className="w-4 h-4" />
                             </div>
                           )}
-                          {log.details && (
-                            <div>
-                              <span className="text-zinc-500 font-bold uppercase text-[10px] block mb-1">Payload / Error Details:</span>
-                              <pre className="p-2 rounded bg-black/90 border border-zinc-800 text-[11px] text-emerald-400 overflow-x-auto whitespace-pre-wrap font-mono">
+                        </div>
+
+                        <div className="space-y-1 overflow-hidden">
+                          {/* Event Title & Badges */}
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-bold text-sm text-zinc-100">
+                              {formatActionName(log.action)}
+                            </span>
+
+                            {/* Raw Action Code Tag */}
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-900 text-zinc-400 border border-zinc-800">
+                              {log.action}
+                            </span>
+
+                            {/* Actor Type Badge */}
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border ${
+                              log.actorType === 'ADMIN'
+                                ? 'bg-purple-950/60 text-purple-400 border-purple-800/60'
+                                : 'bg-blue-950/60 text-blue-400 border-blue-800/60'
+                            }`}>
+                              {log.actorType}
+                            </span>
+
+                            {/* Application Badge */}
+                            {matchedApp && (
+                              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-zinc-900 text-zinc-300 border border-zinc-800 flex items-center gap-1">
+                                <AppWindow className="w-3 h-3 text-red-400" />
+                                {matchedApp.name}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Secondary Event Meta Summary */}
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-400">
+                            {username && (
+                              <span className="flex items-center gap-1 text-zinc-300 font-medium">
+                                <User className="w-3.5 h-3.5 text-emerald-400" />
+                                User: <span className="text-white">{username}</span>
+                              </span>
+                            )}
+
+                            {licenseKey && (
+                              <span className="flex items-center gap-1 font-mono text-zinc-300">
+                                <Key className="w-3.5 h-3.5 text-blue-400" />
+                                Key: <span className="text-zinc-200">{licenseKey}</span>
+                              </span>
+                            )}
+
+                            {hwid && (
+                              <span className="flex items-center gap-1 font-mono text-zinc-400">
+                                <Laptop className="w-3.5 h-3.5 text-purple-400" />
+                                HWID: <span className="text-zinc-300 truncate max-w-[160px]">{hwid}</span>
+                              </span>
+                            )}
+
+                            {log.ipAddress && (
+                              <span className="flex items-center gap-1 text-zinc-400">
+                                <Globe className="w-3.5 h-3.5 text-zinc-500" />
+                                IP: {log.ipAddress}
+                              </span>
+                            )}
+
+                            {isFail && reason && (
+                              <span className="flex items-center gap-1 text-red-400 font-medium">
+                                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                                {reason}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right: Timestamp & Toggle Arrow */}
+                      <div className="flex items-center justify-between md:justify-end gap-3 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-zinc-800/60">
+                        <span className="text-xs text-zinc-400 font-medium" title={new Date(log.createdAt).toLocaleString()}>
+                          {formatRelativeTime(log.createdAt)}
+                        </span>
+                        <div className="w-6 h-6 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white transition-colors">
+                          {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Expanded Detail Window */}
+                    {isExpanded && (
+                      <div className="p-4 bg-zinc-950 border-t border-zinc-800 space-y-4 text-xs">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                          {/* Card 1: Event & App */}
+                          <div className="p-3 rounded-lg bg-zinc-900/60 border border-zinc-800/80 space-y-1">
+                            <span className="text-[10px] font-bold uppercase text-zinc-500 block">Event & Application</span>
+                            <div className="text-zinc-200 font-semibold">{formatActionName(log.action)}</div>
+                            <div className="text-zinc-400 text-[11px] font-mono">{log.action}</div>
+                            {matchedApp && (
+                              <div className="text-red-400 font-medium text-[11px] pt-1">
+                                App: {matchedApp.name} ({matchedApp.appId})
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Card 2: Network & Client */}
+                          <div className="p-3 rounded-lg bg-zinc-900/60 border border-zinc-800/80 space-y-1">
+                            <span className="text-[10px] font-bold uppercase text-zinc-500 block">Network & Device</span>
+                            <div className="text-zinc-200 font-semibold flex items-center gap-1.5">
+                              <Globe className="w-3.5 h-3.5 text-zinc-400" />
+                              {log.ipAddress || 'Internal Request'}
+                            </div>
+                            {log.userAgent && (
+                              <div className="text-zinc-400 text-[11px] truncate" title={log.userAgent}>
+                                UA: {log.userAgent}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Card 3: Exact Timestamp */}
+                          <div className="p-3 rounded-lg bg-zinc-900/60 border border-zinc-800/80 space-y-1">
+                            <span className="text-[10px] font-bold uppercase text-zinc-500 block">Log Timestamp & ID</span>
+                            <div className="text-zinc-200 font-medium">{new Date(log.createdAt).toLocaleString()}</div>
+                            <div className="text-zinc-500 font-mono text-[10px] truncate">ID: {log.id}</div>
+                          </div>
+                        </div>
+
+                        {/* Full Parsed Payload Grid / JSON Inspector */}
+                        {log.details && (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                                <FileText className="w-3.5 h-3.5 text-zinc-500" />
+                                Payload Details
+                              </span>
+                            </div>
+                            <div className="p-3 rounded-lg bg-black/70 border border-zinc-800 font-mono text-xs text-zinc-300 overflow-x-auto">
+                              <pre className="whitespace-pre-wrap text-emerald-400">
                                 {(() => {
                                   try {
                                     const parsed = typeof log.details === 'string' ? JSON.parse(log.details) : log.details;
                                     return JSON.stringify(parsed, null, 2);
                                   } catch {
-                                    return log.details;
+                                    return String(log.details);
                                   }
                                 })()}
                               </pre>
                             </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-
-          {/* Terminal SOC Telemetry Footer Ticker */}
-          <div className="pt-3 border-t border-zinc-800/80 flex items-center justify-between text-[11px] font-mono text-zinc-400">
-            <div className="flex items-center gap-3">
-              <span className="flex items-center gap-1.5 text-emerald-400">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                {logMetrics.passed} Passed ({logMetrics.passRate}%)
-              </span>
-              {logMetrics.blocked > 0 && (
-                <span className="flex items-center gap-1.5 text-red-400 font-bold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
-                  {logMetrics.blocked} Blocked
-                </span>
-              )}
-            </div>
-
-            <span className="text-zinc-600">daemon: ok</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
           </div>
         </Card>
       </div>
