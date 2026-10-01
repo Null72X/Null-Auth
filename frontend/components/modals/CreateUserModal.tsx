@@ -163,7 +163,7 @@ export function CreateUserModal({
               <input
                 type="number"
                 min="1"
-                max="3650"
+                max="9999"
                 value={days}
                 onChange={(e) => setDays(Number(e.target.value))}
                 required
@@ -188,6 +188,36 @@ export function CreateUserModal({
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-lg pl-9 pr-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-red-500/80 transition-colors"
               />
             </div>
+          </div>
+        </div>
+
+        {/* Quick Duration Presets */}
+        <div>
+          <span className="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-2">
+            Quick Duration Presets
+          </span>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {[
+              { label: '1 Day', value: 1 },
+              { label: '7 Days', value: 7 },
+              { label: '30 Days', value: 30 },
+              { label: '90 Days', value: 90 },
+              { label: '365 Days', value: 365 },
+              { label: 'Lifetime', value: 9999 },
+            ].map((preset) => (
+              <button
+                key={preset.label}
+                type="button"
+                onClick={() => setDays(preset.value)}
+                className={`px-3 py-1 rounded-[8px] text-xs font-mono font-bold border transition-all ${
+                  days === preset.value
+                    ? 'bg-red-950 text-red-400 border-red-700 shadow-sm'
+                    : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:text-zinc-200 hover:border-zinc-700'
+                }`}
+              >
+                {preset.label}
+              </button>
+            ))}
           </div>
         </div>
 

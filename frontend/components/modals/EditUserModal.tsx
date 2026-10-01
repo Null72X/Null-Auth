@@ -145,6 +145,38 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user }: EditUserModa
           </div>
         </div>
 
+        {/* Quick Duration Extension Presets */}
+        <div>
+          <span className="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-2">
+            Quick Extend Expiration
+          </span>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {[
+              { label: '+1 Day', days: 1 },
+              { label: '+7 Days', days: 7 },
+              { label: '+30 Days', days: 30 },
+              { label: '+90 Days', days: 90 },
+              { label: '+1 Year', days: 365 },
+              { label: 'Lifetime', days: 9999 },
+            ].map((preset) => (
+              <button
+                key={preset.label}
+                type="button"
+                onClick={() => {
+                  const now = new Date();
+                  const current = expiresAt ? new Date(expiresAt) : now;
+                  const base = current < now ? now : current;
+                  base.setDate(base.getDate() + preset.days);
+                  setExpiresAt(base.toISOString().slice(0, 16));
+                }}
+                className="px-2.5 py-1 rounded-[7px] text-xs font-mono font-bold bg-zinc-950 text-zinc-300 border border-zinc-800 hover:border-red-500/60 hover:text-red-400 transition-all"
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div>
           <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">
             Bound Machine SID / HWID
