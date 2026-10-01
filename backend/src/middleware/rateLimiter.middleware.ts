@@ -1,11 +1,14 @@
 import rateLimit from 'express-rate-limit';
 import { sendError } from '../utils/response.js';
+import { extractClientIp } from '../utils/ip.js';
 
 export const loginRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // Limit each IP to 5 login requests per windowMs
+  max: 30, // Limit each IP to 30 login requests per windowMs
+  skipSuccessfulRequests: true, // Do not count successful logins towards rate limit
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => extractClientIp(req),
   handler: (_req, res) => {
     return sendError(res, 'Too many failed login attempts. Please try again after 15 minutes.', 429);
   },

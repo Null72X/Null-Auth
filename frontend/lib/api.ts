@@ -1,4 +1,4 @@
-const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://null-auth-backend.vercel.app/api/v1';
+const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://nullauthbackend.vercel.app/api/v1';
 const API_URL = rawApiUrl.replace(/\/+$/, '');
 
 export function getAuthToken(): string | null {
