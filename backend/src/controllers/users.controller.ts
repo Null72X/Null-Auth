@@ -5,6 +5,7 @@ import { prisma } from '../db.js';
 import { sendSuccess, sendError } from '../utils/response.js';
 import { hashHwid } from '../services/hash.service.js';
 import { logActivity } from '../services/logger.service.js';
+import { notifyUserCreated, notifyAdminAction } from '../services/discord.service.js';
 
 export const createUserSchema = z.object({
   appId: z.string().min(1, 'Application ID is required'),
@@ -208,6 +209,17 @@ export async function createUser(req: Request, res: Response) {
       status: 'SUCCESS',
     });
 
+    try {
+      await notifyUserCreated({
+        appName: app.name,
+        appId: app.appId,
+        username: trimmedUsername,
+        clientName: resolvedClientName,
+        days,
+        adminIp: req.ip,
+      });
+    } catch (e) {}
+
     return sendSuccess(res, `User account '${trimmedUsername}' created successfully`, {
       ...newUser,
       clientName: resolvedClientName,
@@ -303,6 +315,7 @@ export async function toggleUserStatus(req: Request, res: Response) {
     const updated = await (prisma as any).clientUser.update({
       where: { id },
       data: { status },
+      include: { application: true },
     });
 
     await logActivity({
@@ -314,6 +327,17 @@ export async function toggleUserStatus(req: Request, res: Response) {
       details: { username: updated.username, newStatus: status },
       status: 'SUCCESS',
     });
+
+    try {
+      await notifyAdminAction({
+        appName: updated.application?.name || updated.appId,
+        appId: updated.appId,
+        action: `USER_STATUS_${status}`,
+        target: updated.username,
+        details: `Status changed to ${status}`,
+        adminIp: req.ip,
+      });
+    } catch (e) {}
 
     return sendSuccess(res, `User status set to ${status}`, updated);
   } catch (error: any) {
@@ -346,6 +370,7 @@ export async function extendUser(req: Request, res: Response) {
         expiresAt: newExpiresAt,
         status: newStatus,
       },
+      include: { application: true },
     });
 
     await logActivity({
@@ -357,6 +382,17 @@ export async function extendUser(req: Request, res: Response) {
       details: { username: updated.username, days, newExpiresAt: updated.expiresAt },
       status: 'SUCCESS',
     });
+
+    try {
+      await notifyAdminAction({
+        appName: updated.application?.name || updated.appId,
+        appId: updated.appId,
+        action: days >= 0 ? 'USER_ADD_DAYS' : 'USER_REMOVE_DAYS',
+        target: updated.username,
+        details: `Modified duration by ${days} days (New expiry: ${updated.expiresAt.toISOString().split('T')[0]})`,
+        adminIp: req.ip,
+      });
+    } catch (e) {}
 
     return sendSuccess(res, `User duration modified by ${days} day(s)`, updated);
   } catch (error: any) {
@@ -375,6 +411,7 @@ export async function resetUserHwid(req: Request, res: Response) {
     const updated = await (prisma as any).clientUser.update({
       where: { id },
       data: { boundHwid: newBound },
+      include: { application: true },
     });
 
     await logActivity({
@@ -387,6 +424,17 @@ export async function resetUserHwid(req: Request, res: Response) {
       status: 'SUCCESS',
     });
 
+    try {
+      await notifyAdminAction({
+        appName: updated.application?.name || updated.appId,
+        appId: updated.appId,
+        action: 'USER_RESET_HWID',
+        target: updated.username,
+        details: newBound ? `Bound HWID set to ${newBound.substring(0, 16)}...` : 'Bound HWID unlinked / cleared',
+        adminIp: req.ip,
+      });
+    } catch (e) {}
+
     return sendSuccess(res, 'User bound HWID reset successfully', updated);
   } catch (error: any) {
     console.error('[Reset User HWID Error]:', error);
@@ -398,7 +446,10 @@ export async function deleteUser(req: Request, res: Response) {
   const { id } = req.params;
 
   try {
-    const user = await (prisma as any).clientUser.findUnique({ where: { id } });
+    const user = await (prisma as any).clientUser.findUnique({
+      where: { id },
+      include: { application: true },
+    });
     if (!user) return sendError(res, 'User account not found', 404);
 
     await (prisma as any).clientUser.delete({ where: { id } });
@@ -412,6 +463,17 @@ export async function deleteUser(req: Request, res: Response) {
       details: { username: user.username },
       status: 'SUCCESS',
     });
+
+    try {
+      await notifyAdminAction({
+        appName: user.application?.name || user.appId,
+        appId: user.appId,
+        action: 'USER_DELETE',
+        target: user.username,
+        details: 'User account permanently deleted',
+        adminIp: req.ip,
+      });
+    } catch (e) {}
 
     return sendSuccess(res, 'User account deleted successfully');
   } catch (error: any) {

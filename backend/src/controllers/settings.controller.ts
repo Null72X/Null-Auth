@@ -18,13 +18,23 @@ function maskWebhookUrl(url: string): string {
 export async function getSettings(req: Request, res: Response) {
   try {
     let webhookUrlSetting: any = null;
+    let botNameSetting: any = null;
+    let botAvatarSetting: any = null;
     let notifyAuthSuccessSetting: any = null;
     let notifyAuthFailSetting: any = null;
     let notifyLicenseCreateSetting: any = null;
+    let notifyFreeTrialSetting: any = null;
+    let notifyAdminActionsSetting: any = null;
 
     try {
       webhookUrlSetting = await (prisma as any).setting?.findUnique({
         where: { key: 'discord_webhook_url' },
+      });
+      botNameSetting = await (prisma as any).setting?.findUnique({
+        where: { key: 'discord_bot_name' },
+      });
+      botAvatarSetting = await (prisma as any).setting?.findUnique({
+        where: { key: 'discord_avatar_url' },
       });
       notifyAuthSuccessSetting = await (prisma as any).setting?.findUnique({
         where: { key: 'discord_notify_auth_success' },
@@ -35,6 +45,12 @@ export async function getSettings(req: Request, res: Response) {
       notifyLicenseCreateSetting = await (prisma as any).setting?.findUnique({
         where: { key: 'discord_notify_license_create' },
       });
+      notifyFreeTrialSetting = await (prisma as any).setting?.findUnique({
+        where: { key: 'discord_notify_free_trial' },
+      });
+      notifyAdminActionsSetting = await (prisma as any).setting?.findUnique({
+        where: { key: 'discord_notify_admin_actions' },
+      });
     } catch (dbErr) {
       // Table might not exist yet if db:push hasn't run
     }
@@ -44,10 +60,15 @@ export async function getSettings(req: Request, res: Response) {
     return sendSuccess(res, 'Settings retrieved successfully', {
       discord: {
         hasWebhook: !!rawUrl.trim(),
+        webhookUrl: rawUrl.trim(),
         maskedUrl: maskWebhookUrl(rawUrl),
+        botName: botNameSetting?.value || 'Null-Auth Security Guard',
+        botAvatarUrl: botAvatarSetting?.value || 'https://i.imgur.com/8Qp4w9f.png',
         notifyAuthSuccess: notifyAuthSuccessSetting ? notifyAuthSuccessSetting.value === 'true' : true,
         notifyAuthFail: notifyAuthFailSetting ? notifyAuthFailSetting.value === 'true' : true,
         notifyLicenseCreate: notifyLicenseCreateSetting ? notifyLicenseCreateSetting.value === 'true' : true,
+        notifyFreeTrial: notifyFreeTrialSetting ? notifyFreeTrialSetting.value === 'true' : true,
+        notifyAdminActions: notifyAdminActionsSetting ? notifyAdminActionsSetting.value === 'true' : true,
       },
     });
   } catch (error: any) {
@@ -56,7 +77,16 @@ export async function getSettings(req: Request, res: Response) {
 }
 
 export async function updateWebhookSettings(req: Request, res: Response) {
-  const { webhookUrl, notifyAuthSuccess, notifyAuthFail, notifyLicenseCreate } = req.body;
+  const {
+    webhookUrl,
+    botName,
+    botAvatarUrl,
+    notifyAuthSuccess,
+    notifyAuthFail,
+    notifyLicenseCreate,
+    notifyFreeTrial,
+    notifyAdminActions,
+  } = req.body;
 
   try {
     if (webhookUrl !== undefined) {
@@ -72,28 +102,38 @@ export async function updateWebhookSettings(req: Request, res: Response) {
       });
     }
 
-    if (notifyAuthSuccess !== undefined) {
+    if (botName !== undefined) {
       await (prisma as any).setting?.upsert({
-        where: { key: 'discord_notify_auth_success' },
-        update: { value: String(notifyAuthSuccess) },
-        create: { key: 'discord_notify_auth_success', value: String(notifyAuthSuccess) },
+        where: { key: 'discord_bot_name' },
+        update: { value: String(botName).trim() },
+        create: { key: 'discord_bot_name', value: String(botName).trim() },
       });
     }
 
-    if (notifyAuthFail !== undefined) {
+    if (botAvatarUrl !== undefined) {
       await (prisma as any).setting?.upsert({
-        where: { key: 'discord_notify_auth_fail' },
-        update: { value: String(notifyAuthFail) },
-        create: { key: 'discord_notify_auth_fail', value: String(notifyAuthFail) },
+        where: { key: 'discord_avatar_url' },
+        update: { value: String(botAvatarUrl).trim() },
+        create: { key: 'discord_avatar_url', value: String(botAvatarUrl).trim() },
       });
     }
 
-    if (notifyLicenseCreate !== undefined) {
-      await (prisma as any).setting?.upsert({
-        where: { key: 'discord_notify_license_create' },
-        update: { value: String(notifyLicenseCreate) },
-        create: { key: 'discord_notify_license_create', value: String(notifyLicenseCreate) },
-      });
+    const toggles = [
+      { key: 'discord_notify_auth_success', val: notifyAuthSuccess },
+      { key: 'discord_notify_auth_fail', val: notifyAuthFail },
+      { key: 'discord_notify_license_create', val: notifyLicenseCreate },
+      { key: 'discord_notify_free_trial', val: notifyFreeTrial },
+      { key: 'discord_notify_admin_actions', val: notifyAdminActions },
+    ];
+
+    for (const toggle of toggles) {
+      if (toggle.val !== undefined) {
+        await (prisma as any).setting?.upsert({
+          where: { key: toggle.key },
+          update: { value: String(toggle.val) },
+          create: { key: toggle.key, value: String(toggle.val) },
+        });
+      }
     }
 
     return sendSuccess(res, 'Discord Webhook settings saved successfully');
@@ -119,14 +159,17 @@ export async function testWebhook(req: Request, res: Response) {
       return sendError(res, 'No Discord Webhook URL provided or configured', 400);
     }
 
+    const unixTime = Math.floor(Date.now() / 1000);
+
     const testEmbed = {
-      title: '🛰️ Null-Auth Discord Webhook Test',
-      description: 'Your Discord Webhook has been successfully linked to **Null-Auth**! All security alerts and licensing events will be delivered to this channel in real time.',
+      title: '🛰️ Null-Auth Discord Command Center Verified',
+      description: 'Your Discord Webhook channel has been successfully linked to **Null-Auth Security Cloud**! All licensing events and security violations will be delivered to this channel in real time.',
       color: DISCORD_COLORS.CYAN,
       fields: [
         { name: 'Status', value: '🟢 **Connected & Operational**', inline: true },
-        { name: 'Platform', value: 'Null-Auth v1.0.0', inline: true },
-        { name: 'Triggered By', value: req.ip || 'Admin Dashboard', inline: true },
+        { name: 'Platform', value: 'Null-Auth v2.4', inline: true },
+        { name: 'Triggered By Admin IP', value: `\`${req.ip || 'Admin Dashboard'}\``, inline: true },
+        { name: 'Timestamp', value: `<t:${unixTime}:F>`, inline: false },
       ],
       footer: { text: 'Null-Auth Security • Discord Integration' },
       timestamp: new Date().toISOString(),
@@ -138,7 +181,7 @@ export async function testWebhook(req: Request, res: Response) {
       return sendError(res, result.error || 'Failed to dispatch test webhook to Discord', 400);
     }
 
-    return sendSuccess(res, 'Test webhook sent successfully to Discord! Check your channel.');
+    return sendSuccess(res, 'Test webhook delivered successfully to Discord!');
   } catch (error: any) {
     return sendError(res, 'Failed to send test webhook', 500, error.message);
   }

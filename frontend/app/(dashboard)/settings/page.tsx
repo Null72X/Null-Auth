@@ -517,11 +517,19 @@ export default function SettingsPage() {
   // Discord Webhook State
   const [webhookUrl, setWebhookUrl] = useState('');
   const [maskedWebhookUrl, setMaskedWebhookUrl] = useState('');
+  const [botName, setBotName] = useState('Null-Auth Security Guard');
+  const [botAvatarUrl, setBotAvatarUrl] = useState('https://i.imgur.com/8Qp4w9f.png');
   const [hasWebhook, setHasWebhook] = useState(false);
   const [showWebhookUrl, setShowWebhookUrl] = useState(false);
+
   const [notifyAuthSuccess, setNotifyAuthSuccess] = useState(true);
   const [notifyAuthFail, setNotifyAuthFail] = useState(true);
   const [notifyLicenseCreate, setNotifyLicenseCreate] = useState(true);
+  const [notifyFreeTrial, setNotifyFreeTrial] = useState(true);
+  const [notifyAdminActions, setNotifyAdminActions] = useState(true);
+
+  const [previewEventType, setPreviewEventType] = useState<'AUTH_SUCCESS' | 'AUTH_FAIL' | 'KEY_CREATE' | 'FREE_TRIAL' | 'ADMIN_ACTION'>('AUTH_SUCCESS');
+
   const [isSavingWebhook, setIsSavingWebhook] = useState(false);
   const [isTestingWebhook, setIsTestingWebhook] = useState(false);
   const [webhookMessage, setWebhookMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -534,9 +542,13 @@ export default function SettingsPage() {
           const d = res.data.discord;
           setHasWebhook(d.hasWebhook);
           setMaskedWebhookUrl(d.maskedUrl);
-          setNotifyAuthSuccess(d.notifyAuthSuccess);
-          setNotifyAuthFail(d.notifyAuthFail);
-          setNotifyLicenseCreate(d.notifyLicenseCreate);
+          if (d.botName) setBotName(d.botName);
+          if (d.botAvatarUrl) setBotAvatarUrl(d.botAvatarUrl);
+          if (d.notifyAuthSuccess !== undefined) setNotifyAuthSuccess(d.notifyAuthSuccess);
+          if (d.notifyAuthFail !== undefined) setNotifyAuthFail(d.notifyAuthFail);
+          if (d.notifyLicenseCreate !== undefined) setNotifyLicenseCreate(d.notifyLicenseCreate);
+          if (d.notifyFreeTrial !== undefined) setNotifyFreeTrial(d.notifyFreeTrial);
+          if (d.notifyAdminActions !== undefined) setNotifyAdminActions(d.notifyAdminActions);
         }
       } catch (err) {}
     };
@@ -552,13 +564,17 @@ export default function SettingsPage() {
         method: 'POST',
         body: JSON.stringify({
           webhookUrl: webhookUrl.trim() || undefined,
+          botName: botName.trim(),
+          botAvatarUrl: botAvatarUrl.trim(),
           notifyAuthSuccess,
           notifyAuthFail,
           notifyLicenseCreate,
+          notifyFreeTrial,
+          notifyAdminActions,
         }),
       });
       if (res.success) {
-        setWebhookMessage({ type: 'success', text: 'Discord Webhook configuration saved successfully!' });
+        setWebhookMessage({ type: 'success', text: 'Discord Webhook Command Center configuration saved successfully!' });
         if (webhookUrl.trim()) {
           setHasWebhook(true);
           setMaskedWebhookUrl(webhookUrl.substring(0, 35) + '••••');
@@ -583,7 +599,7 @@ export default function SettingsPage() {
         body: JSON.stringify({ webhookUrl: webhookUrl.trim() || undefined }),
       });
       if (res.success) {
-        setWebhookMessage({ type: 'success', text: '🛰️ Test ping sent to Discord! Check your channel.' });
+        setWebhookMessage({ type: 'success', text: '🛰️ Test ping delivered to Discord! Check your channel.' });
       } else {
         setWebhookMessage({ type: 'error', text: res.message || 'Failed to send test ping to Discord' });
       }
@@ -762,7 +778,36 @@ export default function SettingsPage() {
               </div>
             )}
 
-            <form onSubmit={handleSaveWebhook} className="space-y-5">
+            <form onSubmit={handleSaveWebhook} className="space-y-6">
+              {/* Bot Identity & Webhook URL Inputs */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider">
+                    Discord Bot Username
+                  </label>
+                  <input
+                    type="text"
+                    value={botName}
+                    onChange={(e) => setBotName(e.target.value)}
+                    placeholder="Null-Auth Security Guard"
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-[10px] px-3.5 py-2.5 text-xs text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider">
+                    Discord Bot Avatar URL
+                  </label>
+                  <input
+                    type="text"
+                    value={botAvatarUrl}
+                    onChange={(e) => setBotAvatarUrl(e.target.value)}
+                    placeholder="https://i.imgur.com/8Qp4w9f.png"
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-[10px] px-3.5 py-2.5 text-xs font-mono text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
               {/* Webhook URL Input */}
               <div className="space-y-2">
                 <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider">
@@ -791,18 +836,18 @@ export default function SettingsPage() {
                   </button>
                 </div>
                 <span className="block text-[11px] text-zinc-500">
-                  In Discord: Go to <strong>Server Settings</strong> &gt; <strong>Integrations</strong> &gt; <strong>Webhooks</strong> &gt; <strong>New Webhook</strong> &gt; <strong>Copy Webhook URL</strong>.
+                  In Discord: Server Settings &gt; Integrations &gt; Webhooks &gt; New Webhook &gt; Copy Webhook URL.
                 </span>
               </div>
 
-              {/* Event Subscriptions Toggles */}
+              {/* Granular Event Subscriptions Grid */}
               <div className="space-y-2.5 pt-2">
                 <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider">
-                  Event Alert Subscriptions
+                  Granular Event Subscriptions
                 </label>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {/* Alert 1: License Provisioning */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {/* Card 1: Key & User Provisioning */}
                   <div
                     onClick={() => setNotifyLicenseCreate(!notifyLicenseCreate)}
                     className={`p-3.5 rounded-[10px] border cursor-pointer select-none transition-all flex flex-col justify-between ${
@@ -813,7 +858,7 @@ export default function SettingsPage() {
                   >
                     <div className="space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-zinc-200">🔑 License Created</span>
+                        <span className="text-xs font-bold text-zinc-200">🔑 Key & User Creation</span>
                         <input
                           type="checkbox"
                           checked={notifyLicenseCreate}
@@ -822,12 +867,12 @@ export default function SettingsPage() {
                         />
                       </div>
                       <p className="text-[11px] text-zinc-400">
-                        Dispatches when new license keys are generated or provisioned.
+                        Dispatches when new license keys, HWIDs, or user accounts are created.
                       </p>
                     </div>
                   </div>
 
-                  {/* Alert 2: Security Violations */}
+                  {/* Card 2: Security Violations */}
                   <div
                     onClick={() => setNotifyAuthFail(!notifyAuthFail)}
                     className={`p-3.5 rounded-[10px] border cursor-pointer select-none transition-all flex flex-col justify-between ${
@@ -852,7 +897,7 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
-                  {/* Alert 3: Client Logins */}
+                  {/* Card 3: Auth Success Logins */}
                   <div
                     onClick={() => setNotifyAuthSuccess(!notifyAuthSuccess)}
                     className={`p-3.5 rounded-[10px] border cursor-pointer select-none transition-all flex flex-col justify-between ${
@@ -863,7 +908,7 @@ export default function SettingsPage() {
                   >
                     <div className="space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-zinc-200">✅ Auth Success</span>
+                        <span className="text-xs font-bold text-zinc-200">🟢 Auth Success</span>
                         <input
                           type="checkbox"
                           checked={notifyAuthSuccess}
@@ -874,6 +919,147 @@ export default function SettingsPage() {
                       <p className="text-[11px] text-zinc-400">
                         Notifications for authorized client logins with Client Name and IP.
                       </p>
+                    </div>
+                  </div>
+
+                  {/* Card 4: Free Trial Logins */}
+                  <div
+                    onClick={() => setNotifyFreeTrial(!notifyFreeTrial)}
+                    className={`p-3.5 rounded-[10px] border cursor-pointer select-none transition-all flex flex-col justify-between ${
+                      notifyFreeTrial
+                        ? 'bg-cyan-950/30 border-cyan-600/50 ring-1 ring-cyan-500/20'
+                        : 'bg-zinc-950/60 border-zinc-800 text-zinc-500 opacity-60'
+                    }`}
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-zinc-200">🎁 Free Trial Logins</span>
+                        <input
+                          type="checkbox"
+                          checked={notifyFreeTrial}
+                          onChange={() => {}}
+                          className="accent-cyan-500 rounded"
+                        />
+                      </div>
+                      <p className="text-[11px] text-zinc-400">
+                        Notifications whenever users log in using Free Trial mode.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Card 5: Admin Operations */}
+                  <div
+                    onClick={() => setNotifyAdminActions(!notifyAdminActions)}
+                    className={`p-3.5 rounded-[10px] border cursor-pointer select-none transition-all flex flex-col justify-between ${
+                      notifyAdminActions
+                        ? 'bg-amber-950/30 border-amber-600/50 ring-1 ring-amber-500/20'
+                        : 'bg-zinc-950/60 border-zinc-800 text-zinc-500 opacity-60'
+                    }`}
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-zinc-200">⚙️ Admin Operations</span>
+                        <input
+                          type="checkbox"
+                          checked={notifyAdminActions}
+                          onChange={() => {}}
+                          className="accent-amber-500 rounded"
+                        />
+                      </div>
+                      <p className="text-[11px] text-zinc-400">
+                        Notifications for pause, ban, duration extensions, reset HWID, and deletions.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Live Discord Embed Simulator */}
+              <div className="space-y-3 pt-3 border-t border-zinc-800">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider">
+                    Live Discord Embed Simulator
+                  </label>
+                  <div className="flex items-center gap-1 bg-zinc-950 p-1 rounded-lg border border-zinc-800 text-[11px] font-mono font-bold">
+                    {(['AUTH_SUCCESS', 'AUTH_FAIL', 'KEY_CREATE', 'FREE_TRIAL', 'ADMIN_ACTION'] as const).map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setPreviewEventType(type)}
+                        className={`px-2 py-0.5 rounded transition-all ${
+                          previewEventType === type
+                            ? 'bg-indigo-600 text-white'
+                            : 'text-zinc-400 hover:text-white'
+                        }`}
+                      >
+                        {type === 'AUTH_SUCCESS' ? 'Success' : type === 'AUTH_FAIL' ? 'Security Alert' : type === 'KEY_CREATE' ? 'Provision' : type === 'FREE_TRIAL' ? 'Trial' : 'Admin'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Simulated Discord Message UI */}
+                <div className="p-4 rounded-[12px] bg-[#313338] text-white font-sans text-xs space-y-2 border border-zinc-800 shadow-xl">
+                  <div className="flex items-start gap-3">
+                    <img
+                      src={botAvatarUrl || 'https://i.imgur.com/8Qp4w9f.png'}
+                      alt="Bot Avatar"
+                      className="w-10 h-10 rounded-full object-cover shrink-0 mt-0.5"
+                      onError={(e) => { (e.target as any).src = 'https://i.imgur.com/8Qp4w9f.png'; }}
+                    />
+                    <div className="space-y-1 flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-white text-sm">{botName || 'Null-Auth Security Guard'}</span>
+                        <span className="px-1.5 py-0.5 bg-[#5865F2] text-white text-[9px] font-bold rounded">BOT</span>
+                        <span className="text-[10px] text-zinc-400">Today at 9:30 PM</span>
+                      </div>
+
+                      {/* Embed Box */}
+                      <div className={`mt-1.5 p-3.5 rounded-[4px] bg-[#2b2d31] border-l-4 space-y-2 ${
+                        previewEventType === 'AUTH_SUCCESS' ? 'border-[#10b981]' :
+                        previewEventType === 'AUTH_FAIL' ? 'border-[#ef4444]' :
+                        previewEventType === 'KEY_CREATE' ? 'border-[#3b82f6]' :
+                        previewEventType === 'FREE_TRIAL' ? 'border-[#06b6d4]' : 'border-[#f59e0b]'
+                      }`}>
+                        <h4 className="font-bold text-white text-sm">
+                          {previewEventType === 'AUTH_SUCCESS' && '🟢 Client Authentication Success'}
+                          {previewEventType === 'AUTH_FAIL' && '🚨 Null-Auth Security Gate Alert'}
+                          {previewEventType === 'KEY_CREATE' && '🔑 New License Key Created'}
+                          {previewEventType === 'FREE_TRIAL' && '🎁 Free Trial Authentication'}
+                          {previewEventType === 'ADMIN_ACTION' && '⚙️ Administrative Security Action'}
+                        </h4>
+                        <p className="text-zinc-300 text-xs">
+                          {previewEventType === 'AUTH_SUCCESS' && 'Client successfully authenticated into Pro Cheat Loader.'}
+                          {previewEventType === 'AUTH_FAIL' && 'An unauthorized authentication attempt (HWID Mismatch) was blocked by the security gate.'}
+                          {previewEventType === 'KEY_CREATE' && 'A new client license key has been provisioned and is ready for activation.'}
+                          {previewEventType === 'FREE_TRIAL' && 'A client authenticated using Free Trial Access on Pro Cheat Loader.'}
+                          {previewEventType === 'ADMIN_ACTION' && 'An administrative action (LICENSE_STATUS_PAUSED) was executed.'}
+                        </p>
+
+                        <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                          <div>
+                            <span className="text-zinc-400 font-bold block text-[11px]">Application</span>
+                            <span className="text-white font-medium">Pro Cheat Loader</span>
+                          </div>
+                          <div>
+                            <span className="text-zinc-400 font-bold block text-[11px]">Client Identity</span>
+                            <span className="text-white font-medium">AlphaTester (Alex)</span>
+                          </div>
+                          <div>
+                            <span className="text-zinc-400 font-bold block text-[11px]">Origin IP</span>
+                            <code className="text-emerald-400 bg-[#1e1f22] px-1.5 py-0.5 rounded text-[11px]">192.168.1.100</code>
+                          </div>
+                          <div>
+                            <span className="text-zinc-400 font-bold block text-[11px]">App Version</span>
+                            <code className="text-zinc-200 bg-[#1e1f22] px-1.5 py-0.5 rounded text-[11px]">v1.0.4</code>
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-zinc-700/60 flex items-center justify-between text-[10px] text-zinc-400">
+                          <span>Null-Auth Platform • Cloud Security Gate</span>
+                          <span>Just now</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
