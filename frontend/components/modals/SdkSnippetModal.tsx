@@ -130,12 +130,12 @@ namespace NullAuthClient
 
         private static readonly HttpClient _http = new HttpClient();
 
-        public NullAuth(string appId, string secret, string version = "1.0.0", string serverUrl = "https://null-auth-backend.vercel.app")
+        public NullAuth(string appId, string secret, string version = "1.0.0", string serverUrl = "https://nullauthbackend.vercel.app")
         {
             AppId = appId?.Trim() ?? "";
             Secret = secret?.Trim() ?? "";
             Version = version?.Trim() ?? "1.0.0";
-            ServerUrl = serverUrl?.TrimEnd('/') ?? "https://null-auth-backend.vercel.app";
+            ServerUrl = serverUrl?.TrimEnd('/') ?? "https://nullauthbackend.vercel.app";
         }
 
         public static string GetWindowsUserSid()

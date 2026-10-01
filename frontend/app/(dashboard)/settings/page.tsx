@@ -72,12 +72,12 @@ namespace NullAuthClient
 
         private static readonly HttpClient _http = new HttpClient();
 
-        public NullAuth(string appId, string secret, string version = "1.0.0", string serverUrl = "https://null-auth-backend.vercel.app")
+        public NullAuth(string appId, string secret, string version = "1.0.0", string serverUrl = "https://nullauthbackend.vercel.app")
         {
             AppId = appId?.Trim() ?? "";
             Secret = secret?.Trim() ?? "";
             Version = version?.Trim() ?? "1.0.0";
-            ServerUrl = serverUrl?.TrimEnd('/') ?? "https://null-auth-backend.vercel.app";
+            ServerUrl = serverUrl?.TrimEnd('/') ?? "https://nullauthbackend.vercel.app";
         }
 
         public static string GetWindowsUserSid()
@@ -438,7 +438,7 @@ class UserData:
 
 class NullAuth:
     # Usage: auth = NullAuth(app_id="13026130", secret="YOUR_RAW_SECRET", version="1.0.0")
-    def __init__(self, app_id: str, secret: str, version: str = "1.0.0", server_url: str = "https://null-auth-backend.vercel.app"):
+    def __init__(self, app_id: str, secret: str, version: str = "1.0.0", server_url: str = "https://nullauthbackend.vercel.app"):
         self.app_id = str(app_id).strip()
         self.secret = str(secret).strip()
         self.version = str(version).strip()
@@ -1080,8 +1080,8 @@ export default function SettingsPage() {
                 </span>
                 <span className="text-emerald-400 font-mono font-bold text-[11px]">POST</span>
               </div>
-              <p className="font-mono text-red-400 font-bold text-sm bg-zinc-900/90 p-2.5 rounded-[8px] border border-zinc-800">
-                https://null-auth-backend.vercel.app/api/v1/client/license/authenticate
+              <p className="font-mono text-red-400 font-bold text-sm bg-zinc-900/90 p-2.5 rounded-[8px] border border-zinc-800 select-all">
+                https://nullauthbackend.vercel.app/api/v1/client/license/authenticate
               </p>
               <p className="text-zinc-400 text-[11px]">
                 Payload: <code className="text-zinc-300">{"{ appId, appSecret, licenseKey, hwid, version }"}</code>
@@ -1095,11 +1095,26 @@ export default function SettingsPage() {
                 </span>
                 <span className="text-emerald-400 font-mono font-bold text-[11px]">POST</span>
               </div>
-              <p className="font-mono text-purple-400 font-bold text-sm bg-zinc-900/90 p-2.5 rounded-[8px] border border-zinc-800">
-                https://null-auth-backend.vercel.app/api/v1/client/hwid/authenticate
+              <p className="font-mono text-purple-400 font-bold text-sm bg-zinc-900/90 p-2.5 rounded-[8px] border border-zinc-800 select-all">
+                https://nullauthbackend.vercel.app/api/v1/client/hwid/authenticate
               </p>
               <p className="text-zinc-400 text-[11px]">
                 Payload: <code className="text-zinc-300">{"{ appId, appSecret, hwid, version }"}</code>
+              </p>
+            </div>
+
+            <div className="p-4 rounded-[12px] bg-zinc-950 border border-zinc-800/80 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-zinc-400 font-bold uppercase tracking-wider text-[11px]">
+                  User Account Authentication Endpoint (Method 3)
+                </span>
+                <span className="text-emerald-400 font-mono font-bold text-[11px]">POST</span>
+              </div>
+              <p className="font-mono text-cyan-400 font-bold text-sm bg-zinc-900/90 p-2.5 rounded-[8px] border border-zinc-800 select-all">
+                https://nullauthbackend.vercel.app/api/v1/client/user/authenticate
+              </p>
+              <p className="text-zinc-400 text-[11px]">
+                Payload: <code className="text-zinc-300">{"{ appId, appSecret, username, password, hwid, version }"}</code>
               </p>
             </div>
           </div>
