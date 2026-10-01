@@ -9,6 +9,7 @@ import { CreateUserModal } from '@/components/modals/CreateUserModal';
 import { EditUserModal } from '@/components/modals/EditUserModal';
 import { ConfirmModal } from '@/components/modals/ConfirmModal';
 import { fetchApi } from '@/lib/api';
+import { formatRelativeTime } from '@/lib/time';
 import {
   Users,
   User,
@@ -406,6 +407,11 @@ export default function UserAccountsPage() {
                                 <Copy className="w-3.5 h-3.5" />
                               )}
                             </button>
+                            {(user.clientName?.toLowerCase().includes('free trial') || user.username.startsWith('trial_')) && (
+                              <span className="px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider rounded bg-emerald-950/90 text-emerald-400 border border-emerald-800/60 shrink-0">
+                                FREE TRIAL
+                              </span>
+                            )}
                           </div>
 
                           {/* Line 2: Bound Machine HWID / SID */}
@@ -457,8 +463,19 @@ export default function UserAccountsPage() {
                           </span>
                         </div>
                       </td>
-                      <td className="p-4 text-xs font-mono text-zinc-400">
-                        {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : 'Never'}
+                      <td className="p-4 text-xs">
+                        <div className="space-y-0.5">
+                          <span className="font-bold text-zinc-200 block">
+                            {formatRelativeTime(user.lastLoginAt)}
+                          </span>
+                          {user.lastLoginAt ? (
+                            <span className="text-[10px] text-zinc-500 font-mono block">
+                              {new Date(user.lastLoginAt).toLocaleString()}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-zinc-600 italic block">Never logged in</span>
+                          )}
+                        </div>
                       </td>
                       <td className="p-4 text-xs text-zinc-300 font-medium max-w-[140px] truncate">
                         {user.clientName ? user.clientName : <span className="text-zinc-600 italic">—</span>}

@@ -5,6 +5,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { fetchApi } from '@/lib/api';
+import { formatRelativeTime } from '@/lib/time';
 import {
   Key,
   ShieldCheck,
@@ -28,7 +29,7 @@ interface AppItem {
   appId: string;
   name: string;
   secret: string;
-  type: 'LICENSE' | 'HWID';
+  type: 'LICENSE' | 'HWID' | 'USER_AUTH';
   status: 'ACTIVE' | 'PAUSED';
   version: string;
   downloadUrl: string | null;
@@ -60,6 +61,8 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
 
     const endpoint = app.type === 'LICENSE'
       ? `/admin/licenses?appId=${app.id}&limit=200`
+      : app.type === 'USER_AUTH'
+      ? `/admin/users?appId=${app.id}&limit=200`
       : `/admin/hwid?appId=${app.id}&limit=200`;
 
     const res = await fetchApi(endpoint);
@@ -91,7 +94,7 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
   const handleToggleStatus = async (recordId: string, currentStatus: string) => {
     if (!app) return;
     const newStatus = currentStatus === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
-    const baseEndpoint = app.type === 'LICENSE' ? '/admin/licenses' : '/admin/hwid';
+    const baseEndpoint = app.type === 'LICENSE' ? '/admin/licenses' : app.type === 'USER_AUTH' ? '/admin/users' : '/admin/hwid';
 
     await fetchApi(`${baseEndpoint}/${recordId}/status`, {
       method: 'PATCH',
@@ -106,7 +109,7 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
   const handleBanRecord = async (recordId: string, currentStatus: string) => {
     if (!app) return;
     const newStatus = currentStatus === 'BANNED' ? 'ACTIVE' : 'BANNED';
-    const baseEndpoint = app.type === 'LICENSE' ? '/admin/licenses' : '/admin/hwid';
+    const baseEndpoint = app.type === 'LICENSE' ? '/admin/licenses' : app.type === 'USER_AUTH' ? '/admin/users' : '/admin/hwid';
 
     await fetchApi(`${baseEndpoint}/${recordId}/status`, {
       method: 'PATCH',
@@ -120,7 +123,7 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
   // Extend record days
   const handleExtendDays = async (recordId: string) => {
     if (!app) return;
-    const baseEndpoint = app.type === 'LICENSE' ? '/admin/licenses' : '/admin/hwid';
+    const baseEndpoint = app.type === 'LICENSE' ? '/admin/licenses' : app.type === 'USER_AUTH' ? '/admin/users' : '/admin/hwid';
 
     await fetchApi(`${baseEndpoint}/${recordId}/extend`, {
       method: 'PATCH',
@@ -144,7 +147,7 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
   // Delete record
   const handleDeleteRecord = async (recordId: string) => {
     if (!app) return;
-    const baseEndpoint = app.type === 'LICENSE' ? '/admin/licenses' : '/admin/hwid';
+    const baseEndpoint = app.type === 'LICENSE' ? '/admin/licenses' : app.type === 'USER_AUTH' ? '/admin/users' : '/admin/hwid';
 
     await fetchApi(`${baseEndpoint}/${recordId}`, {
       method: 'DELETE',
@@ -177,6 +180,12 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
       if (app?.type === 'LICENSE') {
         return (
           r.key?.toLowerCase().includes(query) ||
+          (r.clientName || r.notes)?.toLowerCase().includes(query) ||
+          r.boundHwid?.toLowerCase().includes(query)
+        );
+      } else if (app?.type === 'USER_AUTH') {
+        return (
+          r.username?.toLowerCase().includes(query) ||
           (r.clientName || r.notes)?.toLowerCase().includes(query) ||
           r.boundHwid?.toLowerCase().includes(query)
         );
@@ -274,7 +283,7 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
         ) : (
           <div className="max-h-[460px] overflow-y-auto space-y-2.5 pr-1 custom-scrollbar">
             {filteredRecords.map((r) => {
-              const displayVal = app.type === 'LICENSE' ? r.key : r.hwidHash;
+              const displayVal = app.type === 'LICENSE' ? r.key : app.type === 'USER_AUTH' ? r.username : r.hwidHash;
               const isExtending = extendingId === r.id;
               const effStatus = r.effectiveStatus || r.status;
               const daysRatio = Math.min(100, Math.max(0, (r.remainingDays / 365) * 100));
@@ -289,6 +298,8 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
                     <div className="flex items-center gap-2 truncate">
                       {app.type === 'LICENSE' ? (
                         <Key className="w-4 h-4 text-red-400 shrink-0" />
+                      ) : app.type === 'USER_AUTH' ? (
+                        <Users className="w-4 h-4 text-cyan-400 shrink-0" />
                       ) : (
                         <ShieldCheck className="w-4 h-4 text-purple-400 shrink-0" />
                       )}
@@ -298,7 +309,7 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
                       <button
                         onClick={() => copyToClipboard(displayVal, r.id)}
                         className="p-1 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors shrink-0 border border-zinc-800"
-                        title="Copy Key / SID"
+                        title="Copy Key / Username / SID"
                       >
                         {copiedId === r.id ? (
                           <Check className="w-3.5 h-3.5 text-emerald-400" />
@@ -355,8 +366,8 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
                     </div>
                   </div>
 
-                  {/* Bound HWID Sub-Row (License apps) */}
-                  {app.type === 'LICENSE' && (
+                  {/* Bound HWID Sub-Row (License & User Auth apps) */}
+                  {(app.type === 'LICENSE' || app.type === 'USER_AUTH') && (
                     <div className="flex items-center justify-between text-[11px] text-zinc-400 bg-zinc-900/80 p-2 rounded-[6px] border border-zinc-800/80 font-mono">
                       <div className="flex items-center gap-2 truncate">
                         <span className="text-zinc-500 font-bold uppercase text-[9px]">Bound SID:</span>
@@ -416,7 +427,7 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
                       </span>
                       <span>&bull;</span>
                       <span>
-                        Last Auth: <strong className="text-zinc-200">{r.lastLoginAt || r.lastAuthAt ? new Date(r.lastLoginAt || r.lastAuthAt).toLocaleString() : 'Never'}</strong>
+                        Last Auth: <strong className="text-zinc-200" title={r.lastLoginAt || r.lastAuthAt ? new Date(r.lastLoginAt || r.lastAuthAt).toLocaleString() : 'Never'}>{formatRelativeTime(r.lastLoginAt || r.lastAuthAt)}</strong>
                       </span>
                     </div>
 

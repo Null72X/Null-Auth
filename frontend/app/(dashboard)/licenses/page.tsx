@@ -10,6 +10,7 @@ import { ConfirmModal } from '@/components/modals/ConfirmModal';
 import { EditLicenseModal } from '@/components/modals/EditLicenseModal';
 import { Modal } from '@/components/ui/Modal';
 import { fetchApi } from '@/lib/api';
+import { formatRelativeTime } from '@/lib/time';
 import {
   Key,
   Plus,
@@ -402,6 +403,11 @@ export default function LicensesPage() {
                                 <Copy className="w-3.5 h-3.5" />
                               )}
                             </button>
+                            {(lic.clientName?.toLowerCase().includes('free trial') || lic.key?.startsWith('FREE-TRIAL')) && (
+                              <span className="px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider rounded bg-emerald-950/90 text-emerald-400 border border-emerald-800/60 shrink-0">
+                                FREE TRIAL
+                              </span>
+                            )}
                           </div>
 
                           {/* Line 2: Bound Machine HWID / SID */}
@@ -453,8 +459,19 @@ export default function LicensesPage() {
                           </span>
                         </div>
                       </td>
-                      <td className="p-4 text-xs font-mono text-zinc-400">
-                        {lic.lastLoginAt ? new Date(lic.lastLoginAt).toLocaleString() : 'Never'}
+                      <td className="p-4 text-xs">
+                        <div className="space-y-0.5">
+                          <span className="font-bold text-zinc-200 block">
+                            {formatRelativeTime(lic.lastLoginAt)}
+                          </span>
+                          {lic.lastLoginAt ? (
+                            <span className="text-[10px] text-zinc-500 font-mono block">
+                              {new Date(lic.lastLoginAt).toLocaleString()}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-zinc-600 italic block">Never logged in</span>
+                          )}
+                        </div>
                       </td>
                       <td className="p-4 text-xs text-zinc-300 font-medium max-w-[140px] truncate">
                         {lic.clientName ? lic.clientName : <span className="text-zinc-600 italic">—</span>}

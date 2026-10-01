@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
+import bcrypt from 'bcryptjs';
 import { prisma } from '../db.js';
 import { sendSuccess, sendError } from '../utils/response.js';
 import { generateAppId, generateAppSecret } from '../utils/generator.js';
@@ -407,12 +408,38 @@ export async function toggleFreeTrial(req: Request, res: Response) {
             clientName: 'Dynamic Master Free Trial Key',
           },
         });
+      } else if (app.type === 'USER_AUTH') {
+        const part1 = Math.random().toString(36).substring(2, 6).toLowerCase();
+        newTrialKey = `trial_${part1}`;
+
+        const expiresAt = new Date();
+        expiresAt.setFullYear(expiresAt.getFullYear() + 10);
+
+        const salt = await bcrypt.genSalt(10);
+        const passwordHash = await bcrypt.hash('trial123', salt);
+
+        await (prisma as any).clientUser.create({
+          data: {
+            username: newTrialKey,
+            passwordHash,
+            appId: app.id,
+            status: 'ACTIVE',
+            expiresAt,
+            clientName: 'Dynamic Master Free Trial User',
+          },
+        });
       }
     } else {
       if (app.type === 'LICENSE' && app.freeTrialKey) {
         // Expire the old free trial key
         await prisma.license.updateMany({
           where: { key: app.freeTrialKey, appId: app.id },
+          data: { status: 'EXPIRED' },
+        }).catch(() => {});
+      } else if (app.type === 'USER_AUTH' && app.freeTrialKey) {
+        // Expire the old free trial user account
+        await (prisma as any).clientUser.updateMany({
+          where: { username: app.freeTrialKey, appId: app.id },
           data: { status: 'EXPIRED' },
         }).catch(() => {});
       }

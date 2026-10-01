@@ -10,6 +10,7 @@ import { ConfirmModal } from '@/components/modals/ConfirmModal';
 import { EditHwidModal } from '@/components/modals/EditHwidModal';
 import { Modal } from '@/components/ui/Modal';
 import { fetchApi } from '@/lib/api';
+import { formatRelativeTime } from '@/lib/time';
 import {
   ShieldCheck,
   Plus,
@@ -322,10 +323,19 @@ export default function HwidPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="p-4 text-xs font-mono text-zinc-400">
-                      {item.lastAuthAt
-                        ? new Date(item.lastAuthAt).toLocaleString()
-                        : 'Never'}
+                    <td className="p-4 text-xs">
+                      <div className="space-y-0.5">
+                        <span className="font-bold text-zinc-200 block font-sans">
+                          {formatRelativeTime(item.lastAuthAt)}
+                        </span>
+                        {item.lastAuthAt ? (
+                          <span className="text-[10px] text-zinc-500 font-mono block">
+                            {new Date(item.lastAuthAt).toLocaleString()}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-zinc-600 italic block font-sans">Never authenticated</span>
+                        )}
+                      </div>
                     </td>
                     <td className="p-4 text-xs text-zinc-300 font-medium max-w-[160px] truncate">
                       {item.clientName || <span className="text-zinc-600 italic">—</span>}

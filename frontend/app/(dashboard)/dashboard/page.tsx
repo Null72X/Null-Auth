@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { fetchApi } from '@/lib/api';
+import { formatRelativeTime } from '@/lib/time';
 import { CreateAppModal } from '@/components/modals/CreateAppModal';
 import { CreateLicenseModal } from '@/components/modals/CreateLicenseModal';
 import { AddHwidModal } from '@/components/modals/AddHwidModal';
@@ -585,7 +586,7 @@ export default function DashboardOverviewPage() {
                         </div>
 
                         <div className="flex items-center gap-1.5 shrink-0 text-zinc-500 text-[11px]">
-                          <span>{new Date(log.createdAt).toLocaleTimeString()}</span>
+                          <span title={new Date(log.createdAt).toLocaleString()}>{formatRelativeTime(log.createdAt)}</span>
                           <span className="text-zinc-600 hover:text-zinc-400">
                             {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                           </span>

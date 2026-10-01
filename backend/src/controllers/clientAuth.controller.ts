@@ -142,6 +142,12 @@ export async function authenticateLicense(req: Request, res: Response) {
 
     // If active Master Free Trial Key -> Bypass HWID single-device binding check completely!
     if (isTrialKey) {
+      const now = new Date();
+      await prisma.license.updateMany({
+        where: { key: licenseKey.trim(), appId: app.id },
+        data: { lastLoginAt: now },
+      }).catch(() => {});
+
       await logActivity({
         appId: app.id,
         action: 'CLIENT_FREE_TRIAL_AUTH',
@@ -151,6 +157,17 @@ export async function authenticateLicense(req: Request, res: Response) {
         details: { appId: app.appId, licenseKey: licenseKey.trim(), hwid: cleanHwid },
         status: 'SUCCESS',
       });
+
+      try {
+        await notifyClientAuthSuccess({
+          appName: app.name,
+          appId: app.appId,
+          clientName: 'Free Trial Key User',
+          keyOrHwid: licenseKey.trim(),
+          ip: typeof ipAddress === 'string' ? ipAddress : undefined,
+          version: clientVer || app.version,
+        });
+      } catch (discordErr) {}
 
       return sendSuccess(res, 'Authentication successful (Free Trial Active)', {
         status: 'active',
@@ -409,6 +426,12 @@ export async function authenticateHwid(req: Request, res: Response) {
 
     // If Free Trial Mode is Active for HWID App -> EVERY device/HWID gets instant access!
     if (app.freeTrialEnabled) {
+      const now = new Date();
+      await prisma.hwidAccess.updateMany({
+        where: { hwidHash: cleanHwid, appId: app.id },
+        data: { lastAuthAt: now },
+      }).catch(() => {});
+
       await logActivity({
         appId: app.id,
         action: 'CLIENT_FREE_TRIAL_HWID_AUTH',
@@ -418,6 +441,17 @@ export async function authenticateHwid(req: Request, res: Response) {
         details: { appId: app.appId, hwid: cleanHwid },
         status: 'SUCCESS',
       });
+
+      try {
+        await notifyClientAuthSuccess({
+          appName: app.name,
+          appId: app.appId,
+          clientName: 'Free Trial Device',
+          keyOrHwid: cleanHwid.substring(0, 16) + '...',
+          ip: typeof ipAddress === 'string' ? ipAddress : undefined,
+          version: clientVer || app.version,
+        });
+      } catch (discordErr) {}
 
       return sendSuccess(res, 'Authentication successful (Free Trial Active)', {
         status: 'active',
@@ -632,6 +666,47 @@ export async function authenticateUser(req: Request, res: Response) {
 
     const cleanHwid = hashHwid(hwid);
     const trimmedUsername = username.trim();
+    const isTrialUser = Boolean(
+      app.freeTrialEnabled &&
+      (app.freeTrialKey ? trimmedUsername.toLowerCase() === app.freeTrialKey.trim().toLowerCase() : true)
+    );
+
+    if (isTrialUser) {
+      const now = new Date();
+      await (prisma as any).clientUser.updateMany({
+        where: { username: { equals: trimmedUsername, mode: 'insensitive' }, appId: app.id },
+        data: { lastLoginAt: now },
+      }).catch(() => {});
+
+      await logActivity({
+        appId: app.id,
+        action: 'CLIENT_FREE_TRIAL_USER_AUTH',
+        actorType: 'CLIENT',
+        ipAddress,
+        userAgent,
+        details: { appId: app.appId, username: trimmedUsername, hwid: cleanHwid },
+        status: 'SUCCESS',
+      });
+
+      try {
+        await notifyClientAuthSuccess({
+          appName: app.name,
+          appId: app.appId,
+          clientName: 'Free Trial User Account',
+          keyOrHwid: trimmedUsername,
+          ip: typeof ipAddress === 'string' ? ipAddress : undefined,
+          version: clientVer || app.version,
+        });
+      } catch (discordErr) {}
+
+      return sendSuccess(res, 'Authentication successful (Free Trial Active)', {
+        status: 'active',
+        username: trimmedUsername,
+        expires_at: '2099-01-01T00:00:00.000Z',
+        remaining_days: 9999,
+        version: app.version,
+      });
+    }
 
     // 4. Verify User Account
     const user: any = await (prisma as any).clientUser.findFirst({
