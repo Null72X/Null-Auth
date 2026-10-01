@@ -19,18 +19,26 @@ export function SdkSnippetModal({ isOpen, onClose, app }: SdkSnippetModalProps) 
 
   if (!app) return null;
 
-  const isLicenseMode = app.type === 'LICENSE';
+  const appMode = app.type || 'LICENSE';
+  const isLicenseMode = appMode === 'LICENSE';
+  const isUserAuthMode = appMode === 'USER_AUTH';
+  const isHwidMode = appMode === 'HWID';
+
   const appId = (app.appId || app.id || 'YOUR_APP_ID').replace(/^NA-/, '');
   const appSecret = (app.secret || 'YOUR_APP_SECRET').replace(/^nas_/, '');
   
   // Safe window origin fallback
   const apiBase = typeof window !== 'undefined' ? window.location.origin : 'https://your-domain.com';
-  const endpoint = isLicenseMode ? `${apiBase}/api/client/auth/license` : `${apiBase}/api/client/auth/hwid`;
+  const endpoint = isLicenseMode 
+    ? `${apiBase}/api/v1/client/auth/license` 
+    : isUserAuthMode 
+    ? `${apiBase}/api/v1/client/auth/user` 
+    : `${apiBase}/api/v1/client/auth/hwid`;
 
   // C# Snippet (100% Standalone, Self-Contained, Zero NuGet Dependencies)
   const csharpSnippet = `// -------------------------------------------------------------
 // Null-Auth C# (.NET) Integration (${app.name})
-// Mode: ${isLicenseMode ? 'License Key Mode' : 'HWID Whitelist Mode'}
+// Mode: ${isLicenseMode ? 'License Key Mode' : isUserAuthMode ? 'User Account Mode' : 'HWID Whitelist Mode'}
 // 100% Standalone Single-File (NativeAOT Safe)
 // -------------------------------------------------------------
 using System;
@@ -67,6 +75,13 @@ class Program
         string key = Console.ReadLine()?.Trim();
 
         bool success = await auth.LicenseAsync(key);`
+            : isUserAuthMode
+            ? `Console.Write("Enter Username: ");
+        string user = Console.ReadLine()?.Trim();
+        Console.Write("Enter Password: ");
+        string pass = Console.ReadLine()?.Trim();
+
+        bool success = await auth.UserLoginAsync(user, pass);`
             : `bool success = await auth.CheckHwidAsync();`
         }
 
@@ -269,6 +284,26 @@ namespace NullAuthClient
             return false;
         }
 
+        public async Task<bool> UserLoginAsync(string username, string password, bool showMsgbox = true)
+        {
+            string sid = GetWindowsUserSid();
+            string endpoint = $"{ServerUrl}/api/v1/client/user/authenticate";
+
+            string jsonBody = $"{{\\"appId\\":\\"{EscapeJson(AppId)}\\",\\"appSecret\\":\\"{EscapeJson(Secret)}\\",\\"username\\":\\"{EscapeJson(username?.Trim())}\\",\\"password\\":\\"{EscapeJson(password?.Trim())}\\",\\"hwid\\":\\"{EscapeJson(sid)}\\",\\"version\\":\\"{EscapeJson(Version)}\\"}}";
+
+            var res = await SendRequestAsync(endpoint, jsonBody);
+            if (res.Success && res.Data != null)
+            {
+                UserData = res.Data;
+                UserData.Hwid = sid;
+                UserData.Version = Version;
+                return true;
+            }
+
+            HandleError(res.ErrorCode, res.Message, res.DownloadUrl, showMsgbox);
+            return false;
+        }
+
         private async Task<NullAuthResult> SendRequestAsync(string endpoint, string jsonBody)
         {
             try
@@ -377,13 +412,13 @@ int ParseJsonInt(const std::string& json, const std::string& key) {
     try { return std::stoi(json.substr(start, end - start)); } catch (...) { return 0; }
 }
 
-bool AuthenticateNullAuth(${isLicenseMode ? 'const std::string& licenseKey' : ''}) {
+bool AuthenticateNullAuth(${isLicenseMode ? 'const std::string& licenseKey' : isUserAuthMode ? 'const std::string& username, const std::string& userPassword' : ''}) {
     const std::string host = "${typeof window !== 'undefined' ? window.location.hostname : 'null-auth-backend.vercel.app'}";
-    const std::string path = "${isLicenseMode ? '/api/client/auth/license' : '/api/client/auth/hwid'}";
+    const std::string path = "${isLicenseMode ? '/api/v1/client/auth/license' : isUserAuthMode ? '/api/v1/client/auth/user' : '/api/v1/client/auth/hwid'}";
     const std::string sid = GetMachineSid();
 
     std::string jsonPayload = "{\\"appId\\":\\"${appId}\\",\\"appSecret\\":\\"${appSecret}\","
-        ${isLicenseMode ? '"\\"licenseKey\\":\\"" + licenseKey + "\\","' : '""'}
+        ${isLicenseMode ? '"\\"licenseKey\\":\\"" + licenseKey + "\\","' : isUserAuthMode ? '"\\"username\\":\\"" + username + "\\",\\"password\\":\\"" + userPassword + "\\","' : '""'}
         "\\"hwid\\":\\"" + sid + "\\",\\"version\\":\\"${app.version || '1.0.0'}\\"}";
 
     HINTERNET hInternet = InternetOpenA("NullAuthGuard/2.0", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
@@ -445,6 +480,15 @@ int main() {
     if (!AuthenticateNullAuth(key)) {
         return 1;
     }`
+        : isUserAuthMode
+        ? `std::cout << "Enter Username: ";
+    std::string uStr, pStr;
+    std::cin >> uStr;
+    std::cout << "Enter Password: ";
+    std::cin >> pStr;
+    if (!AuthenticateNullAuth(uStr, pStr)) {
+        return 1;
+    }`
         : `if (!AuthenticateNullAuth()) {
         return 1;
     }`
@@ -462,6 +506,7 @@ int main() {
   // Python Snippet (100% Zero pip install, Pure Standard Library)
   const pythonSnippet = `# -------------------------------------------------------------
 # Null-Auth Python Integration (${app.name})
+# Mode: ${isLicenseMode ? 'License Key Mode' : isUserAuthMode ? 'User Account Mode' : 'HWID Whitelist Mode'}
 # 100% Standalone (Zero 'pip install' needed - Standard Library Only)
 # -------------------------------------------------------------
 import urllib.request
@@ -499,13 +544,13 @@ def show_alert(title: str, message: str, is_error: bool = True):
             pass
     print(f"[{title}] {message}")
 
-def authenticate(${isLicenseMode ? 'license_key: str' : ''}):
+def authenticate(${isLicenseMode ? 'license_key: str' : isUserAuthMode ? 'username: str, password: str' : ''}):
     sid = get_machine_sid()
     payload = {
         "appId": APP_ID,
         "appSecret": APP_SECRET,
         "hwid": sid,
-        ${isLicenseMode ? '"licenseKey": license_key.strip(),' : ''}
+        ${isLicenseMode ? '"licenseKey": license_key.strip(),' : isUserAuthMode ? '"username": username.strip(), "password": password.strip(),' : ''}
         "clientVersion": APP_VERSION
     }
 
@@ -555,6 +600,14 @@ if __name__ == "__main__":
     else:
         print("\\n[-] ACCESS DENIED!")
         exit(1)`
+        : isUserAuthMode
+        ? `u_val = input("Enter Username: ").strip()
+    p_val = input("Enter Password: ").strip()
+    if authenticate(u_val, p_val):
+        print("\\n[*] User Authenticated. Running protected application...")
+    else:
+        print("\\n[-] ACCESS DENIED!")
+        exit(1)`
         : `if authenticate():
         print("\\n[*] Machine Authorized. Running protected application...")
     else:
@@ -568,6 +621,7 @@ if __name__ == "__main__":
   // Node.js Snippet (Native global fetch)
   const nodeSnippet = `// -------------------------------------------------------------
 // Null-Auth Node.js / TypeScript Integration (${app.name})
+// Mode: ${isLicenseMode ? 'License Key Mode' : isUserAuthMode ? 'User Account Mode' : 'HWID Whitelist Mode'}
 // Built with native fetch (Node.js 18+)
 // -------------------------------------------------------------
 const os = require('os');
@@ -579,7 +633,7 @@ async function authenticateNullAuth() {
     appId: "${appId}",
     appSecret: "${appSecret}",
     hwid: machineId,
-    ${isLicenseMode ? 'licenseKey: "YOUR_USER_LICENSE_KEY",' : ''}
+    ${isLicenseMode ? 'licenseKey: "YOUR_USER_LICENSE_KEY",' : isUserAuthMode ? 'username: "USER_ACCOUNT_NAME", password: "USER_ACCOUNT_PASSWORD",' : ''}
     clientVersion: "${app.version || '1.0.0'}",
   };
 
@@ -612,7 +666,7 @@ authenticateNullAuth().catch(console.error);`;
   -d '{
     "appId": "${appId}",
     "appSecret": "${appSecret}",
-    ${isLicenseMode ? '"licenseKey": "PASTE_KEY_HERE",' : ''}
+    ${isLicenseMode ? '"licenseKey": "PASTE_KEY_HERE",' : isUserAuthMode ? '"username": "PASTE_USERNAME_HERE", "password": "PASTE_PASSWORD_HERE",' : ''}
     "hwid": "USER_MACHINE_HWID",
     "clientVersion": "${app.version || '1.0.0'}"
   }'`;
@@ -661,10 +715,12 @@ authenticateNullAuth().catch(console.error);`;
               className={`text-[10px] font-bold px-2 py-0.5 rounded-[5px] uppercase tracking-wider ${
                 isLicenseMode
                   ? 'bg-blue-950/80 text-blue-400 border border-blue-800/50'
+                  : isUserAuthMode
+                  ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/50'
                   : 'bg-purple-950/80 text-purple-400 border border-purple-800/50'
               }`}
             >
-              {isLicenseMode ? 'License Key Mode' : 'HWID Whitelist Mode'}
+              {isLicenseMode ? 'License Key Mode' : isUserAuthMode ? 'User Account Mode' : 'HWID Whitelist Mode'}
             </span>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded-[5px] bg-zinc-900 border border-zinc-800 text-zinc-300">
               v{app.version || '1.0.0'}
