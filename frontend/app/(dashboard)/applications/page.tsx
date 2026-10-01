@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/Badge';
 import { CreateAppModal } from '@/components/modals/CreateAppModal';
 import { CreateLicenseModal } from '@/components/modals/CreateLicenseModal';
 import { AddHwidModal } from '@/components/modals/AddHwidModal';
+import { CreateUserModal } from '@/components/modals/CreateUserModal';
 import { AppRecordsModal } from '@/components/modals/AppRecordsModal';
 import { ConfirmModal } from '@/components/modals/ConfirmModal';
 import { EditAppModal } from '@/components/modals/EditAppModal';
@@ -19,6 +20,7 @@ import {
   AppWindow,
   Key,
   ShieldCheck,
+  User,
   Eye,
   EyeOff,
   RefreshCw,
@@ -51,7 +53,7 @@ interface AppItem {
   appId: string;
   name: string;
   secret: string;
-  type: 'LICENSE' | 'HWID';
+  type: 'LICENSE' | 'HWID' | 'USER_AUTH';
   status: 'ACTIVE' | 'PAUSED';
   version: string;
   downloadUrl: string | null;
@@ -72,7 +74,7 @@ export default function ApplicationsPage() {
   // Filters & Search
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'PAUSED'>('ALL');
-  const [typeFilter, setTypeFilter] = useState<'ALL' | 'LICENSE' | 'HWID'>('ALL');
+  const [typeFilter, setTypeFilter] = useState<'ALL' | 'LICENSE' | 'HWID' | 'USER_AUTH'>('ALL');
 
   // Modals
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -94,6 +96,7 @@ export default function ApplicationsPage() {
 
   const [quickLicenseApp, setQuickLicenseApp] = useState<AppItem | null>(null);
   const [quickHwidApp, setQuickHwidApp] = useState<AppItem | null>(null);
+  const [quickUserApp, setQuickUserApp] = useState<AppItem | null>(null);
 
   const [copiedAppId, setCopiedAppId] = useState<string | null>(null);
   const [copiedSecret, setCopiedSecret] = useState<string | null>(null);
@@ -290,8 +293,9 @@ export default function ApplicationsPage() {
     const total = apps.length;
     const licenseCount = apps.filter((a) => a.type === 'LICENSE').length;
     const hwidCount = apps.filter((a) => a.type === 'HWID').length;
+    const userAuthCount = apps.filter((a) => a.type === 'USER_AUTH').length;
     const totalActiveUsers = apps.reduce((acc, a) => acc + (a.activeUsers || 0), 0);
-    return { total, licenseCount, hwidCount, totalActiveUsers };
+    return { total, licenseCount, hwidCount, userAuthCount, totalActiveUsers };
   }, [apps]);
 
   const toggleRevealSecret = (appId: string) => {
@@ -510,6 +514,16 @@ export default function ApplicationsPage() {
                 }`}
               >
                 HWID Whitelist
+              </button>
+              <button
+                onClick={() => setTypeFilter('USER_AUTH')}
+                className={`px-3 py-1 rounded-[5px] font-semibold transition-all ${
+                  typeFilter === 'USER_AUTH'
+                    ? 'bg-cyan-950 text-cyan-400 border border-cyan-800/40 shadow-sm'
+                    : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                User Auth
               </button>
             </div>
 
@@ -886,6 +900,14 @@ export default function ApplicationsPage() {
                     >
                       <Sparkles className="w-3.5 h-3.5" /> Generate License Keys
                     </Button>
+                  ) : app.type === 'USER_AUTH' ? (
+                    <Button
+                      size="sm"
+                      onClick={() => setQuickUserApp(app)}
+                      className="w-full gap-2 text-xs font-bold bg-gradient-to-r from-cyan-950 via-cyan-900 to-cyan-800 hover:from-cyan-900 hover:to-cyan-700 text-white border border-cyan-500/40 shadow-md shadow-cyan-950/40"
+                    >
+                      <User className="w-3.5 h-3.5" /> Create User Account
+                    </Button>
                   ) : (
                     <Button
                       size="sm"
@@ -896,7 +918,7 @@ export default function ApplicationsPage() {
                     </Button>
                   )}
 
-                  {/* View All Licenses / HWIDs Button */}
+                  {/* View All Licenses / Users / HWIDs Button */}
                   <Button
                     variant="secondary"
                     size="sm"
@@ -904,7 +926,13 @@ export default function ApplicationsPage() {
                     className="w-full gap-2 border-zinc-800 hover:border-amber-500/40 bg-zinc-900/90 hover:bg-zinc-800 text-xs font-mono font-bold text-amber-400 group/rec"
                   >
                     <ListFilter className="w-3.5 h-3.5 text-amber-400 group-hover/rec:rotate-180 transition-transform duration-300" />
-                    <span>{app.type === 'LICENSE' ? 'Show All Licenses' : 'Show All HWID Whitelists'}</span>
+                    <span>
+                      {app.type === 'LICENSE'
+                        ? 'Show All Licenses'
+                        : app.type === 'USER_AUTH'
+                        ? 'Show All User Accounts'
+                        : 'Show All HWID Whitelists'}
+                    </span>
                     <span className="ml-auto px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[10px]">
                       {app.totalUsers}
                     </span>
@@ -1219,6 +1247,17 @@ export default function ApplicationsPage() {
           onSuccess={loadApps}
           apps={apps}
           defaultAppId={quickHwidApp.id}
+        />
+      )}
+
+      {/* Quick Create User Account Modal */}
+      {quickUserApp && (
+        <CreateUserModal
+          isOpen={!!quickUserApp}
+          onClose={() => setQuickUserApp(null)}
+          onSuccess={loadApps}
+          apps={apps}
+          defaultAppId={quickUserApp.id}
         />
       )}
 

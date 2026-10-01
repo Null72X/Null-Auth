@@ -22,6 +22,8 @@ export function Badge({ status, className = '' }: BadgeProps) {
     colorClasses = 'bg-blue-950/90 text-blue-300 border-blue-800/60 shadow-sm shadow-blue-950/40';
   } else if (s === 'HWID') {
     colorClasses = 'bg-purple-950/90 text-purple-300 border-purple-800/60 shadow-sm shadow-purple-950/40';
+  } else if (s === 'USER_AUTH' || s === 'USER') {
+    colorClasses = 'bg-cyan-950/90 text-cyan-300 border-cyan-800/60 shadow-sm shadow-cyan-950/40';
   } else if (s === 'SUCCESS') {
     colorClasses = 'bg-emerald-950/90 text-emerald-300 border-emerald-800/60 shadow-sm shadow-emerald-950/40';
   } else if (s === 'FAILURE') {
