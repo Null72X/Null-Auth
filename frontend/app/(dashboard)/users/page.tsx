@@ -11,20 +11,24 @@ import { ConfirmModal } from '@/components/modals/ConfirmModal';
 import { fetchApi } from '@/lib/api';
 import {
   Users,
+  User,
   Plus,
   RefreshCw,
   Trash2,
   Pause,
   Play,
   Calendar,
+  RotateCcw,
   Edit2,
+  Copy,
+  Check,
   Search,
   CheckSquare,
   Square,
+  Ban,
   ShieldCheck,
-  User,
   Clock,
-  RotateCcw,
+  Cpu,
 } from 'lucide-react';
 
 interface UserItem {
@@ -50,10 +54,12 @@ export default function UserAccountsPage() {
   const [users, setUsers] = useState<UserItem[]>([]);
   const [apps, setApps] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedAppId, setSelectedAppId] = useState<string>('ALL');
-  const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+
+  // Filters & Search
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [appFilter, setAppFilter] = useState('');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
@@ -62,6 +68,9 @@ export default function UserAccountsPage() {
   const [editingUser, setEditingUser] = useState<UserItem | null>(null);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const [copiedUsername, setCopiedUsername] = useState<string | null>(null);
+  const [copiedHwid, setCopiedHwid] = useState<string | null>(null);
 
   const loadApps = async () => {
     const res = await fetchApi('/admin/apps');
@@ -72,10 +81,10 @@ export default function UserAccountsPage() {
 
   const loadUsers = async () => {
     setIsLoading(true);
-    let url = `/admin/users?page=${page}&limit=20`;
-    if (selectedAppId !== 'ALL') url += `&appId=${selectedAppId}`;
-    if (selectedStatus !== 'ALL') url += `&status=${selectedStatus}`;
-    if (searchQuery.trim()) url += `&search=${encodeURIComponent(searchQuery.trim())}`;
+    let url = `/admin/users?page=${page}&limit=50`;
+    if (appFilter) url += `&appId=${appFilter}`;
+    if (statusFilter) url += `&status=${statusFilter}`;
+    if (search.trim()) url += `&search=${encodeURIComponent(search.trim())}`;
 
     const res = await fetchApi(url);
     if (res.success && res.data) {
@@ -91,18 +100,24 @@ export default function UserAccountsPage() {
 
   useEffect(() => {
     loadUsers();
-  }, [selectedAppId, selectedStatus, searchQuery, page]);
+  }, [appFilter, statusFilter, search, page]);
 
-  const handleToggleStatus = async (user: UserItem) => {
-    const newStatus = user.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
-    const res = await fetchApi(`/admin/users/${user.id}/status`, {
+  // User Accounts Metrics
+  const metrics = useMemo(() => {
+    const total = users.length;
+    const active = users.filter((u) => u.effectiveStatus === 'ACTIVE' || u.status === 'ACTIVE').length;
+    const paused = users.filter((u) => u.effectiveStatus === 'PAUSED' || u.status === 'PAUSED').length;
+    const expired = users.filter((u) => u.effectiveStatus === 'EXPIRED' || u.status === 'EXPIRED').length;
+    const banned = users.filter((u) => u.effectiveStatus === 'BANNED' || u.status === 'BANNED').length;
+    return { total, active, paused, expired, banned };
+  }, [users]);
+
+  const handleToggleStatus = async (user: UserItem, newStatus: string) => {
+    await fetchApi(`/admin/users/${user.id}/status`, {
       method: 'PATCH',
       body: JSON.stringify({ status: newStatus }),
     });
-
-    if (res.success) {
-      loadUsers();
-    }
+    loadUsers();
   };
 
   const handleResetHwid = async (userId: string) => {
@@ -110,7 +125,6 @@ export default function UserAccountsPage() {
       method: 'POST',
       body: JSON.stringify({ boundHwid: null }),
     });
-
     if (res.success) {
       loadUsers();
     }
@@ -121,7 +135,6 @@ export default function UserAccountsPage() {
       method: 'POST',
       body: JSON.stringify({ days }),
     });
-
     if (res.success) {
       loadUsers();
     }
@@ -130,11 +143,9 @@ export default function UserAccountsPage() {
   const handleDeleteConfirmed = async () => {
     if (!deleteTargetId) return;
     setIsDeleting(true);
-
     const res = await fetchApi(`/admin/users/${deleteTargetId}`, {
       method: 'DELETE',
     });
-
     if (res.success) {
       setDeleteTargetId(null);
       loadUsers();
@@ -142,186 +153,231 @@ export default function UserAccountsPage() {
     setIsDeleting(false);
   };
 
-  const handleBulkAction = async (action: 'PAUSE' | 'RESUME' | 'DELETE' | 'ADD_DAYS', days?: number) => {
-    if (selectedUserIds.length === 0) return;
+  const handleBulkAction = async (action: 'PAUSE' | 'RESUME' | 'DELETE' | 'ADD_DAYS') => {
+    if (selectedIds.length === 0) return;
+    let days: number | undefined = undefined;
+    if (action === 'ADD_DAYS') {
+      const input = prompt('Enter number of days to add to selected user accounts:', '30');
+      if (!input) return;
+      days = parseInt(input, 10);
+    }
 
-    const res = await fetchApi('/admin/users/bulk-action', {
+    await fetchApi('/admin/users/bulk-action', {
       method: 'POST',
       body: JSON.stringify({
-        userIds: selectedUserIds,
+        userIds: selectedIds,
         action,
         days,
       }),
     });
-
-    if (res.success) {
-      setSelectedUserIds([]);
-      loadUsers();
-    }
+    setSelectedIds([]);
+    loadUsers();
   };
 
   const toggleSelectAll = () => {
-    if (selectedUserIds.length === users.length) {
-      setSelectedUserIds([]);
+    if (selectedIds.length === users.length) {
+      setSelectedIds([]);
     } else {
-      setSelectedUserIds(users.map((u) => u.id));
+      setSelectedIds(users.map((u) => u.id));
     }
   };
 
-  const toggleSelectUser = (id: string) => {
-    setSelectedUserIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-    );
+  const toggleSelectOne = (id: string) => {
+    if (selectedIds.includes(id)) {
+      setSelectedIds(selectedIds.filter((i) => i !== id));
+    } else {
+      setSelectedIds([...selectedIds, id]);
+    }
+  };
+
+  const copyUsername = (username: string) => {
+    navigator.clipboard.writeText(username);
+    setCopiedUsername(username);
+    setTimeout(() => setCopiedUsername(null), 2000);
+  };
+
+  const copyHwid = (hwid: string) => {
+    navigator.clipboard.writeText(hwid);
+    setCopiedHwid(hwid);
+    setTimeout(() => setCopiedHwid(null), 2000);
   };
 
   return (
     <div className="space-y-8 animate-fade-in">
-      <Header
-        title="User Accounts Management"
-        subtitle="Manage user authentication credentials, machine HWID locks, expiration dates, and access states."
-      />
+      {/* Top Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <Header
+          title="User Accounts Manager"
+          subtitle="Manage user authentication credentials, machine HWID locks, expiration dates, and access states."
+        />
+        <Button onClick={() => setIsCreateOpen(true)} className="gap-2 shrink-0 shadow-lg shadow-red-950/40">
+          <Plus className="w-4 h-4" /> Create User Account
+        </Button>
+      </div>
 
-      {/* Action Header Card */}
-      <Card className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-red-950/80 border border-red-800/60 flex items-center justify-center text-red-400">
-            <Users className="w-5 h-5" />
+      {/* Summary Metrics Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="flex items-center gap-4 bg-zinc-900/90 border-zinc-800">
+          <div className="w-11 h-11 rounded-xl bg-cyan-950/80 border border-cyan-800/60 flex items-center justify-center text-cyan-400">
+            <User className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-base font-extrabold text-white">Client User Accounts</h2>
-            <p className="text-xs text-zinc-400">
-              Username & Password authorization with automatic single-device HWID binding.
-            </p>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Total User Accounts</span>
+            <h4 className="text-xl font-extrabold text-white mt-0.5">{metrics.total}</h4>
           </div>
-        </div>
+        </Card>
 
-        <div className="flex items-center gap-3">
-          <Button onClick={() => setIsCreateOpen(true)} className="gap-2 text-xs font-bold">
-            <Plus className="w-4 h-4" /> Create User Account
-          </Button>
-        </div>
-      </Card>
+        <Card className="flex items-center gap-4 bg-zinc-900/90 border-zinc-800">
+          <div className="w-11 h-11 rounded-xl bg-emerald-950/80 border border-emerald-800/60 flex items-center justify-center text-emerald-400">
+            <ShieldCheck className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Active Accounts</span>
+            <h4 className="text-xl font-extrabold text-emerald-400 mt-0.5">{metrics.active}</h4>
+          </div>
+        </Card>
 
-      {/* Filters & Bulk Controls Bar */}
-      <Card className="space-y-4 p-4">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Search Input */}
-            <div className="relative w-64">
-              <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-2.5" />
-              <input
-                type="text"
-                placeholder="Search username or notes..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg pl-9 pr-3 py-1.5 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-red-500/80 transition-colors"
-              />
-            </div>
+        <Card className="flex items-center gap-4 bg-zinc-900/90 border-zinc-800">
+          <div className="w-11 h-11 rounded-xl bg-amber-950/80 border border-amber-800/60 flex items-center justify-center text-amber-400">
+            <Clock className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Paused / Expired</span>
+            <h4 className="text-xl font-extrabold text-amber-400 mt-0.5">{metrics.paused + metrics.expired}</h4>
+          </div>
+        </Card>
 
-            {/* Application Filter */}
+        <Card className="flex items-center gap-4 bg-zinc-900/90 border-zinc-800">
+          <div className="w-11 h-11 rounded-xl bg-red-950/80 border border-red-800/60 flex items-center justify-center text-red-400">
+            <Ban className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Banned Accounts</span>
+            <h4 className="text-xl font-extrabold text-red-400 mt-0.5">{metrics.banned}</h4>
+          </div>
+        </Card>
+      </div>
+
+      {/* Control Bar: Search & Filters */}
+      <Card className="p-4 space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3" />
+            <input
+              type="text"
+              placeholder="Search by username, client notes, or bound machine SID..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-red-500/80"
+            />
+          </div>
+
+          <div className="flex items-center gap-3">
             <select
-              value={selectedAppId}
-              onChange={(e) => setSelectedAppId(e.target.value)}
-              className="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-red-500/80 transition-colors"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-zinc-200 focus:outline-none focus:border-red-500"
             >
-              <option value="ALL">All Applications ({apps.filter(a => a.type === 'USER_AUTH').length})</option>
+              <option value="">All Statuses</option>
+              <option value="ACTIVE">Active</option>
+              <option value="PAUSED">Paused</option>
+              <option value="EXPIRED">Expired</option>
+              <option value="BANNED">Banned</option>
+            </select>
+
+            <select
+              value={appFilter}
+              onChange={(e) => setAppFilter(e.target.value)}
+              className="bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-zinc-200 focus:outline-none focus:border-red-500"
+            >
+              <option value="">All User-Auth Applications</option>
               {apps
                 .filter((a) => a.type === 'USER_AUTH')
                 .map((app) => (
                   <option key={app.id} value={app.id}>
-                    {app.name} ({app.appId})
+                    {app.name}
                   </option>
                 ))}
             </select>
-
-            {/* Status Filter */}
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-red-500/80 transition-colors"
-            >
-              <option value="ALL">All Statuses</option>
-              <option value="ACTIVE">ACTIVE</option>
-              <option value="PAUSED">PAUSED</option>
-              <option value="EXPIRED">EXPIRED</option>
-              <option value="BANNED">BANNED</option>
-            </select>
           </div>
+        </div>
 
-          {/* Bulk Actions */}
-          {selectedUserIds.length > 0 && (
-            <div className="flex items-center gap-2 animate-fade-in">
-              <span className="text-xs text-zinc-400 font-semibold mr-1">
-                {selectedUserIds.length} Selected
-              </span>
-              <Button size="sm" variant="secondary" onClick={() => handleBulkAction('RESUME')} className="gap-1 text-xs">
-                <Play className="w-3.5 h-3.5 text-emerald-400" /> Activate
+        {/* Bulk Action Bar */}
+        {selectedIds.length > 0 && (
+          <div className="pt-3 border-t border-zinc-800/80 flex items-center justify-between gap-3 text-xs bg-red-950/30 p-3 rounded-xl border border-red-900/40 animate-slide-up">
+            <span className="font-bold text-red-300">
+              {selectedIds.length} user account(s) selected
+            </span>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="secondary" onClick={() => handleBulkAction('RESUME')}>
+                Resume
               </Button>
-              <Button size="sm" variant="secondary" onClick={() => handleBulkAction('PAUSE')} className="gap-1 text-xs">
-                <Pause className="w-3.5 h-3.5 text-amber-400" /> Pause
+              <Button size="sm" variant="secondary" onClick={() => handleBulkAction('PAUSE')}>
+                Pause
               </Button>
-              <Button size="sm" variant="secondary" onClick={() => handleBulkAction('ADD_DAYS', 30)} className="gap-1 text-xs">
-                <Calendar className="w-3.5 h-3.5 text-blue-400" /> +30 Days
+              <Button size="sm" variant="secondary" onClick={() => handleBulkAction('ADD_DAYS')}>
+                Add Days
               </Button>
-              <Button size="sm" variant="danger" onClick={() => handleBulkAction('DELETE')} className="gap-1 text-xs">
-                <Trash2 className="w-3.5 h-3.5" /> Delete
+              <Button size="sm" variant="danger" onClick={() => handleBulkAction('DELETE')}>
+                Delete Selected
               </Button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </Card>
 
       {/* User Accounts Table */}
-      <Card className="overflow-hidden p-0 border-zinc-800">
+      <Card className="p-0 overflow-hidden border-zinc-800">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse font-sans">
-            <thead>
-              <tr className="border-b border-zinc-800 bg-zinc-950/80 text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-zinc-950/90 border-b border-zinc-800/80 text-xs font-bold text-zinc-400 uppercase tracking-wider">
+              <tr>
                 <th className="p-4 w-10">
-                  <button type="button" onClick={toggleSelectAll} className="text-zinc-400 hover:text-white">
-                    {selectedUserIds.length > 0 && selectedUserIds.length === users.length ? (
+                  <button onClick={toggleSelectAll} className="text-zinc-400 hover:text-zinc-200">
+                    {selectedIds.length === users.length && users.length > 0 ? (
                       <CheckSquare className="w-4 h-4 text-red-500" />
                     ) : (
                       <Square className="w-4 h-4" />
                     )}
                   </button>
                 </th>
-                <th className="p-4">Username & Client</th>
+                <th className="p-4">Username & Machine Binding</th>
                 <th className="p-4">Application</th>
                 <th className="p-4">Status</th>
-                <th className="p-4">Bound HWID</th>
                 <th className="p-4">Expiration</th>
+                <th className="p-4">Last Login</th>
+                <th className="p-4">Client Name</th>
                 <th className="p-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-800/80 text-xs">
+            <tbody className="divide-y divide-zinc-800/60">
               {isLoading ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-zinc-500 animate-pulse">
+                  <td colSpan={8} className="p-8 text-center text-xs text-zinc-500 animate-pulse">
                     Loading user accounts...
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-zinc-500">
-                    No user accounts found. Create one to get started.
+                  <td colSpan={8} className="p-8 text-center text-xs text-zinc-500">
+                    No user accounts found matching criteria.
                   </td>
                 </tr>
               ) : (
                 users.map((user) => {
-                  const isSelected = selectedUserIds.includes(user.id);
+                  const isSelected = selectedIds.includes(user.id);
+
                   return (
                     <tr
                       key={user.id}
-                      className={`hover:bg-zinc-900/50 transition-colors ${
-                        isSelected ? 'bg-red-950/10' : ''
+                      className={`hover:bg-zinc-900/40 transition-colors ${
+                        isSelected ? 'bg-red-950/20' : ''
                       }`}
                     >
                       <td className="p-4">
                         <button
-                          type="button"
-                          onClick={() => toggleSelectUser(user.id)}
-                          className="text-zinc-400 hover:text-white"
+                          onClick={() => toggleSelectOne(user.id)}
+                          className="text-zinc-500 hover:text-zinc-300"
                         >
                           {isSelected ? (
                             <CheckSquare className="w-4 h-4 text-red-500" />
@@ -330,94 +386,141 @@ export default function UserAccountsPage() {
                           )}
                         </button>
                       </td>
-
+                      {/* Two-line Username & Bound Machine SID/HWID */}
                       <td className="p-4">
-                        <div className="flex items-center gap-2">
-                          <User className="w-4 h-4 text-red-400 shrink-0" />
-                          <div>
-                            <p className="font-bold text-white text-xs">{user.username}</p>
-                            {user.clientName && (
-                              <p className="text-[11px] text-zinc-400">{user.clientName}</p>
+                        <div className="flex flex-col gap-1.5 min-w-[220px] max-w-[300px]">
+                          {/* Line 1: Username */}
+                          <div className="flex items-center gap-2">
+                            <User className="w-4 h-4 text-cyan-400 shrink-0" />
+                            <span className="font-mono font-bold text-white bg-zinc-950/90 px-2.5 py-1 rounded-md border border-zinc-800 text-xs tracking-wider shadow-sm select-all">
+                              {user.username}
+                            </span>
+                            <button
+                              onClick={() => copyUsername(user.username)}
+                              className="p-1 rounded hover:bg-zinc-800 text-zinc-500 hover:text-zinc-200 transition-colors"
+                              title="Copy Username"
+                            >
+                              {copiedUsername === user.username ? (
+                                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                              ) : (
+                                <Copy className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          </div>
+
+                          {/* Line 2: Bound Machine HWID / SID */}
+                          <div className="flex items-center gap-1.5 text-xs">
+                            <Cpu className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+                            {user.boundHwid ? (
+                              <div className="flex items-center gap-1.5 overflow-hidden">
+                                <span
+                                  title={user.boundHwid}
+                                  className="font-mono text-[11px] text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40 truncate max-w-[200px]"
+                                >
+                                  {user.boundHwid}
+                                </span>
+                                <button
+                                  onClick={() => copyHwid(user.boundHwid!)}
+                                  className="p-0.5 rounded hover:bg-zinc-800 text-zinc-500 hover:text-zinc-200 transition-colors shrink-0"
+                                  title="Copy Bound Machine SID"
+                                >
+                                  {copiedHwid === user.boundHwid ? (
+                                    <Check className="w-3 h-3 text-emerald-400" />
+                                  ) : (
+                                    <Copy className="w-3 h-3" />
+                                  )}
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-[11px] text-zinc-500 italic">
+                                Unbound (First machine will lock)
+                              </span>
                             )}
                           </div>
                         </div>
                       </td>
-
                       <td className="p-4">
-                        <span className="font-mono text-zinc-300">
+                        <span className="font-bold text-zinc-200">
                           {user.application?.name || user.appId}
                         </span>
                       </td>
-
                       <td className="p-4">
                         <Badge status={user.effectiveStatus || user.status} />
                       </td>
-
-                      <td className="p-4">
-                        {user.boundHwid ? (
-                          <div className="flex items-center gap-1.5 font-mono text-[11px] text-emerald-400 bg-emerald-950/40 border border-emerald-800/40 px-2 py-0.5 rounded w-fit">
-                            <ShieldCheck className="w-3 h-3 shrink-0" />
-                            <span className="truncate max-w-[140px]">{user.boundHwid}</span>
-                          </div>
-                        ) : (
-                          <span className="text-zinc-500 font-mono text-[11px]">Unbound</span>
-                        )}
-                      </td>
-
-                      <td className="p-4 font-mono text-[11px] text-zinc-300">
-                        <div>
-                          <span>{new Date(user.expiresAt).toLocaleDateString()}</span>
-                          <p className="text-[10px] text-zinc-500">
-                            {user.remainingDays} days remaining
-                          </p>
+                      <td className="p-4 text-xs">
+                        <div className="space-y-1">
+                          <span className="text-zinc-200 font-bold block">
+                            {user.remainingDays} days left
+                          </span>
+                          <span className="text-[11px] text-zinc-500 block">
+                            {new Date(user.expiresAt).toLocaleDateString()}
+                          </span>
                         </div>
                       </td>
-
+                      <td className="p-4 text-xs font-mono text-zinc-400">
+                        {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : 'Never'}
+                      </td>
+                      <td className="p-4 text-xs text-zinc-300 font-medium max-w-[140px] truncate">
+                        {user.clientName ? user.clientName : <span className="text-zinc-600 italic">—</span>}
+                      </td>
                       <td className="p-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => setEditingUser(user)}
+                            title="Edit User Account"
+                            className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white transition-colors active:scale-95 flex items-center gap-1 font-semibold text-xs"
+                          >
+                            <Edit2 className="w-3.5 h-3.5 text-cyan-400" />
+                            <span className="hidden sm:inline text-[11px]">Edit</span>
+                          </button>
+                          <button
+                            onClick={() => handleExtend(user.id, 30)}
+                            title="+30 Days Duration"
+                            className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors active:scale-95"
+                          >
+                            <Calendar className="w-3.5 h-3.5 text-blue-400" />
+                          </button>
                           {user.boundHwid && (
                             <button
-                              type="button"
                               onClick={() => handleResetHwid(user.id)}
-                              className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-amber-400 transition-colors"
                               title="Reset HWID Lock"
+                              className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-amber-400 transition-colors active:scale-95"
                             >
                               <RotateCcw className="w-3.5 h-3.5" />
                             </button>
                           )}
                           <button
-                            type="button"
-                            onClick={() => handleExtend(user.id, 30)}
-                            className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-blue-400 transition-colors"
-                            title="+30 Days Duration"
+                            onClick={() =>
+                              handleToggleStatus(
+                                user,
+                                user.status === 'PAUSED' ? 'ACTIVE' : 'PAUSED'
+                              )
+                            }
+                            title={user.status === 'PAUSED' ? 'Resume' : 'Pause'}
+                            className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors active:scale-95"
                           >
-                            <Clock className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleToggleStatus(user)}
-                            className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
-                            title={user.status === 'ACTIVE' ? 'Pause User' : 'Activate User'}
-                          >
-                            {user.status === 'ACTIVE' ? (
-                              <Pause className="w-3.5 h-3.5 text-amber-400" />
-                            ) : (
+                            {user.status === 'PAUSED' ? (
                               <Play className="w-3.5 h-3.5 text-emerald-400" />
+                            ) : (
+                              <Pause className="w-3.5 h-3.5 text-amber-400" />
                             )}
                           </button>
                           <button
-                            type="button"
-                            onClick={() => setEditingUser(user)}
-                            className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
-                            title="Edit User Account"
+                            onClick={() =>
+                              handleToggleStatus(
+                                user,
+                                user.status === 'BANNED' ? 'ACTIVE' : 'BANNED'
+                              )
+                            }
+                            title={user.status === 'BANNED' ? 'Unban' : 'Ban'}
+                            className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-red-400 transition-colors active:scale-95"
                           >
-                            <Edit2 className="w-3.5 h-3.5" />
+                            <Ban className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            type="button"
                             onClick={() => setDeleteTargetId(user.id)}
-                            className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-red-400 transition-colors"
                             title="Delete User"
+                            className="p-1.5 rounded-lg bg-red-950/80 hover:bg-red-900 text-red-300 transition-colors active:scale-95"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
