@@ -9,7 +9,7 @@ import { extractClientIp } from '../utils/ip.js';
 
 export const createAppSchema = z.object({
   name: z.string().min(2, 'Application name must be at least 2 characters').max(64),
-  type: z.enum(['LICENSE', 'HWID'], { required_error: 'Type must be LICENSE or HWID' }),
+  type: z.enum(['LICENSE', 'HWID', 'USER_AUTH'], { required_error: 'Type must be LICENSE, HWID, or USER_AUTH' }),
   version: z.string().optional(),
   downloadUrl: z.string().optional().nullable(),
 });
@@ -40,6 +40,7 @@ export async function listApps(req: Request, res: Response) {
           select: {
             licenses: true,
             hwidAccesses: true,
+            users: true,
           },
         },
       },
@@ -52,6 +53,7 @@ export async function listApps(req: Request, res: Response) {
         let activeUsers = 0;
         let expiredUsers = 0;
         let lastActivity: Date | null = null;
+        let totalUsers = 0;
 
         if (app.type === 'LICENSE') {
           activeUsers = await prisma.license.count({
@@ -63,12 +65,18 @@ export async function listApps(req: Request, res: Response) {
               OR: [{ status: 'EXPIRED' }, { expiresAt: { lte: now } }],
             },
           });
-          const latestLog = await prisma.activityLog.findFirst({
-            where: { appId: app.id },
-            orderBy: { createdAt: 'desc' },
-            select: { createdAt: true },
+          totalUsers = app._count.licenses;
+        } else if (app.type === 'USER_AUTH') {
+          activeUsers = await (prisma as any).clientUser.count({
+            where: { appId: app.id, status: 'ACTIVE', expiresAt: { gt: now } },
           });
-          lastActivity = latestLog?.createdAt || null;
+          expiredUsers = await (prisma as any).clientUser.count({
+            where: {
+              appId: app.id,
+              OR: [{ status: 'EXPIRED' }, { expiresAt: { lte: now } }],
+            },
+          });
+          totalUsers = (app as any)._count.users || 0;
         } else {
           activeUsers = await prisma.hwidAccess.count({
             where: { appId: app.id, status: 'ACTIVE', expiresAt: { gt: now } },
@@ -79,13 +87,15 @@ export async function listApps(req: Request, res: Response) {
               OR: [{ status: 'EXPIRED' }, { expiresAt: { lte: now } }],
             },
           });
-          const latestLog = await prisma.activityLog.findFirst({
-            where: { appId: app.id },
-            orderBy: { createdAt: 'desc' },
-            select: { createdAt: true },
-          });
-          lastActivity = latestLog?.createdAt || null;
+          totalUsers = app._count.hwidAccesses;
         }
+
+        const latestLog = await prisma.activityLog.findFirst({
+          where: { appId: app.id },
+          orderBy: { createdAt: 'desc' },
+          select: { createdAt: true },
+        });
+        lastActivity = latestLog?.createdAt || null;
 
         return {
           id: app.id,
@@ -103,7 +113,7 @@ export async function listApps(req: Request, res: Response) {
           updatedAt: app.updatedAt,
           activeUsers,
           expiredUsers,
-          totalUsers: app.type === 'LICENSE' ? app._count.licenses : app._count.hwidAccesses,
+          totalUsers,
           lastActivity,
         };
       })
@@ -125,7 +135,7 @@ export async function getAppById(req: Request, res: Response) {
       },
       include: {
         _count: {
-          select: { licenses: true, hwidAccesses: true },
+          select: { licenses: true, hwidAccesses: true, users: true },
         },
       },
     });
@@ -139,6 +149,7 @@ export async function getAppById(req: Request, res: Response) {
     let expiredUsers = 0;
     let pausedUsers = 0;
     let bannedUsers = 0;
+    let totalUsers = 0;
 
     if (app.type === 'LICENSE') {
       activeUsers = await prisma.license.count({
@@ -153,6 +164,21 @@ export async function getAppById(req: Request, res: Response) {
       bannedUsers = await prisma.license.count({
         where: { appId: app.id, status: 'BANNED' },
       });
+      totalUsers = app._count.licenses;
+    } else if (app.type === 'USER_AUTH') {
+      activeUsers = await (prisma as any).clientUser.count({
+        where: { appId: app.id, status: 'ACTIVE', expiresAt: { gt: now } },
+      });
+      expiredUsers = await (prisma as any).clientUser.count({
+        where: { appId: app.id, OR: [{ status: 'EXPIRED' }, { expiresAt: { lte: now } }] },
+      });
+      pausedUsers = await (prisma as any).clientUser.count({
+        where: { appId: app.id, status: 'PAUSED' },
+      });
+      bannedUsers = await (prisma as any).clientUser.count({
+        where: { appId: app.id, status: 'BANNED' },
+      });
+      totalUsers = (app as any)._count.users || 0;
     } else {
       activeUsers = await prisma.hwidAccess.count({
         where: { appId: app.id, status: 'ACTIVE', expiresAt: { gt: now } },
@@ -166,6 +192,7 @@ export async function getAppById(req: Request, res: Response) {
       bannedUsers = await prisma.hwidAccess.count({
         where: { appId: app.id, status: 'BANNED' },
       });
+      totalUsers = app._count.hwidAccesses;
     }
 
     return sendSuccess(res, 'Application details retrieved', {
@@ -175,7 +202,7 @@ export async function getAppById(req: Request, res: Response) {
         expiredUsers,
         pausedUsers,
         bannedUsers,
-        totalUsers: app.type === 'LICENSE' ? app._count.licenses : app._count.hwidAccesses,
+        totalUsers,
       },
     });
   } catch (error: any) {

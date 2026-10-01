@@ -55,12 +55,6 @@ app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok', service: 'Null-Auth API', version: '1.0.0' });
 });
 
-// Middleware to ensure DB schema is migrated
-app.use(async (_req, _res, next) => {
-  await ensureDbSchema();
-  next();
-});
-
 // API Routes
 app.use('/api/v1', routes);
 app.use('/api', routes);

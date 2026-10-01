@@ -22,13 +22,22 @@ export async function ensureDbSchema() {
     `ALTER TABLE "Application" ADD COLUMN IF NOT EXISTS "discordWebhookUrl" TEXT;`,
     `ALTER TABLE "License" ADD COLUMN IF NOT EXISTS "notes" TEXT;`,
     `ALTER TABLE "HwidAccess" ADD COLUMN IF NOT EXISTS "notes" TEXT;`,
-    `CREATE TABLE IF NOT EXISTS "Setting" (
+    `CREATE TABLE IF NOT EXISTS "ClientUser" (
       "id" TEXT NOT NULL PRIMARY KEY,
-      "key" TEXT NOT NULL UNIQUE,
-      "value" TEXT NOT NULL,
+      "username" TEXT NOT NULL,
+      "passwordHash" TEXT NOT NULL,
+      "appId" TEXT NOT NULL,
+      "status" TEXT NOT NULL DEFAULT 'ACTIVE',
+      "boundHwid" TEXT,
+      "expiresAt" TIMESTAMP(3) NOT NULL,
+      "notes" TEXT,
+      "firstActivatedAt" TIMESTAMP(3),
+      "lastLoginAt" TIMESTAMP(3),
       "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "ClientUser_appId_fkey" FOREIGN KEY ("appId") REFERENCES "Application" ("id") ON DELETE CASCADE ON UPDATE CASCADE
     );`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS "ClientUser_appId_username_key" ON "ClientUser"("appId", "username");`,
   ];
 
   for (const sql of migrations) {

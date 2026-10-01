@@ -33,9 +33,32 @@ model Application {
 
   licenses         License[]
   hwidAccesses     HwidAccess[]
+  users            ClientUser[]
 
   @@index([appId])
   @@index([status])
+}
+
+model ClientUser {
+  id               String      @id @default(uuid())
+  username         String
+  passwordHash     String
+  appId            String
+  application      Application @relation(fields: [appId], references: [id], onDelete: Cascade)
+  status           String      @default("ACTIVE") // "ACTIVE", "PAUSED", "EXPIRED", "BANNED"
+  boundHwid        String?     // Hashed or sanitized machine SID / HWID
+  expiresAt        DateTime
+  clientName       String?     @map("notes")
+  firstActivatedAt DateTime?
+  lastLoginAt      DateTime?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@unique([appId, username])
+  @@index([username])
+  @@index([appId])
+  @@index([status])
+  @@index([expiresAt])
 }
 
 model License {

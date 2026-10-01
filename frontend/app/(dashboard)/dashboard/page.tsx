@@ -9,10 +9,12 @@ import { fetchApi } from '@/lib/api';
 import { CreateAppModal } from '@/components/modals/CreateAppModal';
 import { CreateLicenseModal } from '@/components/modals/CreateLicenseModal';
 import { AddHwidModal } from '@/components/modals/AddHwidModal';
+import { CreateUserModal } from '@/components/modals/CreateUserModal';
 import {
   AppWindow,
   Key,
   ShieldCheck,
+  Users,
   Activity,
   AlertTriangle,
   ArrowRight,
@@ -42,6 +44,8 @@ interface DashboardStats {
   expiredLicenses: number;
   totalHwids: number;
   activeHwids: number;
+  totalUsers?: number;
+  activeUsers?: number;
   recentApps: any[];
   recentLogs: any[];
 }
@@ -52,7 +56,7 @@ export default function DashboardOverviewPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   // Application Window Console State
-  const [appFilterTab, setAppFilterTab] = useState<'ALL' | 'LICENSE' | 'HWID'>('ALL');
+  const [appFilterTab, setAppFilterTab] = useState<'ALL' | 'LICENSE' | 'HWID' | 'USER_AUTH'>('ALL');
   const [copiedAppId, setCopiedAppId] = useState<string | null>(null);
   const [targetAppForModal, setTargetAppForModal] = useState<string | undefined>(undefined);
 
@@ -67,6 +71,7 @@ export default function DashboardOverviewPage() {
   const [isCreateAppOpen, setIsCreateAppOpen] = useState(false);
   const [isGenerateLicenseOpen, setIsGenerateLicenseOpen] = useState(false);
   const [isAddHwidOpen, setIsAddHwidOpen] = useState(false);
+  const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
 
   const loadLogs = async () => {
     setIsRefreshingLogs(true);
@@ -188,6 +193,13 @@ export default function DashboardOverviewPage() {
             >
               <ShieldCheck className="w-3.5 h-3.5 text-purple-400" /> HWID
             </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setIsCreateUserOpen(true)}
+              className="gap-2 text-xs font-bold border-emerald-900/40 hover:border-emerald-500/50"
+            >
+              <Users className="w-3.5 h-3.5 text-emerald-400" /> User
+            </Button>
           </div>
         </div>
       </Card>
@@ -229,17 +241,32 @@ export default function DashboardOverviewPage() {
             <ShieldCheck className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Active HWID Users</p>
+            <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Active HWIDs</p>
             <h3 className="text-2xl font-black text-white mt-0.5">
               {isLoading ? '...' : stats?.activeHwids || 0}
             </h3>
             <p className="text-[11px] text-zinc-500 mt-0.5">
-              Out of {stats?.totalHwids || 0} Total Whitelisted
+              Out of {stats?.totalHwids || 0} Whitelisted
             </p>
           </div>
         </Card>
 
         <Card className="flex items-center gap-4 animate-slide-up group" style={{ animationDelay: '150ms' }}>
+          <div className="w-12 h-12 rounded-2xl bg-emerald-950/80 border border-emerald-800/60 flex items-center justify-center text-emerald-400 shadow-md shadow-emerald-950/40 group-hover:scale-110 transition-transform">
+            <Users className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Active User Accounts</p>
+            <h3 className="text-2xl font-black text-white mt-0.5">
+              {isLoading ? '...' : stats?.activeUsers || 0}
+            </h3>
+            <p className="text-[11px] text-zinc-500 mt-0.5">
+              Out of {stats?.totalUsers || 0} User Accounts
+            </p>
+          </div>
+        </Card>
+
+        <Card className="flex items-center gap-4 animate-slide-up group" style={{ animationDelay: '200ms' }}>
           <div className="w-12 h-12 rounded-2xl bg-amber-950/80 border border-amber-800/60 flex items-center justify-center text-amber-400 shadow-md shadow-amber-950/40 group-hover:scale-110 transition-transform">
             <AlertTriangle className="w-6 h-6" />
           </div>
@@ -299,6 +326,7 @@ export default function DashboardOverviewPage() {
                 { id: 'ALL', label: `All (${appsList.length})` },
                 { id: 'LICENSE', label: `License (${appsList.filter((a) => a.type === 'LICENSE').length})` },
                 { id: 'HWID', label: `HWID (${appsList.filter((a) => a.type === 'HWID').length})` },
+                { id: 'USER_AUTH', label: `User Auth (${appsList.filter((a) => a.type === 'USER_AUTH').length})` },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -656,6 +684,17 @@ export default function DashboardOverviewPage() {
         isOpen={isAddHwidOpen}
         onClose={() => {
           setIsAddHwidOpen(false);
+          setTargetAppForModal(undefined);
+        }}
+        onSuccess={loadData}
+        apps={appsList}
+        defaultAppId={targetAppForModal}
+      />
+
+      <CreateUserModal
+        isOpen={isCreateUserOpen}
+        onClose={() => {
+          setIsCreateUserOpen(false);
           setTargetAppForModal(undefined);
         }}
         onSuccess={loadData}

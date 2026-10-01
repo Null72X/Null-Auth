@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { config } from '../config/index.js';
+import { prisma } from '../db.js';
 import { sendError } from '../utils/response.js';
 
 export interface AuthenticatedAdmin {
@@ -16,7 +17,7 @@ declare global {
   }
 }
 
-export function requireAdminAuth(req: Request, res: Response, next: NextFunction) {
+export async function requireAdminAuth(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
   let token: string | null = null;
 
@@ -32,9 +33,21 @@ export function requireAdminAuth(req: Request, res: Response, next: NextFunction
 
   try {
     const decoded = jwt.verify(token, config.jwtSecret) as AuthenticatedAdmin;
-    req.admin = decoded;
+    
+    // Verify admin still exists in database
+    const adminExists = await prisma.admin.findUnique({
+      where: { id: decoded.id },
+      select: { id: true, username: true },
+    });
+
+    if (!adminExists) {
+      return sendError(res, 'Session invalid. Admin account no longer exists.', 401);
+    }
+
+    req.admin = { id: adminExists.id, username: adminExists.username };
     return next();
   } catch (error) {
     return sendError(res, 'Invalid or expired session token.', 401);
   }
 }
+

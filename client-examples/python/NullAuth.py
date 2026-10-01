@@ -191,6 +191,32 @@ class NullAuth:
         self.handle_server_error(res_dict, show_msgbox)
         return False
 
+    def user_login(self, username: str, password: str, show_msgbox: bool = True) -> bool:
+        """METHOD 3: Username + Password Authentication + Bound Machine SID + Version Check."""
+        sid = self.get_windows_user_sid()
+        url = f"{self.server_url}/api/v1/client/user/authenticate"
+        payload = {
+            "appId": self.app_id,
+            "appSecret": self.secret,
+            "username": username.strip(),
+            "password": password.strip(),
+            "hwid": sid,
+            "version": self.version
+        }
+
+        res_dict = self._send_request(url, payload)
+        self.last_response = res_dict
+
+        if res_dict.get("success"):
+            data = res_dict.get("data") if isinstance(res_dict.get("data"), dict) else {}
+            data["hwid"] = sid
+            data["version"] = self.version
+            self.user_data = UserData(data, res_dict)
+            return True
+
+        self.handle_server_error(res_dict, show_msgbox)
+        return False
+
     def _send_request(self, url: str, payload: dict) -> dict:
         """Sends HTTP POST request safely and returns parsed JSON response dict."""
         data_bytes = json.dumps(payload).encode('utf-8')
@@ -238,14 +264,19 @@ if __name__ == "__main__":
     print("\nSelect Authentication Method:")
     print("  1. Method 1: License Key + Bound Machine SID")
     print("  2. Method 2: HWID Whitelist Only (No License Key)")
+    print("  3. Method 3: Username + Password (Bound Machine SID)")
 
-    choice = input("\nEnter Choice (1 or 2): ").strip()
+    choice = input("\nEnter Choice (1, 2, or 3): ").strip()
 
     if choice == "1":
         key = input("\nEnter License Key (e.g. NULL-ABCD-1234-EFGH): ").strip()
         success = auth.license(key, show_msgbox=True)
-    else:
+    elif choice == "2":
         success = auth.check_hwid(show_msgbox=True)
+    else:
+        user_input = input("\nEnter Username: ").strip()
+        pass_input = input("Enter Password: ").strip()
+        success = auth.user_login(user_input, pass_input, show_msgbox=True)
 
     if success:
         print("\n[+] ACCESS GRANTED! Software Unlocked.")

@@ -13,7 +13,7 @@ interface CreateAppModalProps {
 
 export function CreateAppModal({ isOpen, onClose, onSuccess }: CreateAppModalProps) {
   const [name, setName] = useState('');
-  const [type, setType] = useState<'LICENSE' | 'HWID'>('LICENSE');
+  const [type, setType] = useState<'LICENSE' | 'HWID' | 'USER_AUTH'>('LICENSE');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,15 +72,18 @@ export function CreateAppModal({ isOpen, onClose, onSuccess }: CreateAppModalPro
           </label>
           <select
             value={type}
-            onChange={(e) => setType(e.target.value as 'LICENSE' | 'HWID')}
+            onChange={(e) => setType(e.target.value as any)}
             className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2.5 text-sm text-zinc-100 focus:outline-none focus:border-red-500"
           >
             <option value="LICENSE">License Key Authentication (Key + Bound HWID)</option>
             <option value="HWID">HWID / Identifier Access (Direct Whitelist)</option>
+            <option value="USER_AUTH">Username & Password Mode (Credentials + Bound HWID)</option>
           </select>
           <p className="text-xs text-zinc-400 mt-1.5">
             {type === 'LICENSE'
               ? 'Users authenticate using generated license keys bound to their machine SID/HWID on first activation.'
+              : type === 'USER_AUTH'
+              ? 'Users authenticate using their account Username and Password, automatically bound to their machine SID/HWID on first login.'
               : 'Users authenticate directly based on whether their machine SID/HWID is manually authorized.'}
           </p>
         </div>

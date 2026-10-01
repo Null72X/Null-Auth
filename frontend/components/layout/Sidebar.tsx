@@ -8,6 +8,7 @@ import {
   AppWindow,
   Key,
   ShieldCheck,
+  Users,
   Settings,
   LogOut,
   Shield,
@@ -20,6 +21,7 @@ const navItems = [
   { name: 'Applications', href: '/applications', icon: AppWindow },
   { name: 'Licenses', href: '/licenses', icon: Key },
   { name: 'HWID Access', href: '/hwid', icon: ShieldCheck },
+  { name: 'User Accounts', href: '/users', icon: Users },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 

@@ -1,11 +1,10 @@
 import crypto from 'crypto';
 
 /**
- * Generate a random, secure App ID with numbers only (e.g. 48392017)
+ * Generate a random, cryptographically secure App ID with numbers only (e.g. 48392017)
  */
 export function generateAppId(): string {
-  const num = Math.floor(10000000 + Math.random() * 90000000);
-  return num.toString();
+  return crypto.randomInt(10000000, 99999999).toString();
 }
 
 /**

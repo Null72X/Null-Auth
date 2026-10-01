@@ -27,6 +27,19 @@ namespace NullAuthClient {
         std::string version;
         std::string host;
 
+        static std::string EscapeJson(const std::string& input) {
+            std::string output = "";
+            for (char c : input) {
+                if (c == '"') output += "\\\"";
+                else if (c == '\\') output += "\\\\";
+                else if (c == '\n') output += "\\n";
+                else if (c == '\r') output += "\\r";
+                else if (c == '\t') output += "\\t";
+                else output += c;
+            }
+            return output;
+        }
+
         static std::string ExtractJsonString(const std::string& json, const std::string& key) {
             std::string search = "\"" + key + "\":\"";
             size_t pos = json.find(search);
@@ -187,7 +200,7 @@ namespace NullAuthClient {
 
         bool License(const std::string& key, bool showMsgbox = true) {
             std::string sid = GetWindowsUserSid();
-            std::string body = "{\"appId\":\"" + appId + "\",\"appSecret\":\"" + secret + "\",\"licenseKey\":\"" + key + "\",\"hwid\":\"" + sid + "\",\"version\":\"" + version + "\"}";
+            std::string body = "{\"appId\":\"" + EscapeJson(appId) + "\",\"appSecret\":\"" + EscapeJson(secret) + "\",\"licenseKey\":\"" + EscapeJson(key) + "\",\"hwid\":\"" + EscapeJson(sid) + "\",\"version\":\"" + EscapeJson(version) + "\"}";
             std::string response;
             if (SendHttpsPost("/api/v1/client/license/authenticate", body, response)) {
                 if (response.find("\"success\":true") != std::string::npos) {
@@ -208,7 +221,7 @@ namespace NullAuthClient {
 
         bool CheckHwid(bool showMsgbox = true) {
             std::string sid = GetWindowsUserSid();
-            std::string body = "{\"appId\":\"" + appId + "\",\"appSecret\":\"" + secret + "\",\"hwid\":\"" + sid + "\",\"version\":\"" + version + "\"}";
+            std::string body = "{\"appId\":\"" + EscapeJson(appId) + "\",\"appSecret\":\"" + EscapeJson(secret) + "\",\"hwid\":\"" + EscapeJson(sid) + "\",\"version\":\"" + EscapeJson(version) + "\"}";
             std::string response;
             if (SendHttpsPost("/api/v1/client/hwid/authenticate", body, response)) {
                 if (response.find("\"success\":true") != std::string::npos) {
@@ -217,6 +230,27 @@ namespace NullAuthClient {
                     userData.ip = ExtractJsonString(response, "ip");
                     userData.expires = ExtractJsonString(response, "expires_at");
                     userData.remainingDays = ExtractJsonInt(response, "remaining_days");
+                    userData.hwid = sid;
+                    userData.version = version;
+                    return true;
+                }
+            }
+            HandleError(response, showMsgbox);
+            return false;
+        }
+
+        bool UserLogin(const std::string& username, const std::string& userPassword, bool showMsgbox = true) {
+            std::string sid = GetWindowsUserSid();
+            std::string body = "{\"appId\":\"" + EscapeJson(appId) + "\",\"appSecret\":\"" + EscapeJson(secret) + "\",\"username\":\"" + EscapeJson(username) + "\",\"password\":\"" + EscapeJson(userPassword) + "\",\"hwid\":\"" + EscapeJson(sid) + "\",\"version\":\"" + EscapeJson(version) + "\"}";
+            std::string response;
+            if (SendHttpsPost("/api/v1/client/user/authenticate", body, response)) {
+                if (response.find("\"success\":true") != std::string::npos) {
+                    userData.status = "active";
+                    userData.clientName = ExtractJsonString(response, "client_name");
+                    userData.ip = ExtractJsonString(response, "ip");
+                    userData.expires = ExtractJsonString(response, "expires_at");
+                    userData.remainingDays = ExtractJsonInt(response, "remaining_days");
+                    userData.firstActivated = ExtractJsonString(response, "first_activated_at");
                     userData.hwid = sid;
                     userData.version = version;
                     return true;
@@ -250,7 +284,8 @@ int main() {
     std::cout << "Select Authentication Method:\n";
     std::cout << "  1. Method 1: License Key + Bound Machine SID\n";
     std::cout << "  2. Method 2: HWID Whitelist Only (No License Key)\n";
-    std::cout << "\nEnter Choice (1 or 2): ";
+    std::cout << "  3. Method 3: Username + Password (Bound Machine SID)\n";
+    std::cout << "\nEnter Choice (1, 2, or 3): ";
 
     int choice = 1;
     std::cin >> choice;
@@ -262,9 +297,17 @@ int main() {
         std::cin >> key;
         std::cout << "\n[*] Authenticating License Key...\n";
         success = auth.License(key, true);
-    } else {
+    } else if (choice == 2) {
         std::cout << "\n[*] Authenticating HWID Whitelist...\n";
         success = auth.CheckHwid(true);
+    } else {
+        std::cout << "\nEnter Username: ";
+        std::string userStr, passStr;
+        std::cin >> userStr;
+        std::cout << "Enter Password: ";
+        std::cin >> passStr;
+        std::cout << "\n[*] Authenticating User Credentials...\n";
+        success = auth.UserLogin(userStr, passStr, true);
     }
 
     if (success) {

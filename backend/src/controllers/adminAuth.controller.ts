@@ -26,16 +26,10 @@ export async function login(req: Request, res: Response) {
   try {
     const trimmedUsername = (username || '').trim();
 
-    // Flexible case-insensitive admin lookup
+    // Strict case-insensitive lookup for the requested username only
     let admin = await prisma.admin.findFirst({
       where: {
-        OR: [
-          { username: trimmedUsername },
-          { username: trimmedUsername.toUpperCase() },
-          { username: trimmedUsername.toLowerCase() },
-          { username: 'NULL' },
-          { username: 'admin' },
-        ],
+        username: { equals: trimmedUsername, mode: 'insensitive' },
       },
     });
 

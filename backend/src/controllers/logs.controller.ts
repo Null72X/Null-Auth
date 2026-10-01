@@ -68,6 +68,8 @@ export async function getDashboardStats(_req: Request, res: Response) {
       expiredLicenses,
       totalHwids,
       activeHwids,
+      totalUsers,
+      activeUsers,
       recentApps,
       recentLogs,
     ] = await Promise.all([
@@ -80,6 +82,8 @@ export async function getDashboardStats(_req: Request, res: Response) {
       }),
       prisma.hwidAccess.count(),
       prisma.hwidAccess.count({ where: { status: 'ACTIVE', expiresAt: { gt: now } } }),
+      (prisma as any).clientUser.count(),
+      (prisma as any).clientUser.count({ where: { status: 'ACTIVE', expiresAt: { gt: now } } }),
       prisma.application.findMany({
         take: 5,
         orderBy: { createdAt: 'desc' },
@@ -99,6 +103,8 @@ export async function getDashboardStats(_req: Request, res: Response) {
       expiredLicenses,
       totalHwids,
       activeHwids,
+      totalUsers,
+      activeUsers,
       recentApps,
       recentLogs,
     });

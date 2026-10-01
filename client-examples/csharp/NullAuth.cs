@@ -186,6 +186,27 @@ namespace NullAuthClient
             return false;
         }
 
+        public async Task<bool> UserLoginAsync(string username, string password, bool showMsgbox = true)
+        {
+            string sid = GetWindowsUserSid();
+            string endpoint = $"{ServerUrl}/api/v1/client/user/authenticate";
+
+            // NativeAOT-Safe explicit JSON payload construction
+            string jsonBody = $"{{\"appId\":\"{EscapeJson(AppId)}\",\"appSecret\":\"{EscapeJson(Secret)}\",\"username\":\"{EscapeJson(username?.Trim())}\",\"password\":\"{EscapeJson(password?.Trim())}\",\"hwid\":\"{EscapeJson(sid)}\",\"version\":\"{EscapeJson(Version)}\"}}";
+
+            var res = await SendRequestAsync(endpoint, jsonBody);
+            if (res.Success && res.Data != null)
+            {
+                UserData = res.Data;
+                UserData.Hwid = sid;
+                UserData.Version = Version;
+                return true;
+            }
+
+            HandleError(res.ErrorCode, res.Message, res.DownloadUrl, showMsgbox);
+            return false;
+        }
+
         private async Task<NullAuthResult> SendRequestAsync(string endpoint, string jsonBody)
         {
             try
