@@ -100,19 +100,21 @@ export async function authenticateLicense(req: Request, res: Response) {
     const clientVer = (version || clientVersion || '').trim();
     const requiredVer = (app.version || '1.0.0').trim();
 
-    if (clientVer && clientVer !== requiredVer) {
+    if (!clientVer || clientVer !== requiredVer) {
       await logActivity({
         appId: app.id,
         action: 'CLIENT_AUTH_FAILED',
         actorType: 'CLIENT',
         ipAddress,
         userAgent,
-        details: { appId: app.appId, clientVersion: clientVer, requiredVersion: requiredVer, reason: 'VERSION_MISMATCH' },
+        details: { appId: app.appId, clientVersion: clientVer || 'none', requiredVersion: requiredVer, reason: 'VERSION_MISMATCH' },
         status: 'FAILURE',
       });
       return sendError(
         res,
-        `Update Required: Application version '${clientVer}' is outdated. Required version is '${requiredVer}'.`,
+        clientVer
+          ? `Update Required: Application version '${clientVer}' is outdated. Required version is '${requiredVer}'.`
+          : `Update Required: Application version must be provided. Required version is '${requiredVer}'.`,
         426,
         'VERSION_MISMATCH',
         { requiredVersion: requiredVer, downloadUrl: app.downloadUrl || null }
@@ -407,19 +409,21 @@ export async function authenticateHwid(req: Request, res: Response) {
     const clientVer = (version || clientVersion || '').trim();
     const requiredVer = (app.version || '1.0.0').trim();
 
-    if (clientVer && clientVer !== requiredVer) {
+    if (!clientVer || clientVer !== requiredVer) {
       await logActivity({
         appId: app.id,
         action: 'CLIENT_AUTH_FAILED',
         actorType: 'CLIENT',
         ipAddress,
         userAgent,
-        details: { appId: app.appId, clientVersion: clientVer, requiredVersion: requiredVer, reason: 'VERSION_MISMATCH' },
+        details: { appId: app.appId, clientVersion: clientVer || 'none', requiredVersion: requiredVer, reason: 'VERSION_MISMATCH' },
         status: 'FAILURE',
       });
       return sendError(
         res,
-        `Update Required: Application version '${clientVer}' is outdated. Required version is '${requiredVer}'.`,
+        clientVer
+          ? `Update Required: Application version '${clientVer}' is outdated. Required version is '${requiredVer}'.`
+          : `Update Required: Application version must be provided. Required version is '${requiredVer}'.`,
         426,
         'VERSION_MISMATCH',
         { requiredVersion: requiredVer, downloadUrl: app.downloadUrl || null }
@@ -428,7 +432,39 @@ export async function authenticateHwid(req: Request, res: Response) {
 
     const cleanHwid = hashHwid(hwid);
 
-    // If Free Trial Mode is Active for HWID App -> EVERY device/HWID gets instant access!
+    // 4. Verify HWID Access Record
+    const hwidRecord = await prisma.hwidAccess.findFirst({
+      where: { hwidHash: cleanHwid, appId: app.id },
+    });
+
+    // Explicit Ban & Pause Enforcement (Takes precedence even during Free Trial)
+    if (hwidRecord && hwidRecord.status === 'BANNED') {
+      await logActivity({
+        appId: app.id,
+        action: 'CLIENT_AUTH_FAILED',
+        actorType: 'CLIENT',
+        ipAddress,
+        userAgent,
+        details: { appId: app.appId, hwid: cleanHwid, reason: 'HWID_BANNED' },
+        status: 'FAILURE',
+      });
+      return sendError(res, 'Account Banned: Your machine SID / HWID has been banned.', 403, 'HWID_BANNED');
+    }
+
+    if (hwidRecord && hwidRecord.status === 'PAUSED') {
+      await logActivity({
+        appId: app.id,
+        action: 'CLIENT_AUTH_FAILED',
+        actorType: 'CLIENT',
+        ipAddress,
+        userAgent,
+        details: { appId: app.appId, hwid: cleanHwid, reason: 'HWID_PAUSED' },
+        status: 'FAILURE',
+      });
+      return sendError(res, 'Access Paused: License key or HWID access is currently paused.', 403, 'HWID_PAUSED');
+    }
+
+    // If Free Trial Mode is Active for HWID App -> Non-banned devices get instant access!
     if (app.freeTrialEnabled) {
       const now = new Date();
       await prisma.hwidAccess.updateMany({
@@ -464,11 +500,6 @@ export async function authenticateHwid(req: Request, res: Response) {
         version: app.version,
       });
     }
-
-    // 4. Verify HWID Access Record
-    const hwidRecord = await prisma.hwidAccess.findFirst({
-      where: { hwidHash: cleanHwid, appId: app.id },
-    });
 
     if (!hwidRecord) {
       await logActivity({
@@ -649,19 +680,21 @@ export async function authenticateUser(req: Request, res: Response) {
     const clientVer = (version || clientVersion || '').trim();
     const requiredVer = (app.version || '1.0.0').trim();
 
-    if (clientVer && clientVer !== requiredVer) {
+    if (!clientVer || clientVer !== requiredVer) {
       await logActivity({
         appId: app.id,
         action: 'CLIENT_AUTH_FAILED',
         actorType: 'CLIENT',
         ipAddress,
         userAgent,
-        details: { appId: app.appId, clientVersion: clientVer, requiredVersion: requiredVer, reason: 'VERSION_MISMATCH' },
+        details: { appId: app.appId, clientVersion: clientVer || 'none', requiredVersion: requiredVer, reason: 'VERSION_MISMATCH' },
         status: 'FAILURE',
       });
       return sendError(
         res,
-        `Update Required: Application version '${clientVer}' is outdated. Required version is '${requiredVer}'.`,
+        clientVer
+          ? `Update Required: Application version '${clientVer}' is outdated. Required version is '${requiredVer}'.`
+          : `Update Required: Application version must be provided. Required version is '${requiredVer}'.`,
         426,
         'VERSION_MISMATCH',
         { requiredVersion: requiredVer, downloadUrl: app.downloadUrl || null }

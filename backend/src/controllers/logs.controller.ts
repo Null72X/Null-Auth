@@ -5,8 +5,8 @@ import { sendSuccess, sendError } from '../utils/response.js';
 export async function listActivityLogs(req: Request, res: Response) {
   const { appId, action, actorType, status, search, page = '1', limit = '30' } = req.query;
 
-  const pageNum = parseInt(page as string, 10);
-  const limitNum = parseInt(limit as string, 10);
+  const pageNum = Math.max(1, parseInt(page as string, 10) || 1);
+  const limitNum = Math.min(100, Math.max(1, parseInt(limit as string, 10) || 30));
   const skip = (pageNum - 1) * limitNum;
 
   const whereClause: any = {};

@@ -40,11 +40,17 @@ export const bulkUserActionSchema = z.object({
   days: z.number().int().optional(),
 });
 
+export function sanitizeUser(user: any) {
+  if (!user) return user;
+  const { passwordHash, ...safe } = user;
+  return safe;
+}
+
 export async function listUsers(req: Request, res: Response) {
   const { appId, status, search, page = '1', limit = '20' } = req.query;
 
-  const pageNum = parseInt(page as string, 10);
-  const limitNum = parseInt(limit as string, 10);
+  const pageNum = Math.max(1, parseInt(page as string, 10) || 1);
+  const limitNum = Math.min(100, Math.max(1, parseInt(limit as string, 10) || 20));
   const skip = (pageNum - 1) * limitNum;
 
   const whereClause: any = {};
@@ -99,8 +105,9 @@ export async function listUsers(req: Request, res: Response) {
       const diffTime = user.expiresAt.getTime() - now.getTime();
       const remainingDays = diffTime > 0 ? Math.ceil(diffTime / (1000 * 60 * 60 * 24)) : 0;
 
+      const safe = sanitizeUser(user);
       return {
-        ...user,
+        ...safe,
         clientName: user.clientName || user.notes || null,
         effectiveStatus,
         remainingDays,
@@ -137,8 +144,9 @@ export async function getUserById(req: Request, res: Response) {
     const diffTime = user.expiresAt.getTime() - now.getTime();
     const remainingDays = diffTime > 0 ? Math.ceil(diffTime / (1000 * 60 * 60 * 24)) : 0;
 
+    const safe = sanitizeUser(user);
     return sendSuccess(res, 'User details retrieved', {
-      ...user,
+      ...safe,
       clientName: user.clientName || user.notes || null,
       effectiveStatus: user.status === 'ACTIVE' && isExpired ? 'EXPIRED' : user.status,
       remainingDays,
@@ -221,7 +229,7 @@ export async function createUser(req: Request, res: Response) {
     } catch (e) {}
 
     return sendSuccess(res, `User account '${trimmedUsername}' created successfully`, {
-      ...newUser,
+      ...sanitizeUser(newUser),
       clientName: resolvedClientName,
     }, 201);
   } catch (error: any) {
@@ -298,7 +306,7 @@ export async function updateUser(req: Request, res: Response) {
     });
 
     return sendSuccess(res, 'User account updated successfully', {
-      ...updated,
+      ...sanitizeUser(updated),
       clientName: updated.clientName || updated.notes || null,
     });
   } catch (error: any) {
@@ -339,7 +347,7 @@ export async function toggleUserStatus(req: Request, res: Response) {
       });
     } catch (e) {}
 
-    return sendSuccess(res, `User status set to ${status}`, updated);
+    return sendSuccess(res, `User status set to ${status}`, sanitizeUser(updated));
   } catch (error: any) {
     console.error('[Toggle User Status Error]:', error);
     return sendError(res, 'Failed to update user status', 500);
@@ -394,7 +402,7 @@ export async function extendUser(req: Request, res: Response) {
       });
     } catch (e) {}
 
-    return sendSuccess(res, `User duration modified by ${days} day(s)`, updated);
+    return sendSuccess(res, `User duration modified by ${days} day(s)`, sanitizeUser(updated));
   } catch (error: any) {
     console.error('[Extend User Error]:', error);
     return sendError(res, 'Failed to extend user duration', 500);
@@ -435,7 +443,7 @@ export async function resetUserHwid(req: Request, res: Response) {
       });
     } catch (e) {}
 
-    return sendSuccess(res, 'User bound HWID reset successfully', updated);
+    return sendSuccess(res, 'User bound HWID reset successfully', sanitizeUser(updated));
   } catch (error: any) {
     console.error('[Reset User HWID Error]:', error);
     return sendError(res, 'Failed to reset bound HWID', 500);

@@ -19,6 +19,7 @@ export const clientAuthRateLimiter = rateLimit({
   max: 60, // Limit client apps to 60 auth requests per minute per IP
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => extractClientIp(req),
   handler: (_req, res) => {
     return sendError(res, 'Rate limit exceeded for authentication requests. Please try again shortly.', 429);
   },

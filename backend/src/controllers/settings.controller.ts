@@ -60,7 +60,6 @@ export async function getSettings(req: Request, res: Response) {
     return sendSuccess(res, 'Settings retrieved successfully', {
       discord: {
         hasWebhook: !!rawUrl.trim(),
-        webhookUrl: rawUrl.trim(),
         maskedUrl: maskWebhookUrl(rawUrl),
         botName: botNameSetting?.value || 'Null-Auth Security Guard',
         botAvatarUrl: botAvatarSetting?.value || 'https://i.imgur.com/8Qp4w9f.png',
