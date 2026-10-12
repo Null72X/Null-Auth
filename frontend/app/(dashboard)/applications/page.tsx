@@ -12,6 +12,7 @@ import { CreateUserModal } from '@/components/modals/CreateUserModal';
 import { AppRecordsModal } from '@/components/modals/AppRecordsModal';
 import { ConfirmModal } from '@/components/modals/ConfirmModal';
 import { EditAppModal } from '@/components/modals/EditAppModal';
+import { ConfigureTrialModal } from '@/components/modals/ConfigureTrialModal';
 import { SdkSnippetModal } from '@/components/modals/SdkSnippetModal';
 import { Modal } from '@/components/ui/Modal';
 import { fetchApi } from '@/lib/api';
@@ -80,6 +81,9 @@ export default function ApplicationsPage() {
   const [appToDelete, setAppToDelete] = useState<AppItem | null>(null);
   const [appToEdit, setAppToEdit] = useState<AppItem | null>(null);
   const [editName, setEditName] = useState('');
+
+  // Free Trial Configure Modal State
+  const [trialConfigApp, setTrialConfigApp] = useState<AppItem | null>(null);
 
   // Records View Modal State
   const [recordsApp, setRecordsApp] = useState<AppItem | null>(null);
@@ -283,13 +287,8 @@ export default function ApplicationsPage() {
     loadApps();
   };
 
-  const handleToggleFreeTrial = async (app: AppItem) => {
-    const newEnabled = !app.freeTrialEnabled;
-    await fetchApi(`/admin/apps/${app.id}/free-trial`, {
-      method: 'PATCH',
-      body: JSON.stringify({ enabled: newEnabled }),
-    });
-    loadApps();
+  const handleToggleFreeTrial = (app: AppItem) => {
+    setTrialConfigApp(app);
   };
 
   const handleRegenerateSecret = async (app: AppItem) => {
@@ -773,16 +772,29 @@ export default function ApplicationsPage() {
                           </span>
                         </div>
 
-                        {app.freeTrialKey && (app.type === 'LICENSE' || app.type === 'USER_AUTH') && (
+                        <div className="flex items-center gap-1 shrink-0">
                           <button
-                            onClick={() => copySecret(app.freeTrialKey!)}
-                            className="p-1 rounded-[4px] bg-emerald-900/60 hover:bg-emerald-800/80 text-emerald-200 transition-colors shrink-0 text-[10px] font-bold flex items-center gap-1"
-                            title={app.type === 'LICENSE' ? 'Copy Master Free Trial Key' : 'Copy Free Trial Username'}
+                            type="button"
+                            onClick={() => setTrialConfigApp(app)}
+                            className="p-1 rounded-[4px] bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-white transition-colors text-[10px] font-bold flex items-center gap-1"
+                            title="Edit Free Trial Configuration"
                           >
-                            {copiedSecret === app.freeTrialKey ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                            <span>{app.type === 'LICENSE' ? 'Copy Key' : 'Copy User'}</span>
+                            <Edit2 className="w-3 h-3 text-amber-400" />
+                            <span>Edit</span>
                           </button>
-                        )}
+
+                          {app.freeTrialKey && (app.type === 'LICENSE' || app.type === 'USER_AUTH') && (
+                            <button
+                              type="button"
+                              onClick={() => copySecret(app.freeTrialKey!)}
+                              className="p-1 rounded-[4px] bg-emerald-900/60 hover:bg-emerald-800/80 text-emerald-200 transition-colors text-[10px] font-bold flex items-center gap-1"
+                              title={app.type === 'LICENSE' ? 'Copy Master Free Trial Key' : 'Copy Free Trial Username'}
+                            >
+                              {copiedSecret === app.freeTrialKey ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                              <span>{app.type === 'LICENSE' ? 'Copy Key' : 'Copy User'}</span>
+                            </button>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -997,10 +1009,16 @@ export default function ApplicationsPage() {
                               </button>
                             </div>
                             {app.freeTrialEnabled && (
-                              <div className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-950/60 border border-emerald-800/40 text-[9px] font-mono text-emerald-300">
+                              <button
+                                type="button"
+                                onClick={() => setTrialConfigApp(app)}
+                                className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-800/40 hover:border-emerald-700/60 text-[9px] font-mono text-emerald-300 transition-colors cursor-pointer"
+                                title="Click to view or edit Free Trial configuration"
+                              >
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                                 <span>Free Trial On</span>
-                              </div>
+                                <Edit2 className="w-2.5 h-2.5 ml-0.5 text-emerald-400 opacity-60" />
+                              </button>
                             )}
                           </div>
                         </div>
@@ -1398,6 +1416,14 @@ if (result) {
         onClose={() => setAppToEdit(null)}
         onSuccess={loadApps}
         app={appToEdit}
+      />
+
+      {/* Configure Free Trial Modal */}
+      <ConfigureTrialModal
+        isOpen={!!trialConfigApp}
+        onClose={() => setTrialConfigApp(null)}
+        app={trialConfigApp}
+        onSuccess={loadApps}
       />
 
       {/* Edit App Version & Download URL Modal */}

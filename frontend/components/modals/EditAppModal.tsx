@@ -311,7 +311,24 @@ export function EditAppModal({
             </div>
             <button
               type="button"
-              onClick={() => setFreeTrialEnabled(!freeTrialEnabled)}
+              onClick={() => {
+                const nextState = !freeTrialEnabled;
+                setFreeTrialEnabled(nextState);
+                if (nextState) {
+                  if (app?.type === 'LICENSE' && !trialSuffix) {
+                    const p1 = Math.random().toString(36).substring(2, 6).toUpperCase();
+                    const p2 = Math.random().toString(36).substring(2, 6).toUpperCase();
+                    setTrialSuffix(`${p1}-${p2}`);
+                  } else if (app?.type === 'USER_AUTH') {
+                    if (!trialUsername) {
+                      setTrialUsername(`trial_${Math.random().toString(36).substring(2, 6).toLowerCase()}`);
+                    }
+                    if (!trialPassword) {
+                      setTrialPassword('trial123');
+                    }
+                  }
+                }
+              }}
               className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
                 freeTrialEnabled ? 'bg-red-600' : 'bg-zinc-800'
               }`}
