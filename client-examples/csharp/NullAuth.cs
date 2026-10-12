@@ -53,36 +53,67 @@ namespace NullAuthClient
             ServerUrl = serverUrl?.TrimEnd('/') ?? "https://null-auth-backend.vercel.app";
         }
 
-        public static string GetWindowsUserSid()
+        [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true, CharSet = System.Runtime.InteropServices.CharSet.Auto)]
+        private static extern bool GetVolumeInformation(
+            string rootPathName,
+            StringBuilder volumeNameBuffer,
+            int volumeNameSize,
+            out uint volumeSerialNumber,
+            out uint maximumComponentLength,
+            out uint fileSystemFlags,
+            StringBuilder fileSystemNameBuffer,
+            int fileSystemNameSize);
+
+        /// <summary>
+        /// Retrieves hardware-bound machine HWID (MachineGuid + C: Volume Serial) hashed with SHA-256.
+        /// </summary>
+        public static string GetHwid()
         {
             try
             {
-                ProcessStartInfo psi = new ProcessStartInfo("whoami", "/user")
+                string machineGuid = "";
+                try
                 {
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
-
-                using Process process = Process.Start(psi);
-                string output = process.StandardOutput.ReadToEnd();
-                process.WaitForExit();
-
-                string[] lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-                foreach (string line in lines)
-                {
-                    if (line.Contains("S-1-5-"))
+                    using var key = Microsoft.Win32.RegistryKey.OpenBaseKey(
+                        Microsoft.Win32.RegistryHive.LocalMachine,
+                        Environment.Is64BitOperatingSystem ? Microsoft.Win32.RegistryView.Registry64 : Microsoft.Win32.RegistryView.Registry32);
+                    using var subKey = key.OpenSubKey(@"SOFTWARE\Microsoft\Cryptography");
+                    if (subKey != null)
                     {
-                        string[] parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                        if (parts.Length >= 2) return parts[parts.Length - 1].Trim();
+                        machineGuid = subKey.GetValue("MachineGuid")?.ToString()?.Trim() ?? "";
                     }
                 }
-            }
-            catch { }
+                catch { }
 
-            try { return WindowsIdentity.GetCurrent().User?.Value ?? "UNKNOWN_HWID"; }
-            catch { return "UNKNOWN_HWID"; }
+                uint volumeSerial = 0;
+                try
+                {
+                    GetVolumeInformation("C:\\", null, 0, out volumeSerial, out _, out _, null, 0);
+                }
+                catch { }
+
+                string rawHwid = $"{machineGuid}:{volumeSerial:X8}";
+                if (string.IsNullOrWhiteSpace(machineGuid) && volumeSerial == 0)
+                {
+                    try { rawHwid = WindowsIdentity.GetCurrent().User?.Value ?? Environment.MachineName; }
+                    catch { rawHwid = Environment.MachineName; }
+                }
+
+                using var sha256 = System.Security.Cryptography.SHA256.Create();
+                byte[] bytes = Encoding.UTF8.GetBytes(rawHwid);
+                byte[] hash = sha256.ComputeHash(bytes);
+                var sb = new StringBuilder(hash.Length * 2);
+                foreach (byte b in hash)
+                    sb.Append(b.ToString("x2"));
+                return sb.ToString();
+            }
+            catch
+            {
+                return "UNKNOWN_HWID";
+            }
         }
+
+        public static string GetWindowsUserSid() => GetHwid();
 
         public static void ShowPopup(string title, string message, MessageBoxIcon icon = MessageBoxIcon.Error)
         {
@@ -146,17 +177,17 @@ namespace NullAuthClient
 
         public async Task<bool> LicenseAsync(string key, bool showMsgbox = true)
         {
-            string sid = GetWindowsUserSid();
+            string hwid = GetHwid();
             string endpoint = $"{ServerUrl}/api/v1/client/license/authenticate";
 
             // NativeAOT-Safe explicit JSON payload construction
-            string jsonBody = $"{{\"appId\":\"{EscapeJson(AppId)}\",\"appSecret\":\"{EscapeJson(Secret)}\",\"licenseKey\":\"{EscapeJson(key?.Trim())}\",\"hwid\":\"{EscapeJson(sid)}\",\"version\":\"{EscapeJson(Version)}\"}}";
+            string jsonBody = $"{{\"appId\":\"{EscapeJson(AppId)}\",\"appSecret\":\"{EscapeJson(Secret)}\",\"licenseKey\":\"{EscapeJson(key?.Trim())}\",\"hwid\":\"{EscapeJson(hwid)}\",\"version\":\"{EscapeJson(Version)}\"}}";
 
             var res = await SendRequestAsync(endpoint, jsonBody);
             if (res.Success && res.Data != null)
             {
                 UserData = res.Data;
-                UserData.Hwid = sid;
+                UserData.Hwid = hwid;
                 UserData.Version = Version;
                 return true;
             }
@@ -167,17 +198,17 @@ namespace NullAuthClient
 
         public async Task<bool> CheckHwidAsync(bool showMsgbox = true)
         {
-            string sid = GetWindowsUserSid();
+            string hwid = GetHwid();
             string endpoint = $"{ServerUrl}/api/v1/client/hwid/authenticate";
 
             // NativeAOT-Safe explicit JSON payload construction
-            string jsonBody = $"{{\"appId\":\"{EscapeJson(AppId)}\",\"appSecret\":\"{EscapeJson(Secret)}\",\"hwid\":\"{EscapeJson(sid)}\",\"version\":\"{EscapeJson(Version)}\"}}";
+            string jsonBody = $"{{\"appId\":\"{EscapeJson(AppId)}\",\"appSecret\":\"{EscapeJson(Secret)}\",\"hwid\":\"{EscapeJson(hwid)}\",\"version\":\"{EscapeJson(Version)}\"}}";
 
             var res = await SendRequestAsync(endpoint, jsonBody);
             if (res.Success && res.Data != null)
             {
                 UserData = res.Data;
-                UserData.Hwid = sid;
+                UserData.Hwid = hwid;
                 UserData.Version = Version;
                 return true;
             }
@@ -188,17 +219,17 @@ namespace NullAuthClient
 
         public async Task<bool> UserLoginAsync(string username, string password, bool showMsgbox = true)
         {
-            string sid = GetWindowsUserSid();
+            string hwid = GetHwid();
             string endpoint = $"{ServerUrl}/api/v1/client/user/authenticate";
 
             // NativeAOT-Safe explicit JSON payload construction
-            string jsonBody = $"{{\"appId\":\"{EscapeJson(AppId)}\",\"appSecret\":\"{EscapeJson(Secret)}\",\"username\":\"{EscapeJson(username?.Trim())}\",\"password\":\"{EscapeJson(password?.Trim())}\",\"hwid\":\"{EscapeJson(sid)}\",\"version\":\"{EscapeJson(Version)}\"}}";
+            string jsonBody = $"{{\"appId\":\"{EscapeJson(AppId)}\",\"appSecret\":\"{EscapeJson(Secret)}\",\"username\":\"{EscapeJson(username?.Trim())}\",\"password\":\"{EscapeJson(password?.Trim())}\",\"hwid\":\"{EscapeJson(hwid)}\",\"version\":\"{EscapeJson(Version)}\"}}";
 
             var res = await SendRequestAsync(endpoint, jsonBody);
             if (res.Success && res.Data != null)
             {
                 UserData = res.Data;
-                UserData.Hwid = sid;
+                UserData.Hwid = hwid;
                 UserData.Version = Version;
                 return true;
             }

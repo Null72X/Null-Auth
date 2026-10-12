@@ -2,10 +2,12 @@
 #include <string>
 #include <windows.h>
 #include <wininet.h>
+#include <wincrypt.h>
 #include <array>
 #include <cctype>
 
 #pragma comment(lib, "wininet.lib")
+#pragma comment(lib, "advapi32.lib")
 
 namespace NullAuthClient {
 
@@ -81,23 +83,62 @@ namespace NullAuthClient {
             const std::string& host = "null-auth-backend.vercel.app"
         ) : appId(appId), secret(secret), version(version), host(host) {}
 
-        static std::string GetWindowsUserSid() {
-            std::array<char, 512> buffer;
+        static std::string Sha256(const std::string& input) {
+            HCRYPTPROV hProv = 0;
+            HCRYPTHASH hHash = 0;
+            BYTE rgbHash[32];
+            DWORD cbHash = 32;
             std::string result = "";
-            FILE* pipe = _popen("whoami /user", "r");
-            if (!pipe) return "UNKNOWN_HWID";
-            while (fgets(buffer.data(), static_cast<int>(buffer.size()), pipe) != nullptr) {
-                result += buffer.data();
-            }
-            _pclose(pipe);
 
-            size_t sidPos = result.find("S-1-5-");
-            if (sidPos != std::string::npos) {
-                size_t endPos = result.find_first_of(" \r\n\t", sidPos);
-                if (endPos != std::string::npos) return result.substr(sidPos, endPos - sidPos);
-                return result.substr(sidPos);
+            if (CryptAcquireContextA(&hProv, NULL, NULL, PROV_RSA_AES, CRYPT_VERIFYCONTEXT)) {
+                if (CryptCreateHash(hProv, CALG_SHA_256, 0, 0, &hHash)) {
+                    if (CryptHashData(hHash, (const BYTE*)input.c_str(), (DWORD)input.length(), 0)) {
+                        if (CryptGetHashParam(hHash, HP_HASHVAL, rgbHash, &cbHash, 0)) {
+                            char hexDigits[] = "0123456789abcdef";
+                            for (DWORD i = 0; i < cbHash; i++) {
+                                result += hexDigits[(rgbHash[i] >> 4) & 0x0F];
+                                result += hexDigits[rgbHash[i] & 0x0F];
+                            }
+                        }
+                    }
+                    CryptDestroyHash(hHash);
+                }
+                CryptReleaseContext(hProv, 0);
             }
-            return "UNKNOWN_HWID";
+            return result.empty() ? input : result;
+        }
+
+        static std::string GetHwid() {
+            std::string machineGuid = "";
+            HKEY hKey;
+            if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Cryptography", 0, KEY_READ | KEY_WOW64_64KEY, &hKey) == ERROR_SUCCESS) {
+                char buf[256];
+                DWORD bufSize = sizeof(buf);
+                if (RegQueryValueExA(hKey, "MachineGuid", NULL, NULL, (LPBYTE)buf, &bufSize) == ERROR_SUCCESS) {
+                    machineGuid = std::string(buf);
+                }
+                RegCloseKey(hKey);
+            }
+
+            DWORD volumeSerial = 0;
+            GetVolumeInformationA("C:\\", NULL, 0, &volumeSerial, NULL, NULL, NULL, 0);
+
+            char volBuf[32];
+            sprintf_s(volBuf, sizeof(volBuf), "%08X", volumeSerial);
+
+            std::string raw = machineGuid + ":" + std::string(volBuf);
+            if (machineGuid.empty() && volumeSerial == 0) {
+                char compName[MAX_COMPUTERNAME_LENGTH + 1];
+                DWORD size = sizeof(compName);
+                if (GetComputerNameA(compName, &size)) raw = compName;
+                else raw = "UNKNOWN_HWID";
+            }
+
+            return Sha256(raw);
+        }
+
+        static std::string GetWindowsUserSid() {
+            return GetHwid();
         }
 
         static void ShowPopup(const std::wstring& title, const std::wstring& message, UINT iconType = MB_ICONERROR) {
@@ -199,8 +240,8 @@ namespace NullAuthClient {
         }
 
         bool License(const std::string& key, bool showMsgbox = true) {
-            std::string sid = GetWindowsUserSid();
-            std::string body = "{\"appId\":\"" + EscapeJson(appId) + "\",\"appSecret\":\"" + EscapeJson(secret) + "\",\"licenseKey\":\"" + EscapeJson(key) + "\",\"hwid\":\"" + EscapeJson(sid) + "\",\"version\":\"" + EscapeJson(version) + "\"}";
+            std::string hwid = GetHwid();
+            std::string body = "{\"appId\":\"" + EscapeJson(appId) + "\",\"appSecret\":\"" + EscapeJson(secret) + "\",\"licenseKey\":\"" + EscapeJson(key) + "\",\"hwid\":\"" + EscapeJson(hwid) + "\",\"version\":\"" + EscapeJson(version) + "\"}";
             std::string response;
             if (SendHttpsPost("/api/v1/client/license/authenticate", body, response)) {
                 if (response.find("\"success\":true") != std::string::npos) {
@@ -210,7 +251,7 @@ namespace NullAuthClient {
                     userData.expires = ExtractJsonString(response, "expires_at");
                     userData.remainingDays = ExtractJsonInt(response, "remaining_days");
                     userData.firstActivated = ExtractJsonString(response, "first_activated_at");
-                    userData.hwid = sid;
+                    userData.hwid = hwid;
                     userData.version = version;
                     return true;
                 }
@@ -220,8 +261,8 @@ namespace NullAuthClient {
         }
 
         bool CheckHwid(bool showMsgbox = true) {
-            std::string sid = GetWindowsUserSid();
-            std::string body = "{\"appId\":\"" + EscapeJson(appId) + "\",\"appSecret\":\"" + EscapeJson(secret) + "\",\"hwid\":\"" + EscapeJson(sid) + "\",\"version\":\"" + EscapeJson(version) + "\"}";
+            std::string hwid = GetHwid();
+            std::string body = "{\"appId\":\"" + EscapeJson(appId) + "\",\"appSecret\":\"" + EscapeJson(secret) + "\",\"hwid\":\"" + EscapeJson(hwid) + "\",\"version\":\"" + EscapeJson(version) + "\"}";
             std::string response;
             if (SendHttpsPost("/api/v1/client/hwid/authenticate", body, response)) {
                 if (response.find("\"success\":true") != std::string::npos) {
@@ -230,7 +271,7 @@ namespace NullAuthClient {
                     userData.ip = ExtractJsonString(response, "ip");
                     userData.expires = ExtractJsonString(response, "expires_at");
                     userData.remainingDays = ExtractJsonInt(response, "remaining_days");
-                    userData.hwid = sid;
+                    userData.hwid = hwid;
                     userData.version = version;
                     return true;
                 }
@@ -240,8 +281,8 @@ namespace NullAuthClient {
         }
 
         bool UserLogin(const std::string& username, const std::string& userPassword, bool showMsgbox = true) {
-            std::string sid = GetWindowsUserSid();
-            std::string body = "{\"appId\":\"" + EscapeJson(appId) + "\",\"appSecret\":\"" + EscapeJson(secret) + "\",\"username\":\"" + EscapeJson(username) + "\",\"password\":\"" + EscapeJson(userPassword) + "\",\"hwid\":\"" + EscapeJson(sid) + "\",\"version\":\"" + EscapeJson(version) + "\"}";
+            std::string hwid = GetHwid();
+            std::string body = "{\"appId\":\"" + EscapeJson(appId) + "\",\"appSecret\":\"" + EscapeJson(secret) + "\",\"username\":\"" + EscapeJson(username) + "\",\"password\":\"" + EscapeJson(userPassword) + "\",\"hwid\":\"" + EscapeJson(hwid) + "\",\"version\":\"" + EscapeJson(version) + "\"}";
             std::string response;
             if (SendHttpsPost("/api/v1/client/user/authenticate", body, response)) {
                 if (response.find("\"success\":true") != std::string::npos) {
@@ -251,7 +292,7 @@ namespace NullAuthClient {
                     userData.expires = ExtractJsonString(response, "expires_at");
                     userData.remainingDays = ExtractJsonInt(response, "remaining_days");
                     userData.firstActivated = ExtractJsonString(response, "first_activated_at");
-                    userData.hwid = sid;
+                    userData.hwid = hwid;
                     userData.version = version;
                     return true;
                 }
@@ -277,9 +318,9 @@ int main() {
         return 1;
     }
 
-    std::string sid = NullAuthClient::NullAuth::GetWindowsUserSid();
+    std::string hwid = NullAuthClient::NullAuth::GetHwid();
     std::cout << "[+] Connected! Server Online.\n";
-    std::cout << "[+] Windows User SID: " << sid << "\n\n";
+    std::cout << "[+] Hardware HWID: " << hwid << "\n\n";
 
     std::cout << "Select Authentication Method:\n";
     std::cout << "  1. Method 1: License Key + Bound Machine SID\n";

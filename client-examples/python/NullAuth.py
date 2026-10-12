@@ -21,6 +21,7 @@ import ctypes
 import json
 import urllib.request
 import urllib.error
+import hashlib
 
 
 class UserData:
@@ -67,19 +68,38 @@ class NullAuth:
         self.initialized = False
 
     @staticmethod
-    def get_windows_user_sid() -> str:
-        """Retrieves the Windows User Security Identifier (S-1-5-21-...) via whoami /user safely."""
+    def get_hwid() -> str:
+        """Retrieves hardware-bound machine HWID (MachineGuid + C: Volume Serial) hashed with SHA-256."""
         if platform.system() == "Windows":
+            machine_guid = ""
+            vol_serial = ""
             try:
-                output = subprocess.check_output("whoami /user", shell=True, stderr=subprocess.DEVNULL, timeout=5).decode(errors='ignore')
-                for line in output.splitlines():
-                    if "S-1-5-" in line:
-                        for part in line.split():
-                            if part.startswith("S-1-5-"):
-                                return part.strip()
+                import winreg
+                with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Cryptography", 0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as key:
+                    machine_guid = str(winreg.QueryValueEx(key, "MachineGuid")[0]).strip()
             except Exception:
                 pass
-        return "UNKNOWN_HWID"
+
+            try:
+                kernel32 = ctypes.windll.kernel32
+                vol_serial_val = ctypes.c_ulong()
+                if kernel32.GetVolumeInformationW("C:\\", None, 0, ctypes.byref(vol_serial_val), None, None, None, 0):
+                    vol_serial = f"{vol_serial_val.value:08X}"
+            except Exception:
+                pass
+
+            raw_str = f"{machine_guid}:{vol_serial}"
+            if not machine_guid and not vol_serial:
+                raw_str = platform.node()
+
+            return hashlib.sha256(raw_str.encode('utf-8')).hexdigest()
+        else:
+            return hashlib.sha256(platform.node().encode('utf-8')).hexdigest()
+
+    @staticmethod
+    def get_windows_user_sid() -> str:
+        """Backwards-compatibility alias for get_hwid()."""
+        return NullAuth.get_hwid()
 
     @staticmethod
     def show_popup(title: str, message: str, icon_type: int = 16):
@@ -143,14 +163,14 @@ class NullAuth:
         return False
 
     def license(self, key: str, show_msgbox: bool = True) -> bool:
-        """METHOD 1: License Key Authentication + Bound Windows User SID + Version Check."""
-        sid = self.get_windows_user_sid()
+        """METHOD 1: License Key Authentication + Bound Hardware HWID + Version Check."""
+        hwid = self.get_hwid()
         url = f"{self.server_url}/api/v1/client/license/authenticate"
         payload = {
             "appId": self.app_id,
             "appSecret": self.secret,
             "licenseKey": key.strip(),
-            "hwid": sid,
+            "hwid": hwid,
             "version": self.version
         }
 
@@ -159,7 +179,7 @@ class NullAuth:
 
         if res_dict.get("success"):
             data = res_dict.get("data") if isinstance(res_dict.get("data"), dict) else {}
-            data["hwid"] = sid
+            data["hwid"] = hwid
             data["version"] = self.version
             self.user_data = UserData(data, res_dict)
             return True
@@ -169,12 +189,12 @@ class NullAuth:
 
     def check_hwid(self, show_msgbox: bool = True) -> bool:
         """METHOD 2: HWID Direct Whitelist Authentication + Version Check."""
-        sid = self.get_windows_user_sid()
+        hwid = self.get_hwid()
         url = f"{self.server_url}/api/v1/client/hwid/authenticate"
         payload = {
             "appId": self.app_id,
             "appSecret": self.secret,
-            "hwid": sid,
+            "hwid": hwid,
             "version": self.version
         }
 
@@ -183,7 +203,7 @@ class NullAuth:
 
         if res_dict.get("success"):
             data = res_dict.get("data") if isinstance(res_dict.get("data"), dict) else {}
-            data["hwid"] = sid
+            data["hwid"] = hwid
             data["version"] = self.version
             self.user_data = UserData(data, res_dict)
             return True
@@ -192,15 +212,15 @@ class NullAuth:
         return False
 
     def user_login(self, username: str, password: str, show_msgbox: bool = True) -> bool:
-        """METHOD 3: Username + Password Authentication + Bound Machine SID + Version Check."""
-        sid = self.get_windows_user_sid()
+        """METHOD 3: Username + Password Authentication + Bound Hardware HWID + Version Check."""
+        hwid = self.get_hwid()
         url = f"{self.server_url}/api/v1/client/user/authenticate"
         payload = {
             "appId": self.app_id,
             "appSecret": self.secret,
             "username": username.strip(),
             "password": password.strip(),
-            "hwid": sid,
+            "hwid": hwid,
             "version": self.version
         }
 
@@ -209,7 +229,7 @@ class NullAuth:
 
         if res_dict.get("success"):
             data = res_dict.get("data") if isinstance(res_dict.get("data"), dict) else {}
-            data["hwid"] = sid
+            data["hwid"] = hwid
             data["version"] = self.version
             self.user_data = UserData(data, res_dict)
             return True

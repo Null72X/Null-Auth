@@ -80,36 +80,54 @@ namespace NullAuthClient
             ServerUrl = serverUrl?.TrimEnd('/') ?? "https://nullauthbackend.vercel.app";
         }
 
-        public static string GetWindowsUserSid()
+        [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true, CharSet = System.Runtime.InteropServices.CharSet.Auto)]
+        private static extern bool GetVolumeInformation(
+            string rootPathName,
+            StringBuilder volumeNameBuffer,
+            int volumeNameSize,
+            out uint volumeSerialNumber,
+            out uint maximumComponentLength,
+            out uint fileSystemFlags,
+            StringBuilder fileSystemNameBuffer,
+            int fileSystemNameSize);
+
+        public static string GetHwid()
         {
             try
             {
-                ProcessStartInfo psi = new ProcessStartInfo("whoami", "/user")
+                string machineGuid = "";
+                try
                 {
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
-
-                using Process process = Process.Start(psi);
-                string output = process.StandardOutput.ReadToEnd();
-                process.WaitForExit();
-
-                string[] lines = output.Split(new[] { '\\r', '\\n' }, StringSplitOptions.RemoveEmptyEntries);
-                foreach (string line in lines)
-                {
-                    if (line.Contains("S-1-5-"))
-                    {
-                        string[] parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                        if (parts.Length >= 2) return parts[parts.Length - 1].Trim();
-                    }
+                    using var key = Microsoft.Win32.RegistryKey.OpenBaseKey(
+                        Microsoft.Win32.RegistryHive.LocalMachine,
+                        Environment.Is64BitOperatingSystem ? Microsoft.Win32.RegistryView.Registry64 : Microsoft.Win32.RegistryView.Registry32);
+                    using var subKey = key.OpenSubKey(@"SOFTWARE\\Microsoft\\Cryptography");
+                    if (subKey != null) machineGuid = subKey.GetValue("MachineGuid")?.ToString()?.Trim() ?? "";
                 }
-            }
-            catch { }
+                catch { }
 
-            try { return WindowsIdentity.GetCurrent().User?.Value ?? "UNKNOWN_HWID"; }
+                uint volumeSerial = 0;
+                try { GetVolumeInformation("C:\\\\", null, 0, out volumeSerial, out _, out _, null, 0); }
+                catch { }
+
+                string rawHwid = $"{machineGuid}:{volumeSerial:X8}";
+                if (string.IsNullOrWhiteSpace(machineGuid) && volumeSerial == 0)
+                {
+                    try { rawHwid = WindowsIdentity.GetCurrent().User?.Value ?? Environment.MachineName; }
+                    catch { rawHwid = Environment.MachineName; }
+                }
+
+                using var sha256 = System.Security.Cryptography.SHA256.Create();
+                byte[] bytes = Encoding.UTF8.GetBytes(rawHwid);
+                byte[] hash = sha256.ComputeHash(bytes);
+                var sb = new StringBuilder(hash.Length * 2);
+                foreach (byte b in hash) sb.Append(b.ToString("x2"));
+                return sb.ToString();
+            }
             catch { return "UNKNOWN_HWID"; }
         }
+
+        public static string GetWindowsUserSid() => GetHwid();
 
         public static void ShowPopup(string title, string message, MessageBoxIcon icon = MessageBoxIcon.Error)
         {
@@ -173,17 +191,17 @@ namespace NullAuthClient
 
         public async Task<bool> LicenseAsync(string key, bool showMsgbox = true)
         {
-            string sid = GetWindowsUserSid();
+            string hwid = GetHwid();
             string endpoint = $"{ServerUrl}/api/v1/client/license/authenticate";
 
             // NativeAOT-Safe explicit JSON payload construction
-            string jsonBody = $"{{\\"appId\\":\\"{EscapeJson(AppId)}\\",\\"appSecret\\":\\"{EscapeJson(Secret)}\\",\\"licenseKey\\":\\"{EscapeJson(key?.Trim())}\\",\\"hwid\\":\\"{sid}\\",\\"version\\":\\"{EscapeJson(Version)}\\"}}";
+            string jsonBody = $"{{\\"appId\\":\\"{EscapeJson(AppId)}\\",\\"appSecret\\":\\"{EscapeJson(Secret)}\\",\\"licenseKey\\":\\"{EscapeJson(key?.Trim())}\\",\\"hwid\\":\\"{hwid}\\",\\"version\\":\\"{EscapeJson(Version)}\\"}}";
 
             var res = await SendRequestAsync(endpoint, jsonBody);
             if (res.Success && res.Data != null)
             {
                 UserData = res.Data;
-                UserData.Hwid = sid;
+                UserData.Hwid = hwid;
                 UserData.Version = Version;
                 return true;
             }
@@ -194,17 +212,17 @@ namespace NullAuthClient
 
         public async Task<bool> CheckHwidAsync(bool showMsgbox = true)
         {
-            string sid = GetWindowsUserSid();
+            string hwid = GetHwid();
             string endpoint = $"{ServerUrl}/api/v1/client/hwid/authenticate";
 
             // NativeAOT-Safe explicit JSON payload construction
-            string jsonBody = $"{{\\"appId\\":\\"{EscapeJson(AppId)}\\",\\"appSecret\\":\\"{EscapeJson(Secret)}\\",\\"hwid\\":\\"{sid}\\",\\"version\\":\\"{EscapeJson(Version)}\\"}}";
+            string jsonBody = $"{{\\"appId\\":\\"{EscapeJson(AppId)}\\",\\"appSecret\\":\\"{EscapeJson(Secret)}\\",\\"hwid\\":\\"{hwid}\\",\\"version\\":\\"{EscapeJson(Version)}\\"}}";
 
             var res = await SendRequestAsync(endpoint, jsonBody);
             if (res.Success && res.Data != null)
             {
                 UserData = res.Data;
-                UserData.Hwid = sid;
+                UserData.Hwid = hwid;
                 UserData.Version = Version;
                 return true;
             }
@@ -261,10 +279,12 @@ const CPP_SDK = `#include <iostream>
 #include <string>
 #include <windows.h>
 #include <wininet.h>
+#include <wincrypt.h>
 #include <array>
 #include <cctype>
 
 #pragma comment(lib, "wininet.lib")
+#pragma comment(lib, "advapi32.lib")
 
 namespace NullAuthClient {
     struct UserData {
@@ -318,26 +338,67 @@ namespace NullAuthClient {
         NullAuth(const std::string& appId, const std::string& secret, const std::string& version = "1.0.0", const std::string& host = "null-auth-backend.vercel.app")
             : appId(appId), secret(secret), version(version), host(host) {}
 
-        static std::string GetWindowsUserSid() {
-            std::array<char, 512> buffer;
+        static std::string Sha256(const std::string& input) {
+            HCRYPTPROV hProv = 0;
+            HCRYPTHASH hHash = 0;
+            BYTE rgbHash[32];
+            DWORD cbHash = 32;
             std::string result = "";
-            FILE* pipe = _popen("whoami /user", "r");
-            if (!pipe) return "UNKNOWN_HWID";
-            while (fgets(buffer.data(), static_cast<int>(buffer.size()), pipe) != nullptr) result += buffer.data();
-            _pclose(pipe);
 
-            size_t sidPos = result.find("S-1-5-");
-            if (sidPos != std::string::npos) {
-                size_t endPos = result.find_first_of(" \\r\\n\\t", sidPos);
-                if (endPos != std::string::npos) return result.substr(sidPos, endPos - sidPos);
-                return result.substr(sidPos);
+            if (CryptAcquireContextA(&hProv, NULL, NULL, PROV_RSA_AES, CRYPT_VERIFYCONTEXT)) {
+                if (CryptCreateHash(hProv, CALG_SHA_256, 0, 0, &hHash)) {
+                    if (CryptHashData(hHash, (const BYTE*)input.c_str(), (DWORD)input.length(), 0)) {
+                        if (CryptGetHashParam(hHash, HP_HASHVAL, rgbHash, &cbHash, 0)) {
+                            char hexDigits[] = "0123456789abcdef";
+                            for (DWORD i = 0; i < cbHash; i++) {
+                                result += hexDigits[(rgbHash[i] >> 4) & 0x0F];
+                                result += hexDigits[rgbHash[i] & 0x0F];
+                            }
+                        }
+                    }
+                    CryptDestroyHash(hHash);
+                }
+                CryptReleaseContext(hProv, 0);
             }
-            return "UNKNOWN_HWID";
+            return result.empty() ? input : result;
+        }
+
+        static std::string GetHwid() {
+            std::string machineGuid = "";
+            HKEY hKey;
+            if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, "SOFTWARE\\\\Microsoft\\\\Cryptography", 0, KEY_READ | KEY_WOW64_64KEY, &hKey) == ERROR_SUCCESS) {
+                char buf[256];
+                DWORD bufSize = sizeof(buf);
+                if (RegQueryValueExA(hKey, "MachineGuid", NULL, NULL, (LPBYTE)buf, &bufSize) == ERROR_SUCCESS) {
+                    machineGuid = std::string(buf);
+                }
+                RegCloseKey(hKey);
+            }
+
+            DWORD volumeSerial = 0;
+            GetVolumeInformationA("C:\\\\", NULL, 0, &volumeSerial, NULL, NULL, NULL, 0);
+
+            char volBuf[32];
+            sprintf_s(volBuf, sizeof(volBuf), "%08X", volumeSerial);
+
+            std::string raw = machineGuid + ":" + std::string(volBuf);
+            if (machineGuid.empty() && volumeSerial == 0) {
+                char compName[MAX_COMPUTERNAME_LENGTH + 1];
+                DWORD size = sizeof(compName);
+                if (GetComputerNameA(compName, &size)) raw = compName;
+                else raw = "UNKNOWN_HWID";
+            }
+
+            return Sha256(raw);
+        }
+
+        static std::string GetWindowsUserSid() {
+            return GetHwid();
         }
 
         bool License(const std::string& key, bool showMsgbox = true) {
-            std::string sid = GetWindowsUserSid();
-            std::string body = "{\\"appId\\":\\"" + appId + "\\",\\"appSecret\\":\\"" + secret + "\\",\\"licenseKey\\":\\"" + key + "\\",\\"hwid\\":\\"" + sid + "\\",\\"version\\":\\"" + version + "\\"}";
+            std::string hwid = GetHwid();
+            std::string body = "{\\"appId\\":\\"" + appId + "\\",\\"appSecret\\":\\"" + secret + "\\",\\"licenseKey\\":\\"" + key + "\\",\\"hwid\\":\\"" + hwid + "\\",\\"version\\":\\"" + version + "\\"}";
             
             HINTERNET hInternet = InternetOpenA("NullAuthCpp/2.0", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
             HINTERNET hConnect = InternetConnectA(hInternet, host.c_str(), INTERNET_DEFAULT_HTTPS_PORT, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
@@ -364,7 +425,7 @@ namespace NullAuthClient {
                 userData.ip = ExtractJsonString(response, "ip");
                 userData.expires = ExtractJsonString(response, "expires_at");
                 userData.remainingDays = ExtractJsonInt(response, "remaining_days");
-                userData.hwid = sid;
+                userData.hwid = hwid;
                 userData.version = version;
                 return true;
             }
@@ -373,8 +434,8 @@ namespace NullAuthClient {
         }
 
         bool CheckHwid(bool showMsgbox = true) {
-            std::string sid = GetWindowsUserSid();
-            std::string body = "{\\"appId\\":\\"" + appId + "\\",\\"appSecret\\":\\"" + secret + "\\",\\"hwid\\":\\"" + sid + "\\",\\"version\\":\\"" + version + "\\"}";
+            std::string hwid = GetHwid();
+            std::string body = "{\\"appId\\":\\"" + appId + "\\",\\"appSecret\\":\\"" + secret + "\\",\\"hwid\\":\\"" + hwid + "\\",\\"version\\":\\"" + version + "\\"}";
             
             HINTERNET hInternet = InternetOpenA("NullAuthCpp/2.0", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
             HINTERNET hConnect = InternetConnectA(hInternet, host.c_str(), INTERNET_DEFAULT_HTTPS_PORT, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
@@ -401,7 +462,7 @@ namespace NullAuthClient {
                 userData.ip = ExtractJsonString(response, "ip");
                 userData.expires = ExtractJsonString(response, "expires_at");
                 userData.remainingDays = ExtractJsonInt(response, "remaining_days");
-                userData.hwid = sid;
+                userData.hwid = hwid;
                 userData.version = version;
                 return true;
             }
@@ -423,7 +484,7 @@ int main() {
     return 0;
 }`;
 
-const PYTHON_SDK = `import urllib.request, urllib.error, json, subprocess, ctypes, platform
+const PYTHON_SDK = `import urllib.request, urllib.error, json, subprocess, ctypes, platform, hashlib
 
 class UserData:
     def __init__(self, data: dict = None):
@@ -446,23 +507,42 @@ class NullAuth:
         self.user_data = UserData()
 
     @staticmethod
-    def get_windows_user_sid() -> str:
+    def get_hwid() -> str:
+        """Retrieves hardware-bound machine HWID (MachineGuid + C: Volume Serial) hashed with SHA-256."""
         if platform.system() == "Windows":
+            machine_guid = ""
+            vol_serial = ""
             try:
-                output = subprocess.check_output("whoami /user", shell=True, stderr=subprocess.DEVNULL, timeout=5).decode(errors='ignore')
-                for line in output.splitlines():
-                    if "S-1-5-" in line:
-                        for part in line.split():
-                            if part.startswith("S-1-5-"):
-                                return part.strip()
+                import winreg
+                with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\\Microsoft\\Cryptography", 0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as key:
+                    machine_guid = str(winreg.QueryValueEx(key, "MachineGuid")[0]).strip()
             except Exception:
                 pass
-        return "UNKNOWN_HWID"
+
+            try:
+                kernel32 = ctypes.windll.kernel32
+                vol_serial_val = ctypes.c_ulong()
+                if kernel32.GetVolumeInformationW("C:\\\\", None, 0, ctypes.byref(vol_serial_val), None, None, None, 0):
+                    vol_serial = f"{vol_serial_val.value:08X}"
+            except Exception:
+                pass
+
+            raw_str = f"{machine_guid}:{vol_serial}"
+            if not machine_guid and not vol_serial:
+                raw_str = platform.node()
+
+            return hashlib.sha256(raw_str.encode('utf-8')).hexdigest()
+        else:
+            return hashlib.sha256(platform.node().encode('utf-8')).hexdigest()
+
+    @staticmethod
+    def get_windows_user_sid() -> str:
+        return NullAuth.get_hwid()
 
     def license(self, key: str, show_msgbox: bool = True) -> bool:
-        sid = self.get_windows_user_sid()
+        hwid = self.get_hwid()
         url = f"{self.server_url}/api/client/auth/license"
-        payload = {"appId": self.app_id, "appSecret": self.secret, "licenseKey": key.strip(), "hwid": sid, "version": self.version}
+        payload = {"appId": self.app_id, "appSecret": self.secret, "licenseKey": key.strip(), "hwid": hwid, "version": self.version}
         
         req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers={"Content-Type": "application/json", "User-Agent": "NullAuthClient/2.0"}, method="POST")
         try:
@@ -477,9 +557,9 @@ class NullAuth:
         return False
 
     def check_hwid(self, show_msgbox: bool = True) -> bool:
-        sid = self.get_windows_user_sid()
+        hwid = self.get_hwid()
         url = f"{self.server_url}/api/client/auth/hwid"
-        payload = {"appId": self.app_id, "appSecret": self.secret, "hwid": sid, "version": self.version}
+        payload = {"appId": self.app_id, "appSecret": self.secret, "hwid": hwid, "version": self.version}
         
         req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers={"Content-Type": "application/json", "User-Agent": "NullAuthClient/2.0"}, method="POST")
         try:
