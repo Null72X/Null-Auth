@@ -5,11 +5,7 @@ import crypto from 'crypto';
  */
 export function hashHwid(rawHwid: string): string {
   if (!rawHwid) return '';
-  const trimmed = rawHwid.trim();
-  if (trimmed.length === 64 && /^[0-9a-fA-F]+$/.test(trimmed)) {
-    return trimmed.toLowerCase();
-  }
-  return trimmed;
+  return rawHwid.trim().toLowerCase();
 }
 
 /**

@@ -273,10 +273,7 @@ export async function updateLicense(req: Request, res: Response) {
       if (!boundHwid || boundHwid.trim() === '') {
         updateData.boundHwid = null;
       } else {
-        // If already looks like a sha256 hash (64 hex chars), keep it; otherwise hash it
-        updateData.boundHwid = boundHwid.length === 64 && /^[0-9a-fA-F]+$/.test(boundHwid)
-          ? boundHwid
-          : hashHwid(boundHwid);
+        updateData.boundHwid = hashHwid(boundHwid);
       }
     }
 

@@ -317,7 +317,7 @@ export async function authenticateLicense(req: Request, res: Response) {
         details: { appId: app.appId, licenseKey: license.key, boundHwid: cleanHwid },
         status: 'SUCCESS',
       });
-    } else if (license.boundHwid !== cleanHwid) {
+    } else if (license.boundHwid.toLowerCase() !== cleanHwid.toLowerCase()) {
       // HWID Mismatch
       try {
         await notifySecurityAlert({
@@ -506,7 +506,13 @@ export async function authenticateHwid(req: Request, res: Response) {
 
     // 4. Verify HWID Access Record
     const hwidRecord = await prisma.hwidAccess.findFirst({
-      where: { hwidHash: cleanHwid, appId: app.id },
+      where: {
+        appId: app.id,
+        OR: [
+          { hwidHash: cleanHwid },
+          { hwidHash: { equals: cleanHwid, mode: 'insensitive' } },
+        ],
+      },
     });
 
     // Explicit Ban & Pause Enforcement (Takes precedence even during Free Trial)
@@ -1115,7 +1121,7 @@ export async function authenticateUser(req: Request, res: Response) {
         details: { appId: app.appId, username: user.username, boundHwid: cleanHwid },
         status: 'SUCCESS',
       });
-    } else if (user.boundHwid !== cleanHwid) {
+    } else if (user.boundHwid.toLowerCase() !== cleanHwid.toLowerCase()) {
       // HWID Mismatch
       try {
         await notifySecurityAlert({

@@ -235,6 +235,27 @@ namespace NullAuthClient
             return false;
         }
 
+        public async Task<bool> UserLoginAsync(string username, string password, bool showMsgbox = true)
+        {
+            string hwid = GetHwid();
+            string endpoint = $"{ServerUrl}/api/v1/client/user/authenticate";
+
+            // NativeAOT-Safe explicit JSON payload construction
+            string jsonBody = $"{{\\"appId\\":\\"{EscapeJson(AppId)}\\",\\"appSecret\\":\\"{EscapeJson(Secret)}\\",\\"username\\":\\"{EscapeJson(username?.Trim())}\\",\\"password\\":\\"{EscapeJson(password?.Trim())}\\",\\"hwid\\":\\"{hwid}\\",\\"version\\":\\"{EscapeJson(Version)}\\"}}";
+
+            var res = await SendRequestAsync(endpoint, jsonBody);
+            if (res.Success && res.Data != null)
+            {
+                UserData = res.Data;
+                UserData.Hwid = hwid;
+                UserData.Version = Version;
+                return true;
+            }
+
+            HandleError(res.ErrorCode, res.Message, res.DownloadUrl, showMsgbox);
+            return false;
+        }
+
         private async Task<NullAuthResult> SendRequestAsync(string endpoint, string jsonBody)
         {
             try
@@ -473,6 +494,43 @@ namespace NullAuthClient {
             if (showMsgbox) MessageBoxA(0, "HWID Whitelist Authorization Failed!", "Null-Auth Error", MB_ICONERROR | MB_OK);
             return false;
         }
+
+        bool UserLogin(const std::string& username, const std::string& userPassword, bool showMsgbox = true) {
+            std::string hwid = GetHwid();
+            std::string body = "{\\"appId\\":\\"" + appId + "\\",\\"appSecret\\":\\"" + secret + "\\",\\"username\\":\\"" + username + "\\",\\"password\\":\\"" + userPassword + "\\",\\"hwid\\":\\"" + hwid + "\\",\\"version\\":\\"" + version + "\\"}";
+            
+            HINTERNET hInternet = InternetOpenA("NullAuthCpp/2.0", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
+            HINTERNET hConnect = InternetConnectA(hInternet, host.c_str(), INTERNET_DEFAULT_HTTPS_PORT, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
+            HINTERNET hRequest = HttpOpenRequestA(hConnect, "POST", "/api/v1/client/user/authenticate", NULL, NULL, NULL, INTERNET_FLAG_SECURE, 0);
+
+            std::string headers = "Content-Type: application/json\\r\\n";
+            HttpSendRequestA(hRequest, headers.c_str(), (DWORD)headers.length(), (LPVOID)body.c_str(), (DWORD)body.length());
+
+            char buffer[2048];
+            DWORD bytesRead = 0;
+            std::string response = "";
+            while (InternetReadFile(hRequest, buffer, sizeof(buffer) - 1, &bytesRead) && bytesRead > 0) {
+                buffer[bytesRead] = '\\0';
+                response += buffer;
+            }
+
+            InternetCloseHandle(hRequest);
+            InternetCloseHandle(hConnect);
+            InternetCloseHandle(hInternet);
+
+            if (response.find("\\"success\\":true") != std::string::npos) {
+                userData.status = "active";
+                userData.clientName = ExtractJsonString(response, "client_name");
+                userData.ip = ExtractJsonString(response, "ip");
+                userData.expires = ExtractJsonString(response, "expires_at");
+                userData.remainingDays = ExtractJsonInt(response, "remaining_days");
+                userData.hwid = hwid;
+                userData.version = version;
+                return true;
+            }
+            if (showMsgbox) MessageBoxA(0, "User Authentication Failed!", "Null-Auth Error", MB_ICONERROR | MB_OK);
+            return false;
+        }
     };
 }
 
@@ -564,6 +622,23 @@ class NullAuth:
         hwid = self.get_hwid()
         url = f"{self.server_url}/api/client/auth/hwid"
         payload = {"appId": self.app_id, "appSecret": self.secret, "hwid": hwid, "version": self.version}
+        
+        req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers={"Content-Type": "application/json", "User-Agent": "NullAuthClient/2.0"}, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=10) as res:
+                data = json.loads(res.read().decode('utf-8'))
+                if data.get("success"):
+                    self.user_data = UserData(data.get("data", {}))
+                    return True
+                if show_msgbox: ctypes.windll.user32.MessageBoxW(0, data.get("message", "Error"), "Null-Auth Error", 16)
+        except Exception as e:
+            if show_msgbox: ctypes.windll.user32.MessageBoxW(0, str(e), "Null-Auth Network Error", 16)
+        return False
+
+    def user_login(self, username: str, password: str, show_msgbox: bool = True) -> bool:
+        hwid = self.get_hwid()
+        url = f"{self.server_url}/api/v1/client/user/authenticate"
+        payload = {"appId": self.app_id, "appSecret": self.secret, "username": username.strip(), "password": password.strip(), "hwid": hwid, "version": self.version}
         
         req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers={"Content-Type": "application/json", "User-Agent": "NullAuthClient/2.0"}, method="POST")
         try:

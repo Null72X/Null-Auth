@@ -269,10 +269,7 @@ export async function updateHwidEntry(req: Request, res: Response) {
     if (status !== undefined) updateData.status = status;
     if (expiresAt) updateData.expiresAt = new Date(expiresAt);
     if (hwid || hwidHash) {
-      const raw = (hwid || hwidHash).trim();
-      updateData.hwidHash = raw.length === 64 && /^[0-9a-fA-F]+$/.test(raw)
-        ? raw
-        : hashHwid(raw);
+      updateData.hwidHash = hashHwid(hwid || hwidHash);
     }
 
     const updated: any = await prisma.hwidAccess.update({
