@@ -37,7 +37,6 @@ export function CreateLicenseModal({
 }: CreateLicenseModalProps) {
   const licenseApps = apps.filter((a) => a.type === 'LICENSE');
   const [appId, setAppId] = useState(defaultAppId || '');
-  const [quantity, setQuantity] = useState(1);
   const [days, setDays] = useState(30);
   const [clientName, setClientName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -82,7 +81,7 @@ export function CreateLicenseModal({
         method: 'POST',
         body: JSON.stringify({
           appId: targetAppId,
-          quantity: Number(quantity),
+          quantity: 1,
           days: Number(days),
           clientName: clientName.trim() || undefined,
         }),
@@ -143,7 +142,7 @@ export function CreateLicenseModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={generatedBatch ? 'Batch Licenses Generated' : 'Advanced License Generator'}
+      title={generatedBatch ? 'License Key Generated' : 'Generate License Key'}
       maxWidth={generatedBatch ? 'lg' : 'md'}
     >
       {!generatedBatch ? (
@@ -180,36 +179,19 @@ export function CreateLicenseModal({
             )}
           </div>
 
-          {/* Quantity & Duration Row */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">
-                Quantity (Keys to Generate) *
-              </label>
-              <input
-                type="number"
-                min={1}
-                max={100}
-                value={quantity}
-                onChange={(e) => setQuantity(parseInt(e.target.value, 10) || 1)}
-                required
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-[10px] px-3.5 py-2.5 text-sm font-mono font-bold text-red-400 focus:outline-none focus:border-red-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">
-                Duration (Days) *
-              </label>
-              <input
-                type="number"
-                min={1}
-                value={days}
-                onChange={(e) => setDays(parseInt(e.target.value, 10) || 1)}
-                required
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-[10px] px-3.5 py-2.5 text-sm font-mono font-bold text-amber-400 focus:outline-none focus:border-red-500"
-              />
-            </div>
+          {/* Duration (Days) */}
+          <div>
+            <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">
+              Duration (Days) *
+            </label>
+            <input
+              type="number"
+              min={1}
+              value={days}
+              onChange={(e) => setDays(parseInt(e.target.value, 10) || 1)}
+              required
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-[10px] px-3.5 py-2.5 text-sm font-mono font-bold text-amber-400 focus:outline-none focus:border-red-500"
+            />
           </div>
 
           {/* Duration Presets */}
@@ -261,7 +243,7 @@ export function CreateLicenseModal({
               Cancel
             </Button>
             <Button type="submit" isLoading={isLoading} disabled={!selectedAppId} className="gap-2">
-              <Sparkles className="w-4 h-4" /> Generate {quantity} Key(s)
+              <Sparkles className="w-4 h-4" /> Generate License Key
             </Button>
           </div>
         </form>
@@ -273,7 +255,7 @@ export function CreateLicenseModal({
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
               <div>
                 <span className="text-emerald-300 font-bold block">
-                  Generated {generatedBatch.length} License Key(s)!
+                  {generatedBatch.length === 1 ? 'Generated License Key!' : `Generated ${generatedBatch.length} License Key(s)!`}
                 </span>
                 <span className="text-emerald-400/80 text-[11px] font-mono">
                   ✓ Automatically copied to clipboard
