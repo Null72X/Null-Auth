@@ -65,8 +65,9 @@ export function ConfigureTrialModal({
         setSuffix(clean || generateRandomSuffix());
       } else if (app.type === 'USER_AUTH') {
         const existingUser = app.trialUsername || app.freeTrialKey || '';
+        const existingPass = app.freeTrialPassword || 'trial123';
         setUsername(existingUser || generateRandomUsername());
-        setPassword(existingUser ? '' : 'trial123');
+        setPassword(existingPass);
       }
     }
   }, [app, isOpen]);
@@ -126,9 +127,7 @@ export function ConfigureTrialModal({
         payload.freeTrialSuffix = suffix.trim().toUpperCase();
       } else if (app.type === 'USER_AUTH') {
         payload.trialUsername = username.trim();
-        if (password.trim()) {
-          payload.trialPassword = password.trim();
-        }
+        payload.trialPassword = password.trim() || app.freeTrialPassword || 'trial123';
       }
 
       const res = await fetchApi(`/admin/apps/${app.id}`, {
@@ -275,7 +274,10 @@ export function ConfigureTrialModal({
                 </span>
                 <button
                   type="button"
-                  onClick={() => setPassword(generateRandomPassword())}
+                  onClick={() => {
+                    setPassword(generateRandomPassword());
+                    setShowPassword(true);
+                  }}
                   className="text-[11px] font-mono text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors"
                 >
                   <RefreshCw className="w-3 h-3" /> Randomize
@@ -286,31 +288,41 @@ export function ConfigureTrialModal({
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder={
-                    app.freeTrialEnabled
-                      ? 'Leave blank to keep existing password, or type new password'
-                      : 'Enter password (min 4 chars)'
-                  }
+                  placeholder="Enter trial password (min 4 chars)"
+                  required
                   className="w-full bg-zinc-900 border border-zinc-800 rounded-[8px] px-3 py-2 text-xs font-mono text-zinc-200 placeholder-zinc-600 pr-10 focus:outline-none focus:border-cyan-500"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+                  title={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                 </button>
               </div>
             </div>
 
-            <div className="p-3 rounded-[8px] bg-cyan-950/20 border border-cyan-800/30 text-xs space-y-1">
-              <span className="text-[11px] text-zinc-400 block">Security & Access:</span>
-              <span className="text-zinc-300 text-[11px] block">
-                • Verified securely against database password hash during login.
+            <div className="p-3 rounded-[8px] bg-cyan-950/30 border border-cyan-800/40 text-xs space-y-1.5">
+              <span className="text-[11px] font-bold text-cyan-400 block uppercase tracking-wider">
+                Current Trial Credentials Preview:
               </span>
-              <span className="text-zinc-300 text-[11px] block">
-                • Bypasses single-device HWID lock to permit multiple trial users.
-              </span>
+              <div className="flex items-center gap-3 font-mono text-xs">
+                <div>
+                  <span className="text-zinc-500 text-[10px] block">Username</span>
+                  <span className="text-white font-bold">{username || '...'}</span>
+                </div>
+                <div>
+                  <span className="text-zinc-500 text-[10px] block">Password</span>
+                  <span className="text-amber-400 font-bold">{showPassword ? password : '••••••••'}</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between pt-1 border-t border-zinc-800/60">
+                <code className="text-cyan-300 font-mono text-[11px] bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800 select-all">
+                  {username || 'trial_user'}:{password || 'trial123'}
+                </code>
+                <span className="text-[10px] text-zinc-500 italic">Universal multi-device trial</span>
+              </div>
             </div>
           </div>
         )}

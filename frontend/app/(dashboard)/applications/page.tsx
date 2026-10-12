@@ -60,6 +60,7 @@ interface AppItem {
   downloadUrl: string | null;
   freeTrialEnabled: boolean;
   freeTrialKey: string | null;
+  freeTrialPassword?: string | null;
   discordWebhookUrl?: string | null;
   createdAt: string;
   activeUsers: number;
@@ -803,7 +804,7 @@ export default function ApplicationsPage() {
                             {app.type === 'LICENSE'
                               ? (app.freeTrialKey || 'TRIAL-ACTIVE')
                               : app.type === 'USER_AUTH'
-                              ? `User: ${app.freeTrialKey || 'trial_user'}`
+                              ? `User: ${app.freeTrialKey || 'trial_user'} | Pass: ${app.freeTrialPassword || 'trial123'}`
                               : 'FREE TRIAL: All HWIDs Authorized'}
                           </span>
                         </div>
@@ -819,15 +820,31 @@ export default function ApplicationsPage() {
                             <span>Edit</span>
                           </button>
 
-                          {app.freeTrialKey && (app.type === 'LICENSE' || app.type === 'USER_AUTH') && (
+                          {app.freeTrialKey && app.type === 'LICENSE' && (
                             <button
                               type="button"
                               onClick={() => copySecret(app.freeTrialKey!)}
                               className="p-1 rounded-[4px] bg-emerald-900/60 hover:bg-emerald-800/80 text-emerald-200 transition-colors text-[10px] font-bold flex items-center gap-1"
-                              title={app.type === 'LICENSE' ? 'Copy Master Free Trial Key' : 'Copy Free Trial Username'}
+                              title="Copy Master Free Trial Key"
                             >
                               {copiedSecret === app.freeTrialKey ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                              <span>{app.type === 'LICENSE' ? 'Copy Key' : 'Copy User'}</span>
+                              <span>Copy Key</span>
+                            </button>
+                          )}
+
+                          {app.freeTrialKey && app.type === 'USER_AUTH' && (
+                            <button
+                              type="button"
+                              onClick={() => copySecret(`${app.freeTrialKey}:${app.freeTrialPassword || 'trial123'}`)}
+                              className="p-1 rounded-[4px] bg-emerald-900/60 hover:bg-emerald-800/80 text-emerald-200 transition-colors text-[10px] font-bold flex items-center gap-1"
+                              title="Copy user:pass credentials combo"
+                            >
+                              {copiedSecret === `${app.freeTrialKey}:${app.freeTrialPassword || 'trial123'}` ? (
+                                <Check className="w-3 h-3 text-emerald-400" />
+                              ) : (
+                                <Copy className="w-3 h-3" />
+                              )}
+                              <span>Copy Combo</span>
                             </button>
                           )}
                         </div>

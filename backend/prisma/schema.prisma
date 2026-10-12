@@ -26,7 +26,8 @@ model Application {
   version          String       @default("1.0.0")  // Required version e.g. "1.0.0"
   downloadUrl      String?      // Optional update download link
   freeTrialEnabled Boolean      @default(false)
-  freeTrialKey     String?      // Dynamic master trial key for LICENSE apps
+  freeTrialKey     String?      // Dynamic master trial key for LICENSE apps / trial username for USER_AUTH
+  freeTrialPassword String?     // Stored trial password for USER_AUTH apps
   discordWebhookUrl String?     // Custom Discord Webhook URL for this application
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt

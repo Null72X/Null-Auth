@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
-import { prisma } from '../db.js';
+import { prisma, ensureDbSchema } from '../db.js';
 import { sendSuccess, sendError } from '../utils/response.js';
 import { hashHwid } from '../services/hash.service.js';
 import { logActivity } from '../services/logger.service.js';
@@ -200,17 +200,50 @@ export async function createUser(req: Request, res: Response) {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + days);
 
-    const newUser: any = await (prisma as any).clientUser.create({
-      data: {
-        appId: app.id,
-        username: trimmedUsername,
-        passwordHash,
-        plainPassword,
-        status: 'ACTIVE',
-        expiresAt,
-        clientName: resolvedClientName,
-      },
-    });
+    await ensureDbSchema().catch(() => {});
+
+    let newUser: any;
+    try {
+      newUser = await (prisma as any).clientUser.create({
+        data: {
+          appId: app.id,
+          username: trimmedUsername,
+          passwordHash,
+          plainPassword,
+          status: 'ACTIVE',
+          expiresAt,
+          clientName: resolvedClientName,
+        },
+      });
+    } catch (createErr: any) {
+      console.warn('[Create User Warning]: Retrying with on-the-fly migration check:', createErr?.message);
+      try {
+        await prisma.$executeRawUnsafe(`ALTER TABLE "ClientUser" ADD COLUMN IF NOT EXISTS "plainPassword" TEXT;`);
+        newUser = await (prisma as any).clientUser.create({
+          data: {
+            appId: app.id,
+            username: trimmedUsername,
+            passwordHash,
+            plainPassword,
+            status: 'ACTIVE',
+            expiresAt,
+            clientName: resolvedClientName,
+          },
+        });
+      } catch (retryErr: any) {
+        console.warn('[Create User Warning]: Falling back to create without plainPassword:', retryErr?.message);
+        newUser = await (prisma as any).clientUser.create({
+          data: {
+            appId: app.id,
+            username: trimmedUsername,
+            passwordHash,
+            status: 'ACTIVE',
+            expiresAt,
+            clientName: resolvedClientName,
+          },
+        });
+      }
+    }
 
     await logActivity({
       appId: app.id,
@@ -241,7 +274,7 @@ export async function createUser(req: Request, res: Response) {
     }, 201);
   } catch (error: any) {
     console.error('[Create User Error]:', error);
-    return sendError(res, 'Failed to create user account', 500);
+    return sendError(res, error?.message || 'Failed to create user account', 500);
   }
 }
 
@@ -298,10 +331,29 @@ export async function updateUser(req: Request, res: Response) {
       updateData.expiresAt = new Date(expiresAt);
     }
 
-    const updated: any = await (prisma as any).clientUser.update({
-      where: { id: existing.id },
-      data: updateData,
-    });
+    let updated: any;
+    try {
+      updated = await (prisma as any).clientUser.update({
+        where: { id: existing.id },
+        data: updateData,
+      });
+    } catch (updateErr: any) {
+      console.warn('[Update User Warning]: Retrying with on-the-fly migration check:', updateErr?.message);
+      try {
+        await prisma.$executeRawUnsafe(`ALTER TABLE "ClientUser" ADD COLUMN IF NOT EXISTS "plainPassword" TEXT;`);
+        updated = await (prisma as any).clientUser.update({
+          where: { id: existing.id },
+          data: updateData,
+        });
+      } catch (retryErr: any) {
+        console.warn('[Update User Warning]: Falling back without plainPassword:', retryErr?.message);
+        const { plainPassword, ...fallbackData } = updateData;
+        updated = await (prisma as any).clientUser.update({
+          where: { id: existing.id },
+          data: fallbackData,
+        });
+      }
+    }
 
     await logActivity({
       appId: updated.appId,
@@ -319,7 +371,7 @@ export async function updateUser(req: Request, res: Response) {
     });
   } catch (error: any) {
     console.error('[Update User Error]:', error);
-    return sendError(res, 'Failed to update user account', 500);
+    return sendError(res, error?.message || 'Failed to update user account', 500);
   }
 }
 

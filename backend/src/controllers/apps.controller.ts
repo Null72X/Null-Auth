@@ -102,6 +102,15 @@ export async function listApps(req: Request, res: Response) {
           ? app.freeTrialKey.replace(/^(FREE-TRIAL-|TRIAL-)/i, '')
           : null;
 
+        let freeTrialPassword = (app as any).freeTrialPassword || null;
+        if (!freeTrialPassword && app.type === 'USER_AUTH' && app.freeTrialKey) {
+          const trialUser = await (prisma as any).clientUser.findFirst({
+            where: { appId: app.id, username: app.freeTrialKey },
+            select: { plainPassword: true },
+          }).catch(() => null);
+          freeTrialPassword = trialUser?.plainPassword || 'trial123';
+        }
+
         return {
           id: app.id,
           appId: app.appId,
@@ -113,6 +122,7 @@ export async function listApps(req: Request, res: Response) {
           downloadUrl: app.downloadUrl || null,
           freeTrialEnabled: app.freeTrialEnabled || false,
           freeTrialKey: app.freeTrialKey || null,
+          freeTrialPassword: freeTrialPassword || (app.type === 'USER_AUTH' && app.freeTrialKey ? 'trial123' : null),
           freeTrialSuffix: trialSuffix,
           trialUsername: app.type === 'USER_AUTH' ? app.freeTrialKey : null,
           hasTrialPassword: app.type === 'USER_AUTH' && Boolean(app.freeTrialKey),
@@ -207,8 +217,18 @@ export async function getAppById(req: Request, res: Response) {
       ? app.freeTrialKey.replace(/^(FREE-TRIAL-|TRIAL-)/i, '')
       : null;
 
+    let freeTrialPassword = (app as any).freeTrialPassword || null;
+    if (!freeTrialPassword && app.type === 'USER_AUTH' && app.freeTrialKey) {
+      const trialUser = await (prisma as any).clientUser.findFirst({
+        where: { appId: app.id, username: app.freeTrialKey },
+        select: { plainPassword: true },
+      }).catch(() => null);
+      freeTrialPassword = trialUser?.plainPassword || 'trial123';
+    }
+
     return sendSuccess(res, 'Application details retrieved', {
       ...app,
+      freeTrialPassword: freeTrialPassword || (app.type === 'USER_AUTH' && app.freeTrialKey ? 'trial123' : null),
       freeTrialSuffix: trialSuffix,
       trialUsername: app.type === 'USER_AUTH' ? app.freeTrialKey : null,
       hasTrialPassword: app.type === 'USER_AUTH' && Boolean(app.freeTrialKey),
@@ -508,6 +528,11 @@ export async function updateApp(req: Request, res: Response) {
           });
         }
         updateData.freeTrialKey = targetUsername;
+        if (trialPassword !== undefined && trialPassword !== null && String(trialPassword).trim() !== '') {
+          updateData.freeTrialPassword = String(trialPassword).trim();
+        } else if (!existing.freeTrialPassword) {
+          updateData.freeTrialPassword = 'trial123';
+        }
       }
     } else {
       if (existing.freeTrialEnabled) {
@@ -684,6 +709,7 @@ export async function toggleFreeTrial(req: Request, res: Response) {
       data: {
         freeTrialEnabled: enabled,
         freeTrialKey: enabled ? newTrialKey : app.freeTrialKey,
+        freeTrialPassword: enabled ? (app.type === 'USER_AUTH' ? 'trial123' : null) : (app as any).freeTrialPassword,
       },
     });
 

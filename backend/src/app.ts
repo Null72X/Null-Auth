@@ -23,6 +23,12 @@ app.use((req, _res, next) => {
   next();
 });
 
+// Ensure DB schema migrations (adds plainPassword & freeTrialPassword if missing)
+app.use((_req, _res, next) => {
+  ensureDbSchema().catch(() => {});
+  next();
+});
+
 // Security headers
 app.use(
   helmet({
