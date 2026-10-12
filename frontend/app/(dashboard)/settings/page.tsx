@@ -1215,11 +1215,32 @@ export default function SettingsPage() {
                               </div>
                             </div>
                             <div>
-                              <span className="text-zinc-400 font-bold block text-[11px] mb-1">License Key</span>
-                              <div className="bg-[#1e1f22] p-2 rounded border border-blue-900/40">
-                                <code className="text-blue-300 font-mono text-[11px] block break-all select-all">
-                                  KEY-77AB-8910-FEDC-2026
-                                </code>
+                              <span className="text-zinc-400 font-bold block text-[11px] mb-1">Provisioned License Key / User Account Credentials</span>
+                              <div className="space-y-1.5">
+                                <div className="bg-[#1e1f22] p-2 rounded border border-blue-900/40 flex items-center justify-between">
+                                  <span className="text-zinc-400 text-[11px]">License:</span>
+                                  <code className="text-blue-300 font-mono text-[11px] select-all">
+                                    KEY-77AB-8910-FEDC-2026
+                                  </code>
+                                </div>
+                                <div className="bg-[#1e1f22] p-2 rounded border border-blue-900/40 flex items-center justify-between">
+                                  <span className="text-zinc-400 text-[11px]">Username:</span>
+                                  <code className="text-cyan-300 font-mono text-[11px] select-all">
+                                    john_doe_99
+                                  </code>
+                                </div>
+                                <div className="bg-[#1e1f22] p-2 rounded border border-blue-900/40 flex items-center justify-between">
+                                  <span className="text-zinc-400 text-[11px]">Password:</span>
+                                  <code className="text-amber-300 font-mono text-[11px] select-all">
+                                    P@ssw0rd2026!
+                                  </code>
+                                </div>
+                                <div className="bg-[#1e1f22] p-2 rounded border border-cyan-900/40">
+                                  <span className="text-cyan-400 font-bold block text-[10px] mb-0.5">Credentials (user:pass):</span>
+                                  <code className="text-cyan-300 font-mono text-[11px] block break-all select-all">
+                                    john_doe_99:P@ssw0rd2026!
+                                  </code>
+                                </div>
                               </div>
                             </div>
                             <div>

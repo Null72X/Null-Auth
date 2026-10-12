@@ -43,6 +43,7 @@ model ClientUser {
   id               String      @id @default(uuid())
   username         String
   passwordHash     String
+  plainPassword    String?
   appId            String
   application      Application @relation(fields: [appId], references: [id], onDelete: Cascade)
   status           String      @default("ACTIVE") // "ACTIVE", "PAUSED", "EXPIRED", "BANNED"

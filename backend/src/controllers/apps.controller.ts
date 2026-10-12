@@ -458,8 +458,12 @@ export async function updateApp(req: Request, res: Response) {
             username: targetUsername,
             status: 'ACTIVE',
           };
+          const plainPwd = (trialPassword !== undefined && trialPassword !== null && String(trialPassword).trim() !== '')
+            ? String(trialPassword).trim()
+            : 'trial123';
           if (passwordHash) {
             updatePayload.passwordHash = passwordHash;
+            updatePayload.plainPassword = plainPwd;
           }
           const updatedUser = await (prisma as any).clientUser.updateMany({
             where: {
@@ -476,6 +480,7 @@ export async function updateApp(req: Request, res: Response) {
               data: {
                 username: targetUsername,
                 passwordHash: finalHash,
+                plainPassword: plainPwd,
                 appId: existing.id,
                 status: 'ACTIVE',
                 expiresAt,
@@ -484,6 +489,9 @@ export async function updateApp(req: Request, res: Response) {
             });
           }
         } else {
+          const plainPwd = (trialPassword !== undefined && trialPassword !== null && String(trialPassword).trim() !== '')
+            ? String(trialPassword).trim()
+            : 'trial123';
           const expiresAt = new Date();
           expiresAt.setFullYear(expiresAt.getFullYear() + 10);
           const finalHash = passwordHash || (await bcrypt.hash('trial123', await bcrypt.genSalt(10)));
@@ -491,6 +499,7 @@ export async function updateApp(req: Request, res: Response) {
             data: {
               username: targetUsername,
               passwordHash: finalHash,
+              plainPassword: plainPwd,
               appId: existing.id,
               status: 'ACTIVE',
               expiresAt,
@@ -646,6 +655,7 @@ export async function toggleFreeTrial(req: Request, res: Response) {
           data: {
             username: newTrialKey,
             passwordHash,
+            plainPassword: 'trial123',
             appId: app.id,
             status: 'ACTIVE',
             expiresAt,

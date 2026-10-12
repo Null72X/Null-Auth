@@ -43,7 +43,10 @@ export const bulkUserActionSchema = z.object({
 export function sanitizeUser(user: any) {
   if (!user) return user;
   const { passwordHash, ...safe } = user;
-  return safe;
+  return {
+    ...safe,
+    plainPassword: safe.plainPassword || null,
+  };
 }
 
 export async function listUsers(req: Request, res: Response) {
@@ -192,6 +195,7 @@ export async function createUser(req: Request, res: Response) {
 
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
+    const plainPassword = password.trim();
 
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + days);
@@ -201,6 +205,7 @@ export async function createUser(req: Request, res: Response) {
         appId: app.id,
         username: trimmedUsername,
         passwordHash,
+        plainPassword,
         status: 'ACTIVE',
         expiresAt,
         clientName: resolvedClientName,
@@ -222,6 +227,7 @@ export async function createUser(req: Request, res: Response) {
         appName: app.name,
         appId: app.appId,
         username: trimmedUsername,
+        password: plainPassword,
         clientName: resolvedClientName,
         days,
         adminIp: req.ip,
@@ -230,6 +236,7 @@ export async function createUser(req: Request, res: Response) {
 
     return sendSuccess(res, `User account '${trimmedUsername}' created successfully`, {
       ...sanitizeUser(newUser),
+      plainPassword,
       clientName: resolvedClientName,
     }, 201);
   } catch (error: any) {
@@ -269,6 +276,7 @@ export async function updateUser(req: Request, res: Response) {
     if (password && password.trim()) {
       const salt = await bcrypt.genSalt(10);
       updateData.passwordHash = await bcrypt.hash(password.trim(), salt);
+      updateData.plainPassword = password.trim();
     }
 
     const resolvedClientName = clientName !== undefined ? clientName : notes;

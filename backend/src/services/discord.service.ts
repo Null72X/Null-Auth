@@ -297,6 +297,7 @@ export async function notifyUserCreated(data: {
   appName: string;
   appId: string;
   username: string;
+  password?: string | null;
   clientName?: string | null;
   days: number;
   hwid?: string | null;
@@ -307,9 +308,18 @@ export async function notifyUserCreated(data: {
   const fields: DiscordEmbedField[] = [
     { name: 'Application', value: `**${data.appName}** (\`${data.appId}\`)`, inline: true },
     { name: 'Username', value: `\`${data.username}\``, inline: true },
+    { name: 'Password', value: data.password ? `\`${data.password}\`` : '*Hidden / Protected*', inline: true },
     { name: 'Duration', value: `\`${data.days} Days\``, inline: true },
     { name: 'Client Name', value: data.clientName ? `**${data.clientName}**` : '*None specified*', inline: true },
   ];
+
+  if (data.password) {
+    fields.push({
+      name: 'Credentials (user:pass)',
+      value: `\`\`\`${data.username}:${data.password}\`\`\``,
+      inline: false,
+    });
+  }
 
   if (data.hwid) {
     fields.push({ name: 'Bound Hardware ID (HWID)', value: `\`\`\`${data.hwid}\`\`\``, inline: false });

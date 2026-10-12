@@ -1,10 +1,11 @@
 import app from './app.js';
 import { config } from './config/index.js';
-import { prisma } from './db.js';
+import { prisma, ensureDbSchema } from './db.js';
 
 async function startServer() {
   try {
     await prisma.$connect();
+    await ensureDbSchema();
     console.log('[Null-Auth Backend] Connected to database successfully.');
 
     app.listen(config.port, () => {

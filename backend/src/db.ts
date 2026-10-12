@@ -11,5 +11,12 @@ export const prisma =
 globalForPrisma.prisma = prisma;
 
 export async function ensureDbSchema() {
-  // Schema is managed via Prisma CLI migrations & seeds
+  try {
+    await prisma.$executeRawUnsafe(`ALTER TABLE "ClientUser" ADD COLUMN IF NOT EXISTS "plainPassword" TEXT;`);
+    console.log('[DB] ensureDbSchema executed: plainPassword column checked/added.');
+  } catch (err: any) {
+    // Non-fatal if table doesn't exist yet in dev/test or column already exists
+    console.warn('[DB] ensureDbSchema warning:', err?.message || err);
+  }
 }
+
