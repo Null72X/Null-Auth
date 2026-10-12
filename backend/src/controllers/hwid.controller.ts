@@ -186,6 +186,20 @@ export async function addHwidEntry(req: Request, res: Response) {
         status: 'SUCCESS',
       });
 
+      // Dispatch Discord Webhook
+      try {
+        await notifyHwidWhitelisted({
+          appName: app.name,
+          appId: app.appId,
+          hwidHash,
+          clientName: resolvedClientName !== null ? resolvedClientName : (existing as any).clientName,
+          days,
+          adminIp: req.ip,
+        });
+      } catch (discordErr) {
+        console.warn('[Discord Webhook Error]:', discordErr);
+      }
+
       return sendSuccess(res, 'HWID access authorized and reactivated successfully', {
         ...updated,
         clientName: updated.clientName || null,

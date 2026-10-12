@@ -39,6 +39,7 @@ export async function authenticateLicense(req: Request, res: Response) {
   const { appId, appSecret, licenseKey, hwid, version, clientVersion } = req.body;
   const ipAddress = extractClientIp(req);
   const userAgent = req.headers['user-agent'];
+  const cleanHwid = hashHwid(hwid);
 
   try {
     const rawAppId = appId.trim();
@@ -110,6 +111,17 @@ export async function authenticateLicense(req: Request, res: Response) {
         details: { appId: app.appId, clientVersion: clientVer || 'none', requiredVersion: requiredVer, reason: 'VERSION_MISMATCH' },
         status: 'FAILURE',
       });
+      try {
+        await notifySecurityAlert({
+          appName: app.name,
+          appId: app.appId,
+          reason: 'Client Version Mismatch',
+          keyOrHwid: licenseKey,
+          hwid: cleanHwid,
+          ip: typeof ipAddress === 'string' ? ipAddress : undefined,
+          clientVersion: clientVer || 'none',
+        });
+      } catch (e) {}
       return sendError(
         res,
         clientVer
@@ -121,7 +133,6 @@ export async function authenticateLicense(req: Request, res: Response) {
       );
     }
 
-    const cleanHwid = hashHwid(hwid);
     const isTrialKey = Boolean(app.freeTrialEnabled && app.freeTrialKey && licenseKey.trim() === app.freeTrialKey.trim());
 
     // 4. Verify License Key
@@ -139,6 +150,17 @@ export async function authenticateLicense(req: Request, res: Response) {
         details: { appId: app.appId, licenseKey, reason: 'LICENSE_NOT_FOUND' },
         status: 'FAILURE',
       });
+      try {
+        await notifySecurityAlert({
+          appName: app.name,
+          appId: app.appId,
+          reason: 'Invalid License Key Attempt',
+          keyOrHwid: licenseKey,
+          hwid: cleanHwid,
+          ip: typeof ipAddress === 'string' ? ipAddress : undefined,
+          clientVersion: clientVer || app.version,
+        });
+      } catch (e) {}
       return sendError(res, 'Invalid Key / HWID: Hardware ID or License Key not found.', 404, 'LICENSE_NOT_FOUND');
     }
 
@@ -170,8 +192,10 @@ export async function authenticateLicense(req: Request, res: Response) {
           appId: app.appId,
           clientName: 'Free Trial Key User',
           keyOrHwid: licenseKey.trim(),
+          hwid: cleanHwid,
           ip: typeof ipAddress === 'string' ? ipAddress : undefined,
           version: clientVer || app.version,
+          isFreeTrial: true,
         });
       } catch (discordErr) {}
 
@@ -198,6 +222,18 @@ export async function authenticateLicense(req: Request, res: Response) {
         details: { appId: app.appId, licenseKey: license.key, reason: 'LICENSE_PAUSED' },
         status: 'FAILURE',
       });
+      try {
+        await notifySecurityAlert({
+          appName: app.name,
+          appId: app.appId,
+          reason: 'Paused License Access Blocked',
+          keyOrHwid: license.key,
+          clientName: (license as any).clientName || (license as any).notes,
+          hwid: cleanHwid,
+          ip: typeof ipAddress === 'string' ? ipAddress : undefined,
+          clientVersion: clientVer || app.version,
+        });
+      } catch (e) {}
       return sendError(res, 'Access Paused: License key or HWID access is currently paused.', 403, 'LICENSE_PAUSED');
     }
 
@@ -211,6 +247,18 @@ export async function authenticateLicense(req: Request, res: Response) {
         details: { appId: app.appId, licenseKey: license.key, reason: 'LICENSE_BANNED' },
         status: 'FAILURE',
       });
+      try {
+        await notifySecurityAlert({
+          appName: app.name,
+          appId: app.appId,
+          reason: 'Banned License Access Blocked',
+          keyOrHwid: license.key,
+          clientName: (license as any).clientName || (license as any).notes,
+          hwid: cleanHwid,
+          ip: typeof ipAddress === 'string' ? ipAddress : undefined,
+          clientVersion: clientVer || app.version,
+        });
+      } catch (e) {}
       return sendError(res, 'Account Banned: Your license key or hardware ID has been banned.', 403, 'LICENSE_BANNED');
     }
 
@@ -233,6 +281,18 @@ export async function authenticateLicense(req: Request, res: Response) {
         details: { appId: app.appId, licenseKey: license.key, reason: 'LICENSE_EXPIRED' },
         status: 'FAILURE',
       });
+      try {
+        await notifySecurityAlert({
+          appName: app.name,
+          appId: app.appId,
+          reason: 'Expired License Access Blocked',
+          keyOrHwid: license.key,
+          clientName: (license as any).clientName || (license as any).notes,
+          hwid: cleanHwid,
+          ip: typeof ipAddress === 'string' ? ipAddress : undefined,
+          clientVersion: clientVer || app.version,
+        });
+      } catch (e) {}
       return sendError(res, 'License Expired: Your license key or HWID authorization has expired.', 403, 'LICENSE_EXPIRED');
     }
 
@@ -267,7 +327,8 @@ export async function authenticateLicense(req: Request, res: Response) {
           keyOrHwid: license.key,
           clientName: (license as any).clientName || (license as any).notes,
           ip: typeof ipAddress === 'string' ? ipAddress : undefined,
-          hwid,
+          hwid: cleanHwid,
+          clientVersion: clientVer || app.version,
         });
       } catch (e) {}
 
@@ -319,6 +380,7 @@ export async function authenticateLicense(req: Request, res: Response) {
         appId: app.appId,
         clientName,
         keyOrHwid: license.key,
+        hwid: cleanHwid,
         ip: typeof ipAddress === 'string' ? ipAddress : undefined,
         version: clientVer || app.version,
       });
@@ -348,6 +410,7 @@ export async function authenticateHwid(req: Request, res: Response) {
   const { appId, appSecret, hwid, version, clientVersion } = req.body;
   const ipAddress = extractClientIp(req);
   const userAgent = req.headers['user-agent'];
+  const cleanHwid = hashHwid(hwid);
 
   try {
     const rawAppId = appId.trim();
@@ -419,6 +482,17 @@ export async function authenticateHwid(req: Request, res: Response) {
         details: { appId: app.appId, clientVersion: clientVer || 'none', requiredVersion: requiredVer, reason: 'VERSION_MISMATCH' },
         status: 'FAILURE',
       });
+      try {
+        await notifySecurityAlert({
+          appName: app.name,
+          appId: app.appId,
+          reason: 'Client Version Mismatch',
+          keyOrHwid: cleanHwid,
+          hwid: cleanHwid,
+          ip: typeof ipAddress === 'string' ? ipAddress : undefined,
+          clientVersion: clientVer || 'none',
+        });
+      } catch (e) {}
       return sendError(
         res,
         clientVer
@@ -429,8 +503,6 @@ export async function authenticateHwid(req: Request, res: Response) {
         { requiredVersion: requiredVer, downloadUrl: app.downloadUrl || null }
       );
     }
-
-    const cleanHwid = hashHwid(hwid);
 
     // 4. Verify HWID Access Record
     const hwidRecord = await prisma.hwidAccess.findFirst({
@@ -448,6 +520,18 @@ export async function authenticateHwid(req: Request, res: Response) {
         details: { appId: app.appId, hwid: cleanHwid, reason: 'HWID_BANNED' },
         status: 'FAILURE',
       });
+      try {
+        await notifySecurityAlert({
+          appName: app.name,
+          appId: app.appId,
+          reason: 'Banned Hardware ID Blocked',
+          keyOrHwid: cleanHwid,
+          clientName: (hwidRecord as any).clientName || (hwidRecord as any).notes,
+          hwid: cleanHwid,
+          ip: typeof ipAddress === 'string' ? ipAddress : undefined,
+          clientVersion: clientVer || app.version,
+        });
+      } catch (e) {}
       return sendError(res, 'Account Banned: Your hardware ID has been banned.', 403, 'HWID_BANNED');
     }
 
@@ -461,6 +545,18 @@ export async function authenticateHwid(req: Request, res: Response) {
         details: { appId: app.appId, hwid: cleanHwid, reason: 'HWID_PAUSED' },
         status: 'FAILURE',
       });
+      try {
+        await notifySecurityAlert({
+          appName: app.name,
+          appId: app.appId,
+          reason: 'Paused Hardware ID Access Blocked',
+          keyOrHwid: cleanHwid,
+          clientName: (hwidRecord as any).clientName || (hwidRecord as any).notes,
+          hwid: cleanHwid,
+          ip: typeof ipAddress === 'string' ? ipAddress : undefined,
+          clientVersion: clientVer || app.version,
+        });
+      } catch (e) {}
       return sendError(res, 'Access Paused: License key or HWID access is currently paused.', 403, 'HWID_PAUSED');
     }
 
@@ -487,9 +583,11 @@ export async function authenticateHwid(req: Request, res: Response) {
           appName: app.name,
           appId: app.appId,
           clientName: 'Free Trial Device',
-          keyOrHwid: cleanHwid.substring(0, 16) + '...',
+          keyOrHwid: cleanHwid,
+          hwid: cleanHwid,
           ip: typeof ipAddress === 'string' ? ipAddress : undefined,
           version: clientVer || app.version,
+          isFreeTrial: true,
         });
       } catch (discordErr) {}
 
@@ -511,6 +609,17 @@ export async function authenticateHwid(req: Request, res: Response) {
         details: { appId: app.appId, hwid: cleanHwid, reason: 'IDENTIFIER_NOT_FOUND' },
         status: 'FAILURE',
       });
+      try {
+        await notifySecurityAlert({
+          appName: app.name,
+          appId: app.appId,
+          reason: 'Unauthorized Hardware ID (Not Whitelisted)',
+          keyOrHwid: cleanHwid,
+          hwid: cleanHwid,
+          ip: typeof ipAddress === 'string' ? ipAddress : undefined,
+          clientVersion: clientVer || app.version,
+        });
+      } catch (e) {}
       return sendError(
         res,
         'Invalid Key / HWID: Hardware ID or License Key not found.',
@@ -565,6 +674,18 @@ export async function authenticateHwid(req: Request, res: Response) {
         details: { appId: app.appId, hwid: cleanHwid, reason: 'IDENTIFIER_EXPIRED' },
         status: 'FAILURE',
       });
+      try {
+        await notifySecurityAlert({
+          appName: app.name,
+          appId: app.appId,
+          reason: 'Expired Hardware ID Access Blocked',
+          keyOrHwid: cleanHwid,
+          clientName: (hwidRecord as any).clientName || (hwidRecord as any).notes,
+          hwid: cleanHwid,
+          ip: typeof ipAddress === 'string' ? ipAddress : undefined,
+          clientVersion: clientVer || app.version,
+        });
+      } catch (e) {}
       return sendError(res, 'License Expired: Your license key or HWID authorization has expired.', 403, 'IDENTIFIER_EXPIRED');
     }
 
@@ -592,7 +713,8 @@ export async function authenticateHwid(req: Request, res: Response) {
         appName: app.name,
         appId: app.appId,
         clientName,
-        keyOrHwid: cleanHwid.substring(0, 16) + '...',
+        keyOrHwid: cleanHwid,
+        hwid: cleanHwid,
         ip: typeof ipAddress === 'string' ? ipAddress : undefined,
         version: clientVer || app.version,
       });
@@ -619,6 +741,7 @@ export async function authenticateUser(req: Request, res: Response) {
   const { appId, appSecret, username, password, hwid, version, clientVersion } = req.body;
   const ipAddress = extractClientIp(req);
   const userAgent = req.headers['user-agent'];
+  const cleanHwid = hashHwid(hwid);
 
   try {
     const rawAppId = appId.trim();
@@ -690,6 +813,17 @@ export async function authenticateUser(req: Request, res: Response) {
         details: { appId: app.appId, clientVersion: clientVer || 'none', requiredVersion: requiredVer, reason: 'VERSION_MISMATCH' },
         status: 'FAILURE',
       });
+      try {
+        await notifySecurityAlert({
+          appName: app.name,
+          appId: app.appId,
+          reason: 'Client Version Mismatch',
+          keyOrHwid: username,
+          hwid: cleanHwid,
+          ip: typeof ipAddress === 'string' ? ipAddress : undefined,
+          clientVersion: clientVer || 'none',
+        });
+      } catch (e) {}
       return sendError(
         res,
         clientVer
@@ -701,7 +835,6 @@ export async function authenticateUser(req: Request, res: Response) {
       );
     }
 
-    const cleanHwid = hashHwid(hwid);
     const trimmedUsername = username.trim();
     const isTrialUser = Boolean(
       app.freeTrialEnabled &&
@@ -727,6 +860,17 @@ export async function authenticateUser(req: Request, res: Response) {
           details: { appId: app.appId, username: trimmedUsername, reason: 'TRIAL_USER_NOT_FOUND' },
           status: 'FAILURE',
         });
+        try {
+          await notifySecurityAlert({
+            appName: app.name,
+            appId: app.appId,
+            reason: 'Free Trial User Account Not Found',
+            keyOrHwid: trimmedUsername,
+            hwid: cleanHwid,
+            ip: typeof ipAddress === 'string' ? ipAddress : undefined,
+            clientVersion: clientVer || app.version,
+          });
+        } catch (e) {}
         return sendError(res, 'Invalid Credentials: Free trial user account not found.', 404, 'USER_NOT_FOUND');
       }
 
@@ -754,6 +898,17 @@ export async function authenticateUser(req: Request, res: Response) {
           details: { appId: app.appId, username: trimmedUsername, reason: 'INVALID_CREDENTIALS' },
           status: 'FAILURE',
         });
+        try {
+          await notifySecurityAlert({
+            appName: app.name,
+            appId: app.appId,
+            reason: 'Free Trial Password Incorrect',
+            keyOrHwid: trimmedUsername,
+            hwid: cleanHwid,
+            ip: typeof ipAddress === 'string' ? ipAddress : undefined,
+            clientVersion: clientVer || app.version,
+          });
+        } catch (e) {}
         return sendError(res, 'Invalid Credentials: Username or Password incorrect.', 401, 'INVALID_CREDENTIALS');
       }
 
@@ -779,8 +934,10 @@ export async function authenticateUser(req: Request, res: Response) {
           appId: app.appId,
           clientName: 'Free Trial User Account',
           keyOrHwid: trimmedUsername,
+          hwid: cleanHwid,
           ip: typeof ipAddress === 'string' ? ipAddress : undefined,
           version: clientVer || app.version,
+          isFreeTrial: true,
         });
       } catch (discordErr) {}
 
@@ -811,6 +968,17 @@ export async function authenticateUser(req: Request, res: Response) {
         details: { appId: app.appId, username: trimmedUsername, reason: 'USER_NOT_FOUND' },
         status: 'FAILURE',
       });
+      try {
+        await notifySecurityAlert({
+          appName: app.name,
+          appId: app.appId,
+          reason: 'Unknown Username Attempt',
+          keyOrHwid: trimmedUsername,
+          hwid: cleanHwid,
+          ip: typeof ipAddress === 'string' ? ipAddress : undefined,
+          clientVersion: clientVer || app.version,
+        });
+      } catch (e) {}
       return sendError(res, 'Invalid Credentials: Username or Password incorrect.', 404, 'USER_NOT_FOUND');
     }
 
@@ -826,6 +994,18 @@ export async function authenticateUser(req: Request, res: Response) {
         details: { appId: app.appId, username: user.username, reason: 'INVALID_CREDENTIALS' },
         status: 'FAILURE',
       });
+      try {
+        await notifySecurityAlert({
+          appName: app.name,
+          appId: app.appId,
+          reason: 'Invalid User Password Attempt',
+          keyOrHwid: user.username,
+          clientName: user.clientName || user.notes,
+          hwid: cleanHwid,
+          ip: typeof ipAddress === 'string' ? ipAddress : undefined,
+          clientVersion: clientVer || app.version,
+        });
+      } catch (e) {}
       return sendError(res, 'Invalid Credentials: Username or Password incorrect.', 401, 'INVALID_CREDENTIALS');
     }
 
@@ -840,6 +1020,18 @@ export async function authenticateUser(req: Request, res: Response) {
         details: { appId: app.appId, username: user.username, reason: 'USER_PAUSED' },
         status: 'FAILURE',
       });
+      try {
+        await notifySecurityAlert({
+          appName: app.name,
+          appId: app.appId,
+          reason: 'Paused User Account Blocked',
+          keyOrHwid: user.username,
+          clientName: user.clientName || user.notes,
+          hwid: cleanHwid,
+          ip: typeof ipAddress === 'string' ? ipAddress : undefined,
+          clientVersion: clientVer || app.version,
+        });
+      } catch (e) {}
       return sendError(res, 'Access Paused: User account access is currently paused.', 403, 'USER_PAUSED');
     }
 
@@ -853,6 +1045,18 @@ export async function authenticateUser(req: Request, res: Response) {
         details: { appId: app.appId, username: user.username, reason: 'USER_BANNED' },
         status: 'FAILURE',
       });
+      try {
+        await notifySecurityAlert({
+          appName: app.name,
+          appId: app.appId,
+          reason: 'Banned User Account Blocked',
+          keyOrHwid: user.username,
+          clientName: user.clientName || user.notes,
+          hwid: cleanHwid,
+          ip: typeof ipAddress === 'string' ? ipAddress : undefined,
+          clientVersion: clientVer || app.version,
+        });
+      } catch (e) {}
       return sendError(res, 'Account Banned: Your user account has been banned.', 403, 'USER_BANNED');
     }
 
@@ -875,6 +1079,18 @@ export async function authenticateUser(req: Request, res: Response) {
         details: { appId: app.appId, username: user.username, reason: 'USER_EXPIRED' },
         status: 'FAILURE',
       });
+      try {
+        await notifySecurityAlert({
+          appName: app.name,
+          appId: app.appId,
+          reason: 'Expired User Account Blocked',
+          keyOrHwid: user.username,
+          clientName: user.clientName || user.notes,
+          hwid: cleanHwid,
+          ip: typeof ipAddress === 'string' ? ipAddress : undefined,
+          clientVersion: clientVer || app.version,
+        });
+      } catch (e) {}
       return sendError(res, 'Account Expired: Your user account authorization has expired.', 403, 'USER_EXPIRED');
     }
 
@@ -909,7 +1125,8 @@ export async function authenticateUser(req: Request, res: Response) {
           keyOrHwid: user.username,
           clientName: user.clientName || user.notes,
           ip: typeof ipAddress === 'string' ? ipAddress : undefined,
-          hwid,
+          hwid: cleanHwid,
+          clientVersion: clientVer || app.version,
         });
       } catch (e) {}
 
@@ -961,6 +1178,7 @@ export async function authenticateUser(req: Request, res: Response) {
         appId: app.appId,
         clientName: clientName ? `${user.username} (${clientName})` : user.username,
         keyOrHwid: user.username,
+        hwid: cleanHwid,
         ip: typeof ipAddress === 'string' ? ipAddress : undefined,
         version: clientVer || app.version,
       });

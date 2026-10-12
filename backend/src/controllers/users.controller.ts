@@ -436,9 +436,10 @@ export async function resetUserHwid(req: Request, res: Response) {
       await notifyAdminAction({
         appName: updated.application?.name || updated.appId,
         appId: updated.appId,
-        action: 'USER_RESET_HWID',
+        action: newBound ? 'USER_SET_HWID' : 'USER_RESET_HWID',
         target: updated.username,
-        details: newBound ? `Bound HWID set to ${newBound.substring(0, 16)}...` : 'Bound HWID unlinked / cleared',
+        hwid: newBound || undefined,
+        details: newBound ? `Bound to HWID: ${newBound}` : 'Bound HWID unlinked / cleared',
         adminIp: req.ip,
       });
     } catch (e) {}

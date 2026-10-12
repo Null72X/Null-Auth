@@ -217,6 +217,7 @@ export async function notifyLicenseCreated(data: {
   keys: string[];
   clientName?: string | null;
   days: number;
+  hwid?: string | null;
   adminIp?: string;
 }): Promise<void> {
   const isBatch = data.keys.length > 1;
@@ -232,6 +233,10 @@ export async function notifyLicenseCreated(data: {
     fields.push({ name: 'License Key', value: `\`\`\`${data.keys[0]}\`\`\``, inline: false });
   } else {
     fields.push({ name: 'Generated Batch', value: `\`${data.keys.length} License Keys Created\``, inline: false });
+  }
+
+  if (data.hwid) {
+    fields.push({ name: 'Bound Hardware ID (HWID)', value: `\`\`\`${data.hwid}\`\`\``, inline: false });
   }
 
   if (data.adminIp) {
@@ -294,9 +299,26 @@ export async function notifyUserCreated(data: {
   username: string;
   clientName?: string | null;
   days: number;
+  hwid?: string | null;
   adminIp?: string;
 }): Promise<void> {
   const unixTime = Math.floor(Date.now() / 1000);
+
+  const fields: DiscordEmbedField[] = [
+    { name: 'Application', value: `**${data.appName}** (\`${data.appId}\`)`, inline: true },
+    { name: 'Username', value: `\`${data.username}\``, inline: true },
+    { name: 'Duration', value: `\`${data.days} Days\``, inline: true },
+    { name: 'Client Name', value: data.clientName ? `**${data.clientName}**` : '*None specified*', inline: true },
+  ];
+
+  if (data.hwid) {
+    fields.push({ name: 'Bound Hardware ID (HWID)', value: `\`\`\`${data.hwid}\`\`\``, inline: false });
+  }
+
+  fields.push(
+    { name: 'Admin IP', value: `\`${data.adminIp || 'Console'}\``, inline: true },
+    { name: 'Timestamp', value: `<t:${unixTime}:R>`, inline: true }
+  );
 
   await notifyDiscordEvent({
     appId: data.appId,
@@ -305,14 +327,7 @@ export async function notifyUserCreated(data: {
       title: '👤 User Account Created',
       description: `A new client user account credential was provisioned for **${data.appName}**.`,
       color: DISCORD_COLORS.CYAN,
-      fields: [
-        { name: 'Application', value: `**${data.appName}** (\`${data.appId}\`)`, inline: true },
-        { name: 'Username', value: `\`${data.username}\``, inline: true },
-        { name: 'Duration', value: `\`${data.days} Days\``, inline: true },
-        { name: 'Client Name', value: data.clientName ? `**${data.clientName}**` : '*None specified*', inline: true },
-        { name: 'Admin IP', value: `\`${data.adminIp || 'Console'}\``, inline: true },
-        { name: 'Timestamp', value: `<t:${unixTime}:R>`, inline: true },
-      ],
+      fields,
     },
   });
 }
@@ -325,6 +340,7 @@ export async function notifyClientAuthSuccess(data: {
   appId: string;
   clientName?: string | null;
   keyOrHwid: string;
+  hwid?: string | null;
   ip?: string;
   version: string;
   isFreeTrial?: boolean;
@@ -332,6 +348,26 @@ export async function notifyClientAuthSuccess(data: {
   const isTrial = data.isFreeTrial || data.clientName?.toLowerCase().includes('free trial');
   const eventType: DiscordEventType = isTrial ? 'FREE_TRIAL' : 'AUTH_SUCCESS';
   const unixTime = Math.floor(Date.now() / 1000);
+
+  const fields: DiscordEmbedField[] = [
+    { name: 'Application', value: `**${data.appName}** (\`${data.appId}\`)`, inline: true },
+    { name: 'Client Identity', value: data.clientName ? `**${data.clientName}**` : '*Unbound Device*', inline: true },
+    { name: 'App Version', value: `\`v${data.version}\``, inline: true },
+    { name: 'Key / Identifier', value: `\`${data.keyOrHwid}\``, inline: false },
+  ];
+
+  if (data.hwid) {
+    fields.push({
+      name: 'Hardware ID (HWID)',
+      value: `\`\`\`${data.hwid}\`\`\``,
+      inline: false,
+    });
+  }
+
+  fields.push(
+    { name: 'Origin IP', value: `\`${data.ip || 'Unknown'}\``, inline: true },
+    { name: 'Timestamp', value: `<t:${unixTime}:R>`, inline: true }
+  );
 
   await notifyDiscordEvent({
     appId: data.appId,
@@ -342,14 +378,7 @@ export async function notifyClientAuthSuccess(data: {
         ? `A client authenticated using **Free Trial Access** on **${data.appName}**.`
         : `Client successfully authenticated into **${data.appName}**.`,
       color: isTrial ? DISCORD_COLORS.CYAN : DISCORD_COLORS.SUCCESS,
-      fields: [
-        { name: 'Application', value: `**${data.appName}**`, inline: true },
-        { name: 'Client Identity', value: data.clientName ? `**${data.clientName}**` : '*Unbound Device*', inline: true },
-        { name: 'App Version', value: `\`v${data.version}\``, inline: true },
-        { name: 'Key / Identifier', value: `\`${data.keyOrHwid}\``, inline: false },
-        { name: 'Origin IP', value: `\`${data.ip || 'Unknown'}\``, inline: true },
-        { name: 'Timestamp', value: `<t:${unixTime}:R>`, inline: true },
-      ],
+      fields,
     },
   });
 }
@@ -370,7 +399,7 @@ export async function notifySecurityAlert(data: {
   const unixTime = Math.floor(Date.now() / 1000);
 
   const fields: DiscordEmbedField[] = [
-    { name: 'Application', value: `**${data.appName}**`, inline: true },
+    { name: 'Application', value: `**${data.appName}** (\`${data.appId}\`)`, inline: true },
     { name: 'Security Violation', value: `🚨 **${data.reason}**`, inline: true },
   ];
 
@@ -383,7 +412,7 @@ export async function notifySecurityAlert(data: {
   }
 
   if (data.hwid) {
-    fields.push({ name: 'Reported Hardware ID (HWID)', value: `\`${data.hwid}\``, inline: false });
+    fields.push({ name: 'Hardware ID (HWID)', value: `\`\`\`${data.hwid}\`\`\``, inline: false });
   }
 
   fields.push({ name: 'Origin IP', value: `\`${data.ip || 'Unknown'}\``, inline: true });
@@ -413,10 +442,27 @@ export async function notifyAdminAction(data: {
   appId: string;
   action: string;
   target: string;
+  hwid?: string | null;
   details?: string;
   adminIp?: string;
 }): Promise<void> {
   const unixTime = Math.floor(Date.now() / 1000);
+
+  const fields: DiscordEmbedField[] = [
+    { name: 'Application', value: `**${data.appName}** (\`${data.appId}\`)`, inline: true },
+    { name: 'Action', value: `\`${data.action}\``, inline: true },
+    { name: 'Target Record', value: `\`${data.target}\``, inline: false },
+  ];
+
+  if (data.hwid) {
+    fields.push({ name: 'Hardware ID (HWID)', value: `\`\`\`${data.hwid}\`\`\``, inline: false });
+  }
+
+  fields.push(
+    { name: 'Details', value: data.details || 'Executed via Console', inline: true },
+    { name: 'Admin IP', value: `\`${data.adminIp || 'Dashboard Console'}\``, inline: true },
+    { name: 'Timestamp', value: `<t:${unixTime}:R>`, inline: true }
+  );
 
   await notifyDiscordEvent({
     appId: data.appId,
@@ -425,14 +471,7 @@ export async function notifyAdminAction(data: {
       title: '⚙️ Administrative Security Action',
       description: `An administrative action was executed on **${data.appName}**.`,
       color: DISCORD_COLORS.WARNING,
-      fields: [
-        { name: 'Application', value: `**${data.appName}**`, inline: true },
-        { name: 'Action', value: `\`${data.action}\``, inline: true },
-        { name: 'Target Record', value: `\`${data.target}\``, inline: false },
-        { name: 'Details', value: data.details || 'Executed via Console', inline: true },
-        { name: 'Admin IP', value: `\`${data.adminIp || 'Dashboard Console'}\``, inline: true },
-        { name: 'Timestamp', value: `<t:${unixTime}:R>`, inline: true },
-      ],
+      fields,
     },
   });
 }
@@ -464,6 +503,7 @@ export async function notifyTestWebhook(data: {
       { name: 'Application', value: `**${data.appName}**`, inline: true },
       { name: 'App ID', value: `\`${data.appId}\``, inline: true },
       { name: 'Status', value: '🟢 **Operational**', inline: true },
+      { name: 'Hardware ID Guard', value: '🛡️ **Active HWID Machine Verification**', inline: true },
       { name: 'Triggered By Admin IP', value: `\`${data.adminIp || 'Console'}\``, inline: true },
       { name: 'Verified At', value: `<t:${unixTime}:F>`, inline: true },
     ],

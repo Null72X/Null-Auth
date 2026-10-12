@@ -5,7 +5,7 @@ import { sendSuccess, sendError } from '../utils/response.js';
 import { generateLicenseKey } from '../utils/generator.js';
 import { hashHwid } from '../services/hash.service.js';
 import { logActivity } from '../services/logger.service.js';
-import { notifyLicenseCreated } from '../services/discord.service.js';
+import { notifyLicenseCreated, notifyAdminAction } from '../services/discord.service.js';
 
 export const generateLicenseSchema = z.object({
   appId: z.string().min(1, 'Application ID is required'),
@@ -388,6 +388,7 @@ export async function resetLicenseHwid(req: Request, res: Response) {
     const updated = await prisma.license.update({
       where: { id },
       data: { boundHwid: newBound },
+      include: { application: true },
     });
 
     await logActivity({
@@ -399,6 +400,18 @@ export async function resetLicenseHwid(req: Request, res: Response) {
       details: { licenseKey: updated.key, newBoundHwid: newBound },
       status: 'SUCCESS',
     });
+
+    try {
+      await notifyAdminAction({
+        appName: updated.application?.name || updated.appId,
+        appId: updated.appId,
+        action: newBound ? 'LICENSE_SET_HWID' : 'LICENSE_RESET_HWID',
+        target: updated.key,
+        hwid: newBound || undefined,
+        details: newBound ? `Bound to HWID: ${newBound}` : 'Bound HWID unlinked / cleared',
+        adminIp: req.ip,
+      });
+    } catch (e) {}
 
     return sendSuccess(res, 'License bound HWID/identifier updated', updated);
   } catch (error: any) {
