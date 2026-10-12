@@ -4,13 +4,15 @@ interface CardProps {
   children: React.ReactNode;
   className?: string;
   onClick?: () => void;
+  title?: string;
   style?: React.CSSProperties;
 }
 
-export function Card({ children, className = '', onClick, style }: CardProps) {
+export function Card({ children, className = '', onClick, title, style }: CardProps) {
   return (
     <div
       onClick={onClick}
+      title={title}
       style={style}
       className={`glass-card p-5 relative overflow-hidden group ${
         onClick ? 'cursor-pointer' : ''

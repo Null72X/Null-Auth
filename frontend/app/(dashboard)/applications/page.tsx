@@ -33,6 +33,8 @@ import {
   Check,
   Search,
   Users,
+  UserCheck,
+  Activity,
   Tag,
   Shield,
   Code,
@@ -360,8 +362,14 @@ export default function ApplicationsPage() {
       </div>
 
       {/* Summary Metrics Banner */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="flex items-center gap-4 bg-zinc-900/90 border-zinc-800">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <Card
+          onClick={() => setTypeFilter('ALL')}
+          className={`flex items-center gap-4 bg-zinc-900/90 border-zinc-800 cursor-pointer transition-all active:scale-[0.98] ${
+            typeFilter === 'ALL' ? 'ring-1 ring-zinc-600 bg-zinc-900' : 'hover:border-zinc-700'
+          }`}
+          title="Filter: All Applications"
+        >
           <div className="w-11 h-11 rounded-[7px] bg-red-950/80 border border-red-800/60 flex items-center justify-center text-red-400">
             <AppWindow className="w-5 h-5" />
           </div>
@@ -371,7 +379,13 @@ export default function ApplicationsPage() {
           </div>
         </Card>
 
-        <Card className="flex items-center gap-4 bg-zinc-900/90 border-zinc-800">
+        <Card
+          onClick={() => setTypeFilter(typeFilter === 'LICENSE' ? 'ALL' : 'LICENSE')}
+          className={`flex items-center gap-4 bg-zinc-900/90 border-zinc-800 cursor-pointer transition-all active:scale-[0.98] ${
+            typeFilter === 'LICENSE' ? 'ring-1 ring-blue-500/60 bg-blue-950/20 border-blue-900/50' : 'hover:border-blue-900/60'
+          }`}
+          title="Filter: License Key Apps"
+        >
           <div className="w-11 h-11 rounded-[7px] bg-blue-950/80 border border-blue-800/60 flex items-center justify-center text-blue-400">
             <Key className="w-5 h-5" />
           </div>
@@ -381,7 +395,13 @@ export default function ApplicationsPage() {
           </div>
         </Card>
 
-        <Card className="flex items-center gap-4 bg-zinc-900/90 border-zinc-800">
+        <Card
+          onClick={() => setTypeFilter(typeFilter === 'HWID' ? 'ALL' : 'HWID')}
+          className={`flex items-center gap-4 bg-zinc-900/90 border-zinc-800 cursor-pointer transition-all active:scale-[0.98] ${
+            typeFilter === 'HWID' ? 'ring-1 ring-purple-500/60 bg-purple-950/20 border-purple-900/50' : 'hover:border-purple-900/60'
+          }`}
+          title="Filter: HWID Whitelist Apps"
+        >
           <div className="w-11 h-11 rounded-[7px] bg-purple-950/80 border border-purple-800/60 flex items-center justify-center text-purple-400">
             <ShieldCheck className="w-5 h-5" />
           </div>
@@ -391,9 +411,25 @@ export default function ApplicationsPage() {
           </div>
         </Card>
 
+        <Card
+          onClick={() => setTypeFilter(typeFilter === 'USER_AUTH' ? 'ALL' : 'USER_AUTH')}
+          className={`flex items-center gap-4 bg-zinc-900/90 border-zinc-800 cursor-pointer transition-all active:scale-[0.98] ${
+            typeFilter === 'USER_AUTH' ? 'ring-1 ring-cyan-500/60 bg-cyan-950/20 border-cyan-900/50' : 'hover:border-cyan-900/60'
+          }`}
+          title="Filter: User & Pass Apps"
+        >
+          <div className="w-11 h-11 rounded-[7px] bg-cyan-950/80 border border-cyan-800/60 flex items-center justify-center text-cyan-400">
+            <UserCheck className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">User & Pass Apps</span>
+            <h4 className="text-xl font-extrabold text-white mt-0.5">{stats.userAuthCount}</h4>
+          </div>
+        </Card>
+
         <Card className="flex items-center gap-4 bg-zinc-900/90 border-zinc-800">
           <div className="w-11 h-11 rounded-[7px] bg-emerald-950/80 border border-emerald-800/60 flex items-center justify-center text-emerald-400">
-            <Users className="w-5 h-5" />
+            <Activity className="w-5 h-5" />
           </div>
           <div>
             <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Total Active Users</span>
@@ -491,7 +527,7 @@ export default function ApplicationsPage() {
                     : 'text-zinc-400 hover:text-zinc-200'
                 }`}
               >
-                User Auth
+                User & Pass
               </button>
             </div>
 
