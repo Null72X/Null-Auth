@@ -98,6 +98,10 @@ export async function listApps(req: Request, res: Response) {
         });
         lastActivity = latestLog?.createdAt || null;
 
+        const trialSuffix = app.type === 'LICENSE' && app.freeTrialKey
+          ? app.freeTrialKey.replace(/^(FREE-TRIAL-|TRIAL-)/i, '')
+          : null;
+
         return {
           id: app.id,
           appId: app.appId,
@@ -109,6 +113,9 @@ export async function listApps(req: Request, res: Response) {
           downloadUrl: app.downloadUrl || null,
           freeTrialEnabled: app.freeTrialEnabled || false,
           freeTrialKey: app.freeTrialKey || null,
+          freeTrialSuffix: trialSuffix,
+          trialUsername: app.type === 'USER_AUTH' ? app.freeTrialKey : null,
+          hasTrialPassword: app.type === 'USER_AUTH' && Boolean(app.freeTrialKey),
           discordWebhookUrl: (app as any).discordWebhookUrl || null,
           createdAt: app.createdAt,
           updatedAt: app.updatedAt,
@@ -196,8 +203,15 @@ export async function getAppById(req: Request, res: Response) {
       totalUsers = app._count.hwidAccesses;
     }
 
+    const trialSuffix = app.type === 'LICENSE' && app.freeTrialKey
+      ? app.freeTrialKey.replace(/^(FREE-TRIAL-|TRIAL-)/i, '')
+      : null;
+
     return sendSuccess(res, 'Application details retrieved', {
       ...app,
+      freeTrialSuffix: trialSuffix,
+      trialUsername: app.type === 'USER_AUTH' ? app.freeTrialKey : null,
+      hasTrialPassword: app.type === 'USER_AUTH' && Boolean(app.freeTrialKey),
       stats: {
         activeUsers,
         expiredUsers,
@@ -280,7 +294,19 @@ export async function updateAppName(req: Request, res: Response) {
 
 export async function updateApp(req: Request, res: Response) {
   const { id } = req.params;
-  const { name, version, downloadUrl, status, freeTrialEnabled, freeTrialKey, discordWebhookUrl, secret } = req.body;
+  const {
+    name,
+    version,
+    downloadUrl,
+    status,
+    freeTrialEnabled,
+    freeTrialKey,
+    freeTrialSuffix,
+    trialUsername,
+    trialPassword,
+    discordWebhookUrl,
+    secret,
+  } = req.body;
 
   try {
     const existing = await prisma.application.findFirst({
@@ -296,10 +322,199 @@ export async function updateApp(req: Request, res: Response) {
     if (version !== undefined) updateData.version = version.trim();
     if (downloadUrl !== undefined) updateData.downloadUrl = downloadUrl ? downloadUrl.trim() : null;
     if (status !== undefined) updateData.status = status;
-    if (freeTrialEnabled !== undefined) updateData.freeTrialEnabled = Boolean(freeTrialEnabled);
-    if (freeTrialKey !== undefined) updateData.freeTrialKey = freeTrialKey ? freeTrialKey.trim() : null;
     if (discordWebhookUrl !== undefined) updateData.discordWebhookUrl = discordWebhookUrl ? discordWebhookUrl.trim() : null;
     if (secret !== undefined && secret.trim()) updateData.secret = secret.trim();
+
+    const willBeEnabled = freeTrialEnabled !== undefined ? Boolean(freeTrialEnabled) : existing.freeTrialEnabled;
+    updateData.freeTrialEnabled = willBeEnabled;
+
+    if (willBeEnabled) {
+      if (existing.type === 'LICENSE') {
+        let rawSuffix: string | null = null;
+        if (freeTrialSuffix !== undefined && freeTrialSuffix !== null) {
+          rawSuffix = String(freeTrialSuffix).trim();
+        } else if (freeTrialKey !== undefined && freeTrialKey !== null) {
+          rawSuffix = String(freeTrialKey).trim();
+        } else if (existing.freeTrialKey) {
+          rawSuffix = existing.freeTrialKey.trim();
+        }
+
+        const cleanSuffix = rawSuffix ? rawSuffix.replace(/^(FREE-TRIAL-|TRIAL-)/i, '').trim() : '';
+
+        let finalKey: string;
+        if (cleanSuffix) {
+          if (cleanSuffix.length < 1 || cleanSuffix.length > 40) {
+            return sendError(res, 'Trial license suffix must be between 1 and 40 characters.', 400);
+          }
+          if (!/^[a-zA-Z0-9_-]+$/.test(cleanSuffix)) {
+            return sendError(res, 'Trial license suffix can only contain letters, numbers, dashes, and underscores.', 400);
+          }
+          finalKey = `TRIAL-${cleanSuffix.toUpperCase()}`;
+        } else {
+          const part1 = Math.random().toString(36).substring(2, 6).toUpperCase();
+          const part2 = Math.random().toString(36).substring(2, 6).toUpperCase();
+          finalKey = `TRIAL-${part1}-${part2}`;
+        }
+
+        const conflict = await prisma.license.findFirst({
+          where: { key: finalKey, appId: { not: existing.id } },
+        });
+        if (conflict) {
+          return sendError(res, 'This license key is already in use by another application. Please choose a different suffix.', 400);
+        }
+
+        const oldKey = existing.freeTrialKey;
+        if (oldKey && oldKey !== finalKey) {
+          const updatedLic = await prisma.license.updateMany({
+            where: { key: oldKey, appId: existing.id },
+            data: { key: finalKey, status: 'ACTIVE' },
+          });
+          if (updatedLic.count === 0) {
+            const expiresAt = new Date();
+            expiresAt.setFullYear(expiresAt.getFullYear() + 10);
+            await prisma.license.create({
+              data: {
+                key: finalKey,
+                appId: existing.id,
+                status: 'ACTIVE',
+                expiresAt,
+                clientName: 'Master Free Trial Key',
+              },
+            });
+          }
+        } else {
+          const existingLic = await prisma.license.findFirst({
+            where: { key: finalKey, appId: existing.id },
+          });
+          if (existingLic) {
+            if (existingLic.status !== 'ACTIVE') {
+              await prisma.license.update({
+                where: { id: existingLic.id },
+                data: { status: 'ACTIVE' },
+              });
+            }
+          } else {
+            const expiresAt = new Date();
+            expiresAt.setFullYear(expiresAt.getFullYear() + 10);
+            await prisma.license.create({
+              data: {
+                key: finalKey,
+                appId: existing.id,
+                status: 'ACTIVE',
+                expiresAt,
+                clientName: 'Master Free Trial Key',
+              },
+            });
+          }
+        }
+        updateData.freeTrialKey = finalKey;
+      } else if (existing.type === 'USER_AUTH') {
+        let targetUsername = '';
+        if (trialUsername !== undefined && trialUsername !== null) {
+          targetUsername = String(trialUsername).trim();
+        } else if (freeTrialKey !== undefined && freeTrialKey !== null) {
+          targetUsername = String(freeTrialKey).trim();
+        } else if (existing.freeTrialKey) {
+          targetUsername = existing.freeTrialKey.trim();
+        }
+
+        if (!targetUsername) {
+          const part1 = Math.random().toString(36).substring(2, 6).toLowerCase();
+          targetUsername = `trial_${part1}`;
+        }
+
+        if (targetUsername.length < 2 || targetUsername.length > 32) {
+          return sendError(res, 'Trial username must be between 2 and 32 characters.', 400);
+        }
+        if (!/^[a-zA-Z0-9_.-]+$/.test(targetUsername)) {
+          return sendError(res, 'Trial username can only contain letters, numbers, dots, and underscores.', 400);
+        }
+
+        const oldUsername = existing.freeTrialKey;
+        if (!oldUsername || oldUsername.toLowerCase() !== targetUsername.toLowerCase()) {
+          const conflict = await (prisma as any).clientUser.findFirst({
+            where: {
+              appId: existing.id,
+              username: { equals: targetUsername, mode: 'insensitive' },
+            },
+          });
+          if (conflict) {
+            return sendError(res, 'A user account with this username already exists in this application.', 400);
+          }
+        }
+
+        let passwordHash: string | null = null;
+        if (trialPassword !== undefined && trialPassword !== null && String(trialPassword).trim() !== '') {
+          const pwd = String(trialPassword).trim();
+          if (pwd.length < 4) {
+            return sendError(res, 'Trial password must be at least 4 characters.', 400);
+          }
+          const salt = await bcrypt.genSalt(10);
+          passwordHash = await bcrypt.hash(pwd, salt);
+        }
+
+        if (oldUsername) {
+          const updatePayload: any = {
+            username: targetUsername,
+            status: 'ACTIVE',
+          };
+          if (passwordHash) {
+            updatePayload.passwordHash = passwordHash;
+          }
+          const updatedUser = await (prisma as any).clientUser.updateMany({
+            where: {
+              appId: existing.id,
+              username: { equals: oldUsername, mode: 'insensitive' },
+            },
+            data: updatePayload,
+          });
+          if (updatedUser.count === 0) {
+            const expiresAt = new Date();
+            expiresAt.setFullYear(expiresAt.getFullYear() + 10);
+            const finalHash = passwordHash || (await bcrypt.hash('trial123', await bcrypt.genSalt(10)));
+            await (prisma as any).clientUser.create({
+              data: {
+                username: targetUsername,
+                passwordHash: finalHash,
+                appId: existing.id,
+                status: 'ACTIVE',
+                expiresAt,
+                clientName: 'Dynamic Master Free Trial User',
+              },
+            });
+          }
+        } else {
+          const expiresAt = new Date();
+          expiresAt.setFullYear(expiresAt.getFullYear() + 10);
+          const finalHash = passwordHash || (await bcrypt.hash('trial123', await bcrypt.genSalt(10)));
+          await (prisma as any).clientUser.create({
+            data: {
+              username: targetUsername,
+              passwordHash: finalHash,
+              appId: existing.id,
+              status: 'ACTIVE',
+              expiresAt,
+              clientName: 'Dynamic Master Free Trial User',
+            },
+          });
+        }
+        updateData.freeTrialKey = targetUsername;
+      }
+    } else {
+      if (existing.freeTrialEnabled) {
+        if (existing.type === 'LICENSE' && existing.freeTrialKey) {
+          await prisma.license.updateMany({
+            where: { key: existing.freeTrialKey, appId: existing.id },
+            data: { status: 'EXPIRED' },
+          }).catch(() => {});
+        } else if (existing.type === 'USER_AUTH' && existing.freeTrialKey) {
+          await (prisma as any).clientUser.updateMany({
+            where: { username: existing.freeTrialKey, appId: existing.id },
+            data: { status: 'EXPIRED' },
+          }).catch(() => {});
+        }
+      }
+    }
 
     const updated = await prisma.application.update({
       where: { id: existing.id },
@@ -316,7 +531,16 @@ export async function updateApp(req: Request, res: Response) {
       status: 'SUCCESS',
     });
 
-    return sendSuccess(res, 'Application updated successfully', updated);
+    const trialSuffix = updated.type === 'LICENSE' && updated.freeTrialKey
+      ? updated.freeTrialKey.replace(/^(FREE-TRIAL-|TRIAL-)/i, '')
+      : null;
+
+    return sendSuccess(res, 'Application updated successfully', {
+      ...updated,
+      freeTrialSuffix: trialSuffix,
+      trialUsername: updated.type === 'USER_AUTH' ? updated.freeTrialKey : null,
+      hasTrialPassword: updated.type === 'USER_AUTH' && Boolean(updated.freeTrialKey),
+    });
   } catch (error: any) {
     return sendError(res, 'Failed to update application', 500, error.message);
   }
@@ -394,7 +618,7 @@ export async function toggleFreeTrial(req: Request, res: Response) {
         // Generate a fresh unique master free trial key every time Free Trial is enabled
         const part1 = Math.random().toString(36).substring(2, 6).toUpperCase();
         const part2 = Math.random().toString(36).substring(2, 6).toUpperCase();
-        newTrialKey = `FREE-TRIAL-${part1}-${part2}`;
+        newTrialKey = `TRIAL-${part1}-${part2}`;
 
         const expiresAt = new Date();
         expiresAt.setFullYear(expiresAt.getFullYear() + 10);
@@ -463,7 +687,16 @@ export async function toggleFreeTrial(req: Request, res: Response) {
       status: 'SUCCESS',
     });
 
-    return sendSuccess(res, `Free trial ${enabled ? 'enabled' : 'disabled'} successfully`, updated);
+    const trialSuffix = updated.type === 'LICENSE' && updated.freeTrialKey
+      ? updated.freeTrialKey.replace(/^(FREE-TRIAL-|TRIAL-)/i, '')
+      : null;
+
+    return sendSuccess(res, `Free trial ${enabled ? 'enabled' : 'disabled'} successfully`, {
+      ...updated,
+      freeTrialSuffix: trialSuffix,
+      trialUsername: updated.type === 'USER_AUTH' ? updated.freeTrialKey : null,
+      hasTrialPassword: updated.type === 'USER_AUTH' && Boolean(updated.freeTrialKey),
+    });
   } catch (error: any) {
     return sendError(res, 'Failed to update free trial status', 500, error.message);
   }

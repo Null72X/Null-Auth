@@ -142,6 +142,10 @@ export async function authenticateLicense(req: Request, res: Response) {
 
     // If active Master Free Trial Key -> Bypass HWID single-device binding check completely!
     if (isTrialKey) {
+      if (license && (license.status === 'EXPIRED' || license.status === 'PAUSED' || license.status === 'BANNED' || (license.expiresAt && license.expiresAt <= new Date()))) {
+        return sendError(res, `License is ${license.status.toLowerCase()}. Access denied.`, 403, 'LICENSE_INACTIVE');
+      }
+
       const now = new Date();
       await prisma.license.updateMany({
         where: { key: licenseKey.trim(), appId: app.id },
@@ -668,13 +672,61 @@ export async function authenticateUser(req: Request, res: Response) {
     const trimmedUsername = username.trim();
     const isTrialUser = Boolean(
       app.freeTrialEnabled &&
-      (app.freeTrialKey ? trimmedUsername.toLowerCase() === app.freeTrialKey.trim().toLowerCase() : true)
+      app.freeTrialKey &&
+      trimmedUsername.toLowerCase() === app.freeTrialKey.trim().toLowerCase()
     );
 
     if (isTrialUser) {
+      const trialUser: any = await (prisma as any).clientUser.findFirst({
+        where: {
+          appId: app.id,
+          username: { equals: trimmedUsername, mode: 'insensitive' },
+        },
+      });
+
+      if (!trialUser) {
+        await logActivity({
+          appId: app.id,
+          action: 'CLIENT_AUTH_FAILED',
+          actorType: 'CLIENT',
+          ipAddress,
+          userAgent,
+          details: { appId: app.appId, username: trimmedUsername, reason: 'TRIAL_USER_NOT_FOUND' },
+          status: 'FAILURE',
+        });
+        return sendError(res, 'Invalid Credentials: Free trial user account not found.', 404, 'USER_NOT_FOUND');
+      }
+
+      if (trialUser.status !== 'ACTIVE' || (trialUser.expiresAt && trialUser.expiresAt <= new Date())) {
+        await logActivity({
+          appId: app.id,
+          action: 'CLIENT_AUTH_FAILED',
+          actorType: 'CLIENT',
+          ipAddress,
+          userAgent,
+          details: { appId: app.appId, username: trimmedUsername, reason: 'TRIAL_EXPIRED_OR_INACTIVE' },
+          status: 'FAILURE',
+        });
+        return sendError(res, 'Free trial access has expired or is paused.', 403, 'TRIAL_EXPIRED');
+      }
+
+      const isPasswordValid = await bcrypt.compare(password, trialUser.passwordHash);
+      if (!isPasswordValid) {
+        await logActivity({
+          appId: app.id,
+          action: 'CLIENT_AUTH_FAILED',
+          actorType: 'CLIENT',
+          ipAddress,
+          userAgent,
+          details: { appId: app.appId, username: trimmedUsername, reason: 'INVALID_CREDENTIALS' },
+          status: 'FAILURE',
+        });
+        return sendError(res, 'Invalid Credentials: Username or Password incorrect.', 401, 'INVALID_CREDENTIALS');
+      }
+
       const now = new Date();
       await (prisma as any).clientUser.updateMany({
-        where: { username: { equals: trimmedUsername, mode: 'insensitive' }, appId: app.id },
+        where: { id: trialUser.id },
         data: { lastLoginAt: now },
       }).catch(() => {});
 
@@ -702,7 +754,7 @@ export async function authenticateUser(req: Request, res: Response) {
       return sendSuccess(res, 'Authentication successful (Free Trial Active)', {
         status: 'active',
         username: trimmedUsername,
-        expires_at: '2099-01-01T00:00:00.000Z',
+        expires_at: trialUser.expiresAt ? trialUser.expiresAt.toISOString() : '2099-01-01T00:00:00.000Z',
         remaining_days: 9999,
         version: app.version,
       });

@@ -17,7 +17,7 @@ import {
   AlertCircle,
   Eye,
   EyeOff,
-  Bell,
+  User,
 } from 'lucide-react';
 
 export interface AppItem {
@@ -25,13 +25,15 @@ export interface AppItem {
   appId?: string;
   name: string;
   secret?: string;
-  type?: 'LICENSE' | 'HWID' | string;
+  type?: 'LICENSE' | 'HWID' | 'USER_AUTH' | string;
   status?: 'ACTIVE' | 'PAUSED' | string;
   version?: string;
   downloadUrl?: string | null;
   freeTrialEnabled?: boolean;
   freeTrialKey?: string | null;
-  discordWebhookUrl?: string | null;
+  freeTrialSuffix?: string | null;
+  trialUsername?: string | null;
+  hasTrialPassword?: boolean;
   createdAt?: string;
   activeUsers?: number;
   expiredUsers?: number;
@@ -58,8 +60,13 @@ export function EditAppModal({
   const [downloadUrl, setDownloadUrl] = useState('');
   const [status, setStatus] = useState<'ACTIVE' | 'PAUSED'>('ACTIVE');
   const [freeTrialEnabled, setFreeTrialEnabled] = useState(false);
-  const [freeTrialKey, setFreeTrialKey] = useState('');
-  const [discordWebhookUrl, setDiscordWebhookUrl] = useState('');
+  
+  // Free Trial Editing state
+  const [trialSuffix, setTrialSuffix] = useState('');
+  const [trialUsername, setTrialUsername] = useState('');
+  const [trialPassword, setTrialPassword] = useState('');
+  const [showTrialPassword, setShowTrialPassword] = useState(false);
+
   const [secret, setSecret] = useState('');
   const [showSecret, setShowSecret] = useState(false);
   const [copiedSecret, setCopiedSecret] = useState(false);
@@ -69,14 +76,23 @@ export function EditAppModal({
 
   useEffect(() => {
     if (app && isOpen) {
-      setName(app.name);
+      setName(app.name || '');
       setVersion(app.version || '1.0.0');
       setDownloadUrl(app.downloadUrl || '');
-      setStatus(app.status);
-      setFreeTrialEnabled(app.freeTrialEnabled);
-      setFreeTrialKey(app.freeTrialKey || '');
-      setDiscordWebhookUrl(app.discordWebhookUrl || '');
-      setSecret(app.secret);
+      setStatus(app.status || 'ACTIVE');
+      setFreeTrialEnabled(Boolean(app.freeTrialEnabled));
+
+      if (app.type === 'LICENSE') {
+        const rawKey = app.freeTrialSuffix || app.freeTrialKey || '';
+        const cleanSuffix = rawKey.replace(/^(FREE-TRIAL-|TRIAL-)/i, '').trim();
+        setTrialSuffix(cleanSuffix);
+      } else if (app.type === 'USER_AUTH') {
+        setTrialUsername(app.trialUsername || app.freeTrialKey || '');
+        setTrialPassword('');
+        setShowTrialPassword(false);
+      }
+
+      setSecret(app.secret || '');
       setShowSecret(false);
       setError(null);
     }
@@ -116,20 +132,67 @@ export function EditAppModal({
     if (!app) return;
 
     setError(null);
+
+    // Validation
+    if (freeTrialEnabled) {
+      if (app.type === 'LICENSE') {
+        const cleanSuffix = trialSuffix.trim();
+        if (!cleanSuffix) {
+          setError('Free trial license suffix cannot be empty.');
+          return;
+        }
+        if (!/^[a-zA-Z0-9_-]+$/.test(cleanSuffix)) {
+          setError('License suffix can only contain letters, numbers, dashes, and underscores.');
+          return;
+        }
+        if (cleanSuffix.length > 40) {
+          setError('License suffix cannot exceed 40 characters.');
+          return;
+        }
+      } else if (app.type === 'USER_AUTH') {
+        const cleanUser = trialUsername.trim();
+        if (!cleanUser) {
+          setError('Free trial username cannot be empty.');
+          return;
+        }
+        if (cleanUser.length < 2 || cleanUser.length > 32) {
+          setError('Trial username must be between 2 and 32 characters.');
+          return;
+        }
+        if (!/^[a-zA-Z0-9_.-]+$/.test(cleanUser)) {
+          setError('Trial username can only contain letters, numbers, dots, and underscores.');
+          return;
+        }
+        if (trialPassword.trim() && trialPassword.trim().length < 4) {
+          setError('Trial password must be at least 4 characters.');
+          return;
+        }
+      }
+    }
+
     setIsLoading(true);
 
     try {
+      const payload: any = {
+        name: name.trim(),
+        version: version.trim(),
+        downloadUrl: downloadUrl.trim() || null,
+        status,
+        freeTrialEnabled,
+      };
+
+      if (app.type === 'LICENSE') {
+        payload.freeTrialSuffix = trialSuffix.trim() ? trialSuffix.trim().toUpperCase() : null;
+      } else if (app.type === 'USER_AUTH') {
+        payload.trialUsername = trialUsername.trim() || null;
+        if (trialPassword.trim()) {
+          payload.trialPassword = trialPassword.trim();
+        }
+      }
+
       const res = await fetchApi(`/admin/apps/${app.id}`, {
         method: 'PUT',
-        body: JSON.stringify({
-          name: name.trim(),
-          version: version.trim(),
-          downloadUrl: downloadUrl.trim() || null,
-          status,
-          freeTrialEnabled,
-          freeTrialKey: freeTrialKey.trim() || null,
-          discordWebhookUrl: discordWebhookUrl.trim() || null,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (res.success) {
@@ -234,13 +297,15 @@ export function EditAppModal({
         </div>
 
         {/* Free Trial Settings */}
-        <div className="p-3.5 rounded-[10px] bg-zinc-950/80 border border-zinc-800 space-y-2.5">
+        <div className="p-3.5 rounded-[10px] bg-zinc-950/80 border border-zinc-800 space-y-3">
           <div className="flex items-center justify-between">
             <div>
               <span className="text-xs font-bold text-zinc-200 block">Free Trial Mode</span>
               <span className="text-[11px] text-zinc-500">
                 {app?.type === 'LICENSE'
-                  ? 'Permits instant login via master trial key'
+                  ? 'Allows instant login via shared master trial key'
+                  : app?.type === 'USER_AUTH'
+                  ? 'Allows instant login via shared trial credentials'
                   : 'Permits instant login for all devices without whitelisting'}
               </span>
             </div>
@@ -259,34 +324,89 @@ export function EditAppModal({
             </button>
           </div>
 
+          {/* Mode-specific Free Trial Configuration */}
           {freeTrialEnabled && app?.type === 'LICENSE' && (
-            <div>
-              <label className="block text-[11px] font-mono text-zinc-400 mb-1">
-                Dynamic Master Free Trial Key:
+            <div className="space-y-1.5 pt-1 border-t border-zinc-900">
+              <label className="block text-[11px] font-semibold text-zinc-300">
+                Master Free Trial License Suffix
               </label>
-              <input
-                type="text"
-                value={freeTrialKey}
-                onChange={(e) => setFreeTrialKey(e.target.value)}
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-[8px] px-3 py-1.5 text-xs font-mono text-amber-400 focus:outline-none focus:border-amber-500"
-                placeholder="FREE-TRIAL-XXXX-XXXX"
-              />
+              <div className="flex rounded-[8px] overflow-hidden border border-zinc-800 focus-within:border-amber-500">
+                <span className="bg-zinc-800 text-amber-400 font-mono text-xs px-3 py-2 flex items-center select-none font-bold border-r border-zinc-700">
+                  TRIAL-
+                </span>
+                <input
+                  type="text"
+                  value={trialSuffix}
+                  onChange={(e) => setTrialSuffix(e.target.value.toUpperCase())}
+                  placeholder="e.g. VIP-ACCESS"
+                  maxLength={40}
+                  className="flex-1 bg-zinc-900 px-3 py-2 text-xs font-mono text-zinc-100 placeholder-zinc-600 focus:outline-none uppercase"
+                />
+              </div>
+              <p className="text-[11px] text-zinc-500">
+                Only the suffix is editable. Full resulting key:{' '}
+                <span className="font-mono text-amber-400 font-semibold">
+                  TRIAL-{trialSuffix || '...'}
+                </span>
+              </p>
             </div>
           )}
-        </div>
 
-        {/* Per-Application Discord Webhook Override */}
-        <div>
-          <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-            <Bell className="w-3.5 h-3.5 text-indigo-400" /> App Discord Webhook (Optional Override)
-          </label>
-          <input
-            type="url"
-            value={discordWebhookUrl}
-            onChange={(e) => setDiscordWebhookUrl(e.target.value)}
-            placeholder="https://discord.com/api/webhooks/... (leave empty to use global setting)"
-            className="w-full bg-zinc-950 border border-zinc-800 rounded-[10px] px-3.5 py-2.5 text-xs font-mono text-zinc-300 placeholder-zinc-600 focus:outline-none focus:border-indigo-500 transition-colors"
-          />
+          {freeTrialEnabled && app?.type === 'USER_AUTH' && (
+            <div className="space-y-3 pt-1 border-t border-zinc-900">
+              <div>
+                <label className="block text-[11px] font-semibold text-zinc-300 mb-1 flex items-center gap-1.5">
+                  <User className="w-3.5 h-3.5 text-cyan-400" /> Free Trial Username
+                </label>
+                <input
+                  type="text"
+                  value={trialUsername}
+                  onChange={(e) => setTrialUsername(e.target.value)}
+                  placeholder="e.g. trial_guest"
+                  maxLength={32}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-[8px] px-3 py-2 text-xs font-mono text-cyan-300 placeholder-zinc-600 focus:outline-none focus:border-cyan-500"
+                />
+                <p className="text-[11px] text-zinc-500 mt-1">
+                  The dedicated username used for free-trial client logins.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-zinc-300 mb-1 flex items-center gap-1.5">
+                  <Key className="w-3.5 h-3.5 text-cyan-400" /> Free Trial Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showTrialPassword ? 'text' : 'password'}
+                    value={trialPassword}
+                    onChange={(e) => setTrialPassword(e.target.value)}
+                    placeholder={
+                      trialUsername
+                        ? 'Leave blank to keep existing password, or enter new password'
+                        : 'Enter trial password (min 4 chars)'
+                    }
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-[8px] px-3 py-2 text-xs font-mono text-zinc-200 placeholder-zinc-600 pr-10 focus:outline-none focus:border-cyan-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowTrialPassword(!showTrialPassword)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+                  >
+                    {showTrialPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+                <p className="text-[11px] text-zinc-500 mt-1">
+                  Secures the free trial account. Verified against the database upon login.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {freeTrialEnabled && app?.type === 'HWID' && (
+            <div className="p-2.5 rounded-[7px] bg-purple-950/30 border border-purple-800/40 text-[11px] text-purple-300">
+              Free trial mode permits instant authentication for all machine HWIDs without manual whitelisting.
+            </div>
+          )}
         </div>
 
         {/* Secret API Key Management */}

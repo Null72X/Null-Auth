@@ -44,8 +44,6 @@ import {
   ChevronRight,
   LayoutGrid,
   Table as TableIcon,
-  Bell,
-  Send,
 } from 'lucide-react';
 
 interface AppItem {
@@ -110,10 +108,6 @@ export default function ApplicationsPage() {
 
   // SDK Snippet Modal State
   const [snippetApp, setSnippetApp] = useState<AppItem | null>(null);
-
-  // Webhook Test State
-  const [testingWebhookId, setTestingWebhookId] = useState<string | null>(null);
-  const [webhookFeedback, setWebhookFeedback] = useState<{ id: string; success: boolean; message: string } | null>(null);
 
   // Drag & Reorder State
   const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -243,31 +237,6 @@ export default function ApplicationsPage() {
     setViewMode(mode);
     if (typeof window !== 'undefined') {
       localStorage.setItem('null_auth_apps_view_mode', mode);
-    }
-  };
-
-  const handleTestWebhook = async (app: AppItem) => {
-    if (!app.discordWebhookUrl) {
-      setAppToEdit(app);
-      return;
-    }
-
-    setTestingWebhookId(app.id);
-    setWebhookFeedback(null);
-    try {
-      const res = await fetchApi(`/admin/apps/${app.id}/test-webhook`, {
-        method: 'POST',
-      });
-      if (res.success) {
-        setWebhookFeedback({ id: app.id, success: true, message: 'Test ping delivered to Discord!' });
-      } else {
-        setWebhookFeedback({ id: app.id, success: false, message: res.message || 'Webhook delivery failed.' });
-      }
-    } catch (err: any) {
-      setWebhookFeedback({ id: app.id, success: false, message: 'Network error sending test ping.' });
-    } finally {
-      setTestingWebhookId(null);
-      setTimeout(() => setWebhookFeedback(null), 4000);
     }
   };
 
@@ -769,6 +738,8 @@ export default function ApplicationsPage() {
                         <p className="text-[10px] text-zinc-500">
                           {app.type === 'LICENSE'
                             ? (app.freeTrialEnabled ? 'Active: Universal Free Trial Key' : 'Enable to generate free trial key')
+                            : app.type === 'USER_AUTH'
+                            ? (app.freeTrialEnabled ? 'Active: Trial Account Enabled' : 'Enable to generate trial user')
                             : (app.freeTrialEnabled ? 'Active: All devices allowed' : 'Enable to allow all devices')}
                         </p>
                       </div>
@@ -794,78 +765,24 @@ export default function ApplicationsPage() {
                         <div className="flex items-center gap-2 truncate">
                           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
                           <span className="text-emerald-300 font-mono font-bold truncate text-[11px]">
-                            {app.type === 'LICENSE' ? (app.freeTrialKey || 'FREE-TRIAL-ACTIVE') : 'FREE TRIAL: All HWIDs Authorized'}
+                            {app.type === 'LICENSE'
+                              ? (app.freeTrialKey || 'TRIAL-ACTIVE')
+                              : app.type === 'USER_AUTH'
+                              ? `User: ${app.freeTrialKey || 'trial_user'}`
+                              : 'FREE TRIAL: All HWIDs Authorized'}
                           </span>
                         </div>
 
-                        {app.type === 'LICENSE' && app.freeTrialKey && (
+                        {app.freeTrialKey && (app.type === 'LICENSE' || app.type === 'USER_AUTH') && (
                           <button
                             onClick={() => copySecret(app.freeTrialKey!)}
                             className="p-1 rounded-[4px] bg-emerald-900/60 hover:bg-emerald-800/80 text-emerald-200 transition-colors shrink-0 text-[10px] font-bold flex items-center gap-1"
-                            title="Copy Master Free Trial Key"
+                            title={app.type === 'LICENSE' ? 'Copy Master Free Trial Key' : 'Copy Free Trial Username'}
                           >
-                            {copiedSecret === app.freeTrialKey ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />} Copy Key
+                            {copiedSecret === app.freeTrialKey ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                            <span>{app.type === 'LICENSE' ? 'Copy Key' : 'Copy User'}</span>
                           </button>
                         )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Discord Webhook Status & Test Ping */}
-                  <div className="space-y-1.5">
-                    <div className="p-2.5 rounded-[7px] bg-zinc-900/90 border border-zinc-800/80 flex items-center justify-between gap-2 text-xs">
-                      <div className="flex items-center gap-2 truncate">
-                        <span
-                          className={`w-2 h-2 rounded-full shrink-0 ${
-                            app.discordWebhookUrl ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-600'
-                          }`}
-                        />
-                        <div className="truncate">
-                          <div className="flex items-center gap-1.5 text-[11px] font-bold text-zinc-300">
-                            <Bell className="w-3 h-3 text-indigo-400" />
-                            <span>Discord Webhook</span>
-                          </div>
-                          <span className="text-[10px] text-zinc-500 truncate block">
-                            {app.discordWebhookUrl ? 'Active & Receiving Alerts' : 'Not configured'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => handleTestWebhook(app)}
-                        disabled={testingWebhookId === app.id}
-                        className={`px-2.5 py-1 rounded-[5px] text-[11px] font-bold flex items-center gap-1 shrink-0 transition-all ${
-                          app.discordWebhookUrl
-                            ? 'bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-800/60 text-indigo-300 hover:text-white'
-                            : 'bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-400'
-                        } disabled:opacity-50`}
-                        title={app.discordWebhookUrl ? 'Send real-time test notification to Discord' : 'Configure Discord Webhook'}
-                      >
-                        {testingWebhookId === app.id ? (
-                          <RefreshCw className="w-3 h-3 animate-spin" />
-                        ) : (
-                          <Send className="w-3 h-3" />
-                        )}
-                        <span>{app.discordWebhookUrl ? 'Test Ping' : 'Configure'}</span>
-                      </button>
-                    </div>
-
-                    {/* Inline Webhook Feedback Banner */}
-                    {webhookFeedback && webhookFeedback.id === app.id && (
-                      <div
-                        className={`p-2 rounded-[5px] text-[11px] font-mono border flex items-center gap-2 transition-all ${
-                          webhookFeedback.success
-                            ? 'bg-emerald-950/60 border-emerald-800/60 text-emerald-300'
-                            : 'bg-red-950/60 border-red-800/60 text-red-300'
-                        }`}
-                      >
-                        {webhookFeedback.success ? (
-                          <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                        ) : (
-                          <Bell className="w-3.5 h-3.5 text-red-400 shrink-0" />
-                        )}
-                        <span className="truncate">{webhookFeedback.message}</span>
                       </div>
                     )}
                   </div>
@@ -891,52 +808,68 @@ export default function ApplicationsPage() {
 
                 {/* Card Actions Footer */}
                 <div className="pt-4 border-t border-zinc-800/80 space-y-2">
-                  {/* Primary Quick Action Button */}
-                  {app.type === 'LICENSE' ? (
-                    <Button
-                      size="sm"
-                      onClick={() => setQuickLicenseApp(app)}
-                      className="w-full gap-2 text-xs font-bold btn-red-gradient shadow-md shadow-red-950/40"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" /> Generate License Keys
-                    </Button>
-                  ) : app.type === 'USER_AUTH' ? (
-                    <Button
-                      size="sm"
-                      onClick={() => setQuickUserApp(app)}
-                      className="w-full gap-2 text-xs font-bold bg-gradient-to-r from-cyan-950 via-cyan-900 to-cyan-800 hover:from-cyan-900 hover:to-cyan-700 text-white border border-cyan-500/40 shadow-md shadow-cyan-950/40"
-                    >
-                      <User className="w-3.5 h-3.5" /> Create User Account
-                    </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      onClick={() => setQuickHwidApp(app)}
-                      className="w-full gap-2 text-xs font-bold bg-gradient-to-r from-purple-950 via-purple-900 to-purple-800 hover:from-purple-900 hover:to-purple-700 text-white border border-purple-500/40 shadow-md shadow-purple-950/40"
-                    >
-                      <ShieldCheck className="w-3.5 h-3.5" /> Authorize HWID User
-                    </Button>
-                  )}
+                  {/* Horizontal Action Buttons Row (Side by Side) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {/* Primary Quick Action Button */}
+                    {app.type === 'LICENSE' ? (
+                      <Button
+                        size="sm"
+                        onClick={() => setQuickLicenseApp(app)}
+                        className="w-full h-9 gap-1.5 text-xs font-bold btn-red-gradient shadow-md shadow-red-950/40 justify-center px-2"
+                        title="Generate License Keys"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">Create License</span>
+                      </Button>
+                    ) : app.type === 'USER_AUTH' ? (
+                      <Button
+                        size="sm"
+                        onClick={() => setQuickUserApp(app)}
+                        className="w-full h-9 gap-1.5 text-xs font-bold bg-gradient-to-r from-cyan-950 via-cyan-900 to-cyan-800 hover:from-cyan-900 hover:to-cyan-700 text-white border border-cyan-500/40 shadow-md shadow-cyan-950/40 justify-center px-2"
+                        title="Create User Account"
+                      >
+                        <User className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">Create User</span>
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        onClick={() => setQuickHwidApp(app)}
+                        className="w-full h-9 gap-1.5 text-xs font-bold bg-gradient-to-r from-purple-950 via-purple-900 to-purple-800 hover:from-purple-900 hover:to-purple-700 text-white border border-purple-500/40 shadow-md shadow-purple-950/40 justify-center px-2"
+                        title="Authorize HWID User"
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">Authorize HWID</span>
+                      </Button>
+                    )}
 
-                  {/* View All Licenses / Users / HWIDs Button */}
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setRecordsApp(app)}
-                    className="w-full gap-2 border-zinc-800 hover:border-amber-500/40 bg-zinc-900/90 hover:bg-zinc-800 text-xs font-mono font-bold text-amber-400 group/rec"
-                  >
-                    <ListFilter className="w-3.5 h-3.5 text-amber-400 group-hover/rec:rotate-180 transition-transform duration-300" />
-                    <span>
-                      {app.type === 'LICENSE'
-                        ? 'Show All Licenses'
-                        : app.type === 'USER_AUTH'
-                        ? 'Show All User Accounts'
-                        : 'Show All HWID Whitelists'}
-                    </span>
-                    <span className="ml-auto px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[10px]">
-                      {app.totalUsers}
-                    </span>
-                  </Button>
+                    {/* View All Licenses / Users / HWIDs Button */}
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setRecordsApp(app)}
+                      className="w-full h-9 gap-1.5 border-zinc-800 hover:border-amber-500/40 bg-zinc-900/90 hover:bg-zinc-800 text-xs font-mono font-bold text-amber-400 group/rec justify-center px-2"
+                      title={
+                        app.type === 'LICENSE'
+                          ? 'Show All Licenses'
+                          : app.type === 'USER_AUTH'
+                          ? 'Show All User Accounts'
+                          : 'Show All HWID Whitelists'
+                      }
+                    >
+                      <ListFilter className="w-3.5 h-3.5 text-amber-400 group-hover/rec:rotate-180 transition-transform duration-300 shrink-0" />
+                      <span className="truncate">
+                        {app.type === 'LICENSE'
+                          ? 'Show Licenses'
+                          : app.type === 'USER_AUTH'
+                          ? 'Show Users'
+                          : 'Show HWIDs'}
+                      </span>
+                      <span className="ml-1 px-1.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[10px] shrink-0">
+                        {app.totalUsers}
+                      </span>
+                    </Button>
+                  </div>
 
                   {/* Secondary Icon Actions */}
                   <div className="flex items-center justify-between gap-2 text-xs pt-1">
@@ -957,6 +890,14 @@ export default function ApplicationsPage() {
                         title="View Full Credentials & Keys"
                       >
                         <Key className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setAppToEdit(app)}
+                        title="Edit Application Configurations"
+                      >
+                        <Settings2 className="w-3.5 h-3.5" />
                       </Button>
                       <Button
                         variant="secondary"
@@ -1012,7 +953,6 @@ export default function ApplicationsPage() {
                   <th className="py-3.5 px-4">Status</th>
                   <th className="py-3.5 px-4">Version</th>
                   <th className="py-3.5 px-4">Active Users</th>
-                  <th className="py-3.5 px-4">Discord Webhook</th>
                   <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>
@@ -1117,35 +1057,6 @@ export default function ApplicationsPage() {
                               style={{ width: `${userRatio}%` }}
                             />
                           </div>
-                        </div>
-                      </td>
-
-                      {/* Discord Webhook */}
-                      <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`w-2 h-2 rounded-full shrink-0 ${
-                              app.discordWebhookUrl ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-600'
-                            }`}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleTestWebhook(app)}
-                            disabled={testingWebhookId === app.id}
-                            className={`px-2 py-1 rounded-[5px] text-[11px] font-bold flex items-center gap-1 transition-all ${
-                              app.discordWebhookUrl
-                                ? 'bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-800/60'
-                                : 'bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border border-zinc-800'
-                            } disabled:opacity-50`}
-                            title={app.discordWebhookUrl ? 'Send test notification to Discord' : 'Configure Discord Webhook'}
-                          >
-                            {testingWebhookId === app.id ? (
-                              <RefreshCw className="w-3 h-3 animate-spin" />
-                            ) : (
-                              <Send className="w-3 h-3" />
-                            )}
-                            <span>{app.discordWebhookUrl ? 'Test Ping' : 'Configure'}</span>
-                          </button>
                         </div>
                       </td>
 
