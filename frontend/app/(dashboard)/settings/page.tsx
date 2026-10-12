@@ -972,7 +972,7 @@ export default function SettingsPage() {
                         />
                       </div>
                       <p className="text-[11px] text-zinc-400">
-                        Immediate alerts on HWID mismatch, version mismatch, or banned attempts.
+                        Immediate alerts on HWID mismatch, version mismatch, or banned attempts with reported HWID.
                       </p>
                     </div>
                   </div>
@@ -997,7 +997,7 @@ export default function SettingsPage() {
                         />
                       </div>
                       <p className="text-[11px] text-zinc-400">
-                        Notifications for authorized client logins with Client Name and IP.
+                        Notifications for authorized client logins with Client Name, HWID, and IP.
                       </p>
                     </div>
                   </div>
@@ -1022,7 +1022,7 @@ export default function SettingsPage() {
                         />
                       </div>
                       <p className="text-[11px] text-zinc-400">
-                        Notifications whenever users log in using Free Trial mode.
+                        Notifications whenever users log in using Free Trial mode with HWID verification.
                       </p>
                     </div>
                   </div>
@@ -1116,24 +1116,210 @@ export default function SettingsPage() {
                           {previewEventType === 'ADMIN_ACTION' && 'An administrative action (LICENSE_STATUS_PAUSED) was executed.'}
                         </p>
 
-                        <div className="grid grid-cols-2 gap-2 text-xs pt-1">
-                          <div>
-                            <span className="text-zinc-400 font-bold block text-[11px]">Application</span>
-                            <span className="text-white font-medium">Pro Cheat Loader</span>
+                        {previewEventType === 'AUTH_SUCCESS' && (
+                          <div className="space-y-2 pt-1 text-xs">
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <span className="text-zinc-400 font-bold block text-[11px]">Application</span>
+                                <span className="text-white font-medium">Pro Cheat Loader</span>
+                              </div>
+                              <div>
+                                <span className="text-zinc-400 font-bold block text-[11px]">Client Identity</span>
+                                <span className="text-white font-medium">AlphaTester (Alex)</span>
+                              </div>
+                              <div>
+                                <span className="text-zinc-400 font-bold block text-[11px]">App Version</span>
+                                <code className="text-zinc-200 bg-[#1e1f22] px-1.5 py-0.5 rounded text-[11px]">v1.0.4</code>
+                              </div>
+                              <div>
+                                <span className="text-zinc-400 font-bold block text-[11px]">Key / Identifier</span>
+                                <code className="text-purple-300 bg-[#1e1f22] px-1.5 py-0.5 rounded text-[11px]">KEY-9A82-F012-BC44</code>
+                              </div>
+                            </div>
+                            <div>
+                              <span className="text-zinc-400 font-bold block text-[11px] mb-1">Hardware ID (HWID)</span>
+                              <div className="bg-[#1e1f22] p-2 rounded border border-zinc-700/40">
+                                <code className="text-purple-300 font-mono text-[11px] block break-all select-all leading-relaxed">
+                                  43f3ef9ce386ba5ca3a97714c92346a2a4da153e0c1fbbc23e4d75234cdaff4b
+                                </code>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <span className="text-zinc-400 font-bold block text-[11px]">Origin IP</span>
+                                <code className="text-emerald-400 bg-[#1e1f22] px-1.5 py-0.5 rounded text-[11px]">192.168.1.100</code>
+                              </div>
+                              <div>
+                                <span className="text-zinc-400 font-bold block text-[11px]">Timestamp</span>
+                                <span className="text-zinc-300 text-[11px]">Just now</span>
+                              </div>
+                            </div>
                           </div>
-                          <div>
-                            <span className="text-zinc-400 font-bold block text-[11px]">Client Identity</span>
-                            <span className="text-white font-medium">AlphaTester (Alex)</span>
+                        )}
+
+                        {previewEventType === 'AUTH_FAIL' && (
+                          <div className="space-y-2 pt-1 text-xs">
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <span className="text-zinc-400 font-bold block text-[11px]">Application</span>
+                                <span className="text-white font-medium">Pro Cheat Loader</span>
+                              </div>
+                              <div>
+                                <span className="text-zinc-400 font-bold block text-[11px]">Security Violation</span>
+                                <span className="text-red-400 font-bold">🚨 HWID Mismatch</span>
+                              </div>
+                              <div>
+                                <span className="text-zinc-400 font-bold block text-[11px]">Client Name</span>
+                                <span className="text-white font-medium">AlphaTester (Alex)</span>
+                              </div>
+                              <div>
+                                <span className="text-zinc-400 font-bold block text-[11px]">Attempted Key / User</span>
+                                <code className="text-zinc-300 bg-[#1e1f22] px-1.5 py-0.5 rounded text-[11px]">KEY-9A82-F012-BC44</code>
+                              </div>
+                            </div>
+                            <div>
+                              <span className="text-zinc-400 font-bold block text-[11px] mb-1">Reported Hardware ID (HWID)</span>
+                              <div className="bg-[#1e1f22] p-2 rounded border border-red-900/40">
+                                <code className="text-red-300 font-mono text-[11px] block break-all select-all leading-relaxed">
+                                  43f3ef9ce386ba5ca3a97714c92346a2a4da153e0c1fbbc23e4d75234cdaff4b
+                                </code>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <span className="text-zinc-400 font-bold block text-[11px]">Origin IP</span>
+                                <code className="text-red-400 bg-[#1e1f22] px-1.5 py-0.5 rounded text-[11px]">192.168.1.100</code>
+                              </div>
+                              <div>
+                                <span className="text-zinc-400 font-bold block text-[11px]">Blocked At</span>
+                                <span className="text-zinc-300 text-[11px]">Just now</span>
+                              </div>
+                            </div>
                           </div>
-                          <div>
-                            <span className="text-zinc-400 font-bold block text-[11px]">Origin IP</span>
-                            <code className="text-emerald-400 bg-[#1e1f22] px-1.5 py-0.5 rounded text-[11px]">192.168.1.100</code>
+                        )}
+
+                        {previewEventType === 'KEY_CREATE' && (
+                          <div className="space-y-2 pt-1 text-xs">
+                            <div className="grid grid-cols-3 gap-2">
+                              <div>
+                                <span className="text-zinc-400 font-bold block text-[11px]">Application</span>
+                                <span className="text-white font-medium">Pro Cheat Loader</span>
+                              </div>
+                              <div>
+                                <span className="text-zinc-400 font-bold block text-[11px]">Duration</span>
+                                <code className="text-blue-300 bg-[#1e1f22] px-1.5 py-0.5 rounded text-[11px]">30 Days</code>
+                              </div>
+                              <div>
+                                <span className="text-zinc-400 font-bold block text-[11px]">Client Name</span>
+                                <span className="text-white font-medium">John Doe</span>
+                              </div>
+                            </div>
+                            <div>
+                              <span className="text-zinc-400 font-bold block text-[11px] mb-1">License Key</span>
+                              <div className="bg-[#1e1f22] p-2 rounded border border-blue-900/40">
+                                <code className="text-blue-300 font-mono text-[11px] block break-all select-all">
+                                  KEY-77AB-8910-FEDC-2026
+                                </code>
+                              </div>
+                            </div>
+                            <div>
+                              <span className="text-zinc-400 font-bold block text-[11px] mb-1">Authorized Hardware ID (HWID)</span>
+                              <div className="bg-[#1e1f22] p-2 rounded border border-purple-900/40">
+                                <code className="text-purple-300 font-mono text-[11px] block break-all select-all leading-relaxed">
+                                  43f3ef9ce386ba5ca3a97714c92346a2a4da153e0c1fbbc23e4d75234cdaff4b
+                                </code>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <span className="text-zinc-400 font-bold block text-[11px]">Triggered By Admin IP</span>
+                                <code className="text-zinc-300 bg-[#1e1f22] px-1.5 py-0.5 rounded text-[11px]">127.0.0.1</code>
+                              </div>
+                              <div>
+                                <span className="text-zinc-400 font-bold block text-[11px]">Timestamp</span>
+                                <span className="text-zinc-300 text-[11px]">Just now</span>
+                              </div>
+                            </div>
                           </div>
-                          <div>
-                            <span className="text-zinc-400 font-bold block text-[11px]">App Version</span>
-                            <code className="text-zinc-200 bg-[#1e1f22] px-1.5 py-0.5 rounded text-[11px]">v1.0.4</code>
+                        )}
+
+                        {previewEventType === 'FREE_TRIAL' && (
+                          <div className="space-y-2 pt-1 text-xs">
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <span className="text-zinc-400 font-bold block text-[11px]">Application</span>
+                                <span className="text-white font-medium">Pro Cheat Loader</span>
+                              </div>
+                              <div>
+                                <span className="text-zinc-400 font-bold block text-[11px]">Client Identity</span>
+                                <span className="text-white font-medium">Free Trial Device</span>
+                              </div>
+                              <div>
+                                <span className="text-zinc-400 font-bold block text-[11px]">App Version</span>
+                                <code className="text-cyan-300 bg-[#1e1f22] px-1.5 py-0.5 rounded text-[11px]">v1.0.4</code>
+                              </div>
+                              <div>
+                                <span className="text-zinc-400 font-bold block text-[11px]">Key / Identifier</span>
+                                <code className="text-cyan-300 bg-[#1e1f22] px-1.5 py-0.5 rounded text-[11px]">FREE_TRIAL_GLOBAL</code>
+                              </div>
+                            </div>
+                            <div>
+                              <span className="text-zinc-400 font-bold block text-[11px] mb-1">Hardware ID (HWID)</span>
+                              <div className="bg-[#1e1f22] p-2 rounded border border-cyan-900/40">
+                                <code className="text-cyan-300 font-mono text-[11px] block break-all select-all leading-relaxed">
+                                  43f3ef9ce386ba5ca3a97714c92346a2a4da153e0c1fbbc23e4d75234cdaff4b
+                                </code>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <span className="text-zinc-400 font-bold block text-[11px]">Origin IP</span>
+                                <code className="text-emerald-400 bg-[#1e1f22] px-1.5 py-0.5 rounded text-[11px]">192.168.1.100</code>
+                              </div>
+                              <div>
+                                <span className="text-zinc-400 font-bold block text-[11px]">Timestamp</span>
+                                <span className="text-zinc-300 text-[11px]">Just now</span>
+                              </div>
+                            </div>
                           </div>
-                        </div>
+                        )}
+
+                        {previewEventType === 'ADMIN_ACTION' && (
+                          <div className="space-y-2 pt-1 text-xs">
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <span className="text-zinc-400 font-bold block text-[11px]">Application</span>
+                                <span className="text-white font-medium">Pro Cheat Loader</span>
+                              </div>
+                              <div>
+                                <span className="text-zinc-400 font-bold block text-[11px]">Action</span>
+                                <code className="text-amber-300 bg-[#1e1f22] px-1.5 py-0.5 rounded text-[11px]">LICENSE_RESET_HWID</code>
+                              </div>
+                              <div className="col-span-2">
+                                <span className="text-zinc-400 font-bold block text-[11px]">Target Record</span>
+                                <code className="text-zinc-200 bg-[#1e1f22] px-1.5 py-0.5 rounded text-[11px]">KEY-9A82-F012-BC44</code>
+                              </div>
+                            </div>
+                            <div>
+                              <span className="text-zinc-400 font-bold block text-[11px] mb-1">Hardware ID (HWID)</span>
+                              <div className="bg-[#1e1f22] p-2 rounded border border-amber-900/40">
+                                <code className="text-amber-300 font-mono text-[11px] block break-all select-all leading-relaxed">
+                                  43f3ef9ce386ba5ca3a97714c92346a2a4da153e0c1fbbc23e4d75234cdaff4b
+                                </code>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <span className="text-zinc-400 font-bold block text-[11px]">Details</span>
+                                <span className="text-zinc-300 text-[11px]">Bound HWID unlinked / cleared</span>
+                              </div>
+                              <div>
+                                <span className="text-zinc-400 font-bold block text-[11px]">Admin IP</span>
+                                <code className="text-zinc-300 bg-[#1e1f22] px-1.5 py-0.5 rounded text-[11px]">127.0.0.1</code>
+                              </div>
+                            </div>
+                          </div>
+                        )}
 
                         <div className="pt-2 border-t border-zinc-700/60 flex items-center justify-between text-[10px] text-zinc-400">
                           <span>Null-Auth Platform • Cloud Security Gate</span>
