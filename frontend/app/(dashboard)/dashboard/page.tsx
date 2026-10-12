@@ -238,7 +238,7 @@ export default function DashboardOverviewPage() {
               Welcome back, Administrator
             </h2>
             <p className="text-xs text-zinc-400 max-w-xl">
-              Manage your applications, generate secure license keys bound to client machine SIDs, and control HWID access whitelists.
+              Manage your applications, generate secure license keys bound to client hardware IDs (HWIDs), and control HWID access whitelists.
             </p>
           </div>
 

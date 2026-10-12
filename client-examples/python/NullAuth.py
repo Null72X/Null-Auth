@@ -279,12 +279,12 @@ if __name__ == "__main__":
         sys.exit(1)
 
     print(f"[+] Server Connected! Local Version: {auth.version}")
-    print(f"[+] Detected Windows User SID: {auth.get_windows_user_sid()}")
+    print(f"[+] Detected Hardware ID (HWID): {auth.get_hwid()}")
 
     print("\nSelect Authentication Method:")
-    print("  1. Method 1: License Key + Bound Machine SID")
+    print("  1. Method 1: License Key + Bound Hardware ID (HWID)")
     print("  2. Method 2: HWID Whitelist Only (No License Key)")
-    print("  3. Method 3: Username + Password (Bound Machine SID)")
+    print("  3. Method 3: Username + Password (Bound Hardware ID)")
 
     choice = input("\nEnter Choice (1, 2, or 3): ").strip()
 

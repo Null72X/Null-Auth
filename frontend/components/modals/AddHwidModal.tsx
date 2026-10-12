@@ -118,7 +118,7 @@ export function AddHwidModal({
       : [hwid.trim()];
 
     if (hwidList.length === 0 || (!isBatchMode && !hwid.trim())) {
-      setError('Please provide at least one valid Windows Machine SID / HWID.');
+      setError('Please provide at least one valid Hardware ID (HWID).');
       setIsLoading(false);
       return;
     }
@@ -241,7 +241,7 @@ export function AddHwidModal({
               }`}
             >
               <Cpu className="w-3.5 h-3.5 text-purple-400" />
-              Single Machine SID
+              Single HWID
             </button>
             <button
               type="button"
@@ -253,7 +253,7 @@ export function AddHwidModal({
               }`}
             >
               <Layers className="w-3.5 h-3.5 text-purple-400" />
-              Batch Multi-Machine
+              Batch Multi-HWID
             </button>
           </div>
 
@@ -286,7 +286,7 @@ export function AddHwidModal({
           {!isBatchMode ? (
             <div>
               <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">
-                Machine / Windows User SID / HWID String *
+                Hardware ID (HWID) Hash *
               </label>
               <div className="relative">
                 <input
@@ -294,20 +294,20 @@ export function AddHwidModal({
                   value={hwid}
                   onChange={(e) => setHwid(e.target.value)}
                   required={!isBatchMode}
-                  placeholder="e.g. S-1-5-21-382946193-84729104-..."
+                  placeholder="e.g. 43f3ef9ce386ba5ca3a97714c92346a2a4da153e0c1fbbc23e4d75234cdaff4b"
                   className="w-full bg-zinc-950 border border-zinc-800 rounded-[10px] pl-3.5 pr-10 py-2.5 text-sm font-mono text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-purple-500"
                 />
                 <Cpu className="w-4 h-4 text-zinc-600 absolute right-3.5 top-3 pointer-events-none" />
               </div>
               <p className="text-[11px] text-zinc-500 mt-1.5">
-                Enter raw Windows SID or client machine hash. Automatically stored for instant authentication.
+                Enter the client machine SHA-256 HWID (MachineGuid + Volume Serial). Stored for instant authentication.
               </p>
             </div>
           ) : (
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">
-                  Paste Multiple Machine SIDs / HWIDs *
+                  Paste Multiple Hardware IDs (HWIDs) *
                 </label>
                 <span className="text-[11px] font-mono text-purple-400 font-bold bg-purple-950/60 px-2 py-0.5 rounded border border-purple-800/50">
                   {batchCount} {batchCount === 1 ? 'HWID' : 'HWIDs'} detected
@@ -318,11 +318,11 @@ export function AddHwidModal({
                 onChange={(e) => setHwidBatchText(e.target.value)}
                 required={isBatchMode}
                 rows={4}
-                placeholder={`S-1-5-21-382946193-84729104-...\nS-1-5-21-998234120-11234901-...\nS-1-5-21-482910394-55928103-...`}
+                placeholder={`43f3ef9ce386ba5ca3a97714c92346a2a4da153e0c1fbbc23e4d75234cdaff4b\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`}
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-[10px] p-3 text-xs font-mono text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-purple-500 leading-relaxed"
               />
               <p className="text-[11px] text-zinc-500 mt-1">
-                Enter one SID / HWID per line or comma-separated. All entries will be authorized in batch.
+                Enter one HWID per line or comma-separated. All entries will be authorized in batch.
               </p>
             </div>
           )}

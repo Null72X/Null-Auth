@@ -246,7 +246,7 @@ export function EditLicenseModal({
         <div className="p-3.5 rounded-[10px] bg-zinc-950/80 border border-zinc-800/80 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
-              Machine SID / Bound HWID
+              Bound Hardware ID (HWID)
             </span>
             {boundHwid && (
               <button

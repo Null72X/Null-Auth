@@ -139,7 +139,7 @@ export async function authenticateLicense(req: Request, res: Response) {
         details: { appId: app.appId, licenseKey, reason: 'LICENSE_NOT_FOUND' },
         status: 'FAILURE',
       });
-      return sendError(res, 'Invalid Key / HWID: Machine SID or License Key not found.', 404, 'LICENSE_NOT_FOUND');
+      return sendError(res, 'Invalid Key / HWID: Hardware ID or License Key not found.', 404, 'LICENSE_NOT_FOUND');
     }
 
     // If active Master Free Trial Key -> Bypass HWID single-device binding check completely!
@@ -184,7 +184,7 @@ export async function authenticateLicense(req: Request, res: Response) {
     }
 
     if (!license) {
-      return sendError(res, 'Invalid Key / HWID: Machine SID or License Key not found.', 404, 'LICENSE_NOT_FOUND');
+      return sendError(res, 'Invalid Key / HWID: Hardware ID or License Key not found.', 404, 'LICENSE_NOT_FOUND');
     }
 
     // 5. Verify License Status
@@ -211,7 +211,7 @@ export async function authenticateLicense(req: Request, res: Response) {
         details: { appId: app.appId, licenseKey: license.key, reason: 'LICENSE_BANNED' },
         status: 'FAILURE',
       });
-      return sendError(res, 'Account Banned: Your license key or machine SID has been banned.', 403, 'LICENSE_BANNED');
+      return sendError(res, 'Account Banned: Your license key or hardware ID has been banned.', 403, 'LICENSE_BANNED');
     }
 
     // 6. Check Expiration
@@ -236,7 +236,7 @@ export async function authenticateLicense(req: Request, res: Response) {
       return sendError(res, 'License Expired: Your license key or HWID authorization has expired.', 403, 'LICENSE_EXPIRED');
     }
 
-    // 7. Check & Bind HWID / Machine SID
+    // 7. Check & Bind HWID
     if (!license.boundHwid) {
       // First activation - Bind HWID
       await prisma.license.update({
@@ -263,7 +263,7 @@ export async function authenticateLicense(req: Request, res: Response) {
         await notifySecurityAlert({
           appName: app.name,
           appId: app.appId,
-          reason: 'HWID Mismatch (Unauthorized Machine SID)',
+          reason: 'HWID Mismatch (Unauthorized Hardware ID)',
           keyOrHwid: license.key,
           clientName: (license as any).clientName || (license as any).notes,
           ip: typeof ipAddress === 'string' ? ipAddress : undefined,
@@ -288,7 +288,7 @@ export async function authenticateLicense(req: Request, res: Response) {
       });
       return sendError(
         res,
-        'HWID Mismatch: License key is bound to a different machine SID.',
+        'HWID Mismatch: License key is bound to a different hardware ID.',
         403,
         'HWID_MISMATCH'
       );
@@ -448,7 +448,7 @@ export async function authenticateHwid(req: Request, res: Response) {
         details: { appId: app.appId, hwid: cleanHwid, reason: 'HWID_BANNED' },
         status: 'FAILURE',
       });
-      return sendError(res, 'Account Banned: Your machine SID / HWID has been banned.', 403, 'HWID_BANNED');
+      return sendError(res, 'Account Banned: Your hardware ID has been banned.', 403, 'HWID_BANNED');
     }
 
     if (hwidRecord && hwidRecord.status === 'PAUSED') {
@@ -513,7 +513,7 @@ export async function authenticateHwid(req: Request, res: Response) {
       });
       return sendError(
         res,
-        'Invalid Key / HWID: Machine SID or License Key not found.',
+        'Invalid Key / HWID: Hardware ID or License Key not found.',
         404,
         'IDENTIFIER_NOT_FOUND'
       );
@@ -543,7 +543,7 @@ export async function authenticateHwid(req: Request, res: Response) {
         details: { appId: app.appId, hwid: cleanHwid, reason: 'IDENTIFIER_BANNED' },
         status: 'FAILURE',
       });
-      return sendError(res, 'Account Banned: Your license key or machine SID has been banned.', 403, 'IDENTIFIER_BANNED');
+      return sendError(res, 'Account Banned: Your hardware ID has been banned.', 403, 'IDENTIFIER_BANNED');
     }
 
     // 6. Check Expiration
@@ -905,7 +905,7 @@ export async function authenticateUser(req: Request, res: Response) {
         await notifySecurityAlert({
           appName: app.name,
           appId: app.appId,
-          reason: 'HWID Mismatch (Unauthorized Machine SID)',
+          reason: 'HWID Mismatch (Unauthorized Hardware ID)',
           keyOrHwid: user.username,
           clientName: user.clientName || user.notes,
           ip: typeof ipAddress === 'string' ? ipAddress : undefined,
@@ -930,7 +930,7 @@ export async function authenticateUser(req: Request, res: Response) {
       });
       return sendError(
         res,
-        'HWID Mismatch: User account is bound to a different machine SID.',
+        'HWID Mismatch: User account is bound to a different hardware ID.',
         403,
         'HWID_MISMATCH'
       );

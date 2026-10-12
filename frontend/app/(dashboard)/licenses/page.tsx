@@ -205,7 +205,7 @@ export default function LicensesPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <Header
           title="License Keys Manager"
-          subtitle="Generate, manage, pause, extend duration, or reset bound machine SIDs for license keys."
+          subtitle="Generate, manage, pause, extend duration, or reset bound hardware IDs (HWIDs) for license keys."
         />
         <Button onClick={() => setIsGenerateOpen(true)} className="gap-2 shrink-0 shadow-lg shadow-red-950/40">
           <Plus className="w-4 h-4" /> Generate Licenses
@@ -262,7 +262,7 @@ export default function LicensesPage() {
             <Search className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3" />
             <input
               type="text"
-              placeholder="Search by license key (NULL-XXXX), Client Name, or bound Windows SID..."
+              placeholder="Search by license key (NULL-XXXX), Client Name, or bound HWID..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-red-500/80"
@@ -384,7 +384,7 @@ export default function LicensesPage() {
                           )}
                         </button>
                       </td>
-                      {/* Two-line License Key & Bound Machine HWID/SID */}
+                      {/* Two-line License Key & Bound Machine HWID */}
                       <td className="p-4">
                         <div className="flex flex-col gap-1.5 min-w-[230px] max-w-[320px]">
                           {/* Line 1: License Key */}
@@ -410,7 +410,7 @@ export default function LicensesPage() {
                             )}
                           </div>
 
-                          {/* Line 2: Bound Machine HWID / SID */}
+                          {/* Line 2: Bound Machine HWID */}
                           <div className="flex items-center gap-1.5 text-xs">
                             <Cpu className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
                             {lic.boundHwid ? (
@@ -424,7 +424,7 @@ export default function LicensesPage() {
                                 <button
                                   onClick={() => copyHwid(lic.boundHwid!)}
                                   className="p-0.5 rounded hover:bg-zinc-800 text-zinc-500 hover:text-zinc-200 transition-colors shrink-0"
-                                  title="Copy Bound Machine SID"
+                                  title="Copy Bound HWID"
                                 >
                                   {copiedHwid === lic.boundHwid ? (
                                     <Check className="w-3 h-3 text-emerald-400" />
@@ -605,7 +605,7 @@ export default function LicensesPage() {
 
           <div>
             <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">
-              Bound HWID / User SID String
+              Bound Hardware ID (HWID)
             </label>
             <input
               type="text"

@@ -266,7 +266,7 @@ export default function UserAccountsPage() {
             <Search className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3" />
             <input
               type="text"
-              placeholder="Search by username, client notes, or bound machine SID..."
+              placeholder="Search by username, client notes, or bound HWID..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-red-500/80"
@@ -387,7 +387,7 @@ export default function UserAccountsPage() {
                           )}
                         </button>
                       </td>
-                      {/* Two-line Username & Bound Machine SID/HWID */}
+                      {/* Two-line Username & Bound Machine HWID */}
                       <td className="p-4">
                         <div className="flex flex-col gap-1.5 min-w-[220px] max-w-[300px]">
                           {/* Line 1: Username */}
@@ -414,7 +414,7 @@ export default function UserAccountsPage() {
                             )}
                           </div>
 
-                          {/* Line 2: Bound Machine HWID / SID */}
+                          {/* Line 2: Bound Machine HWID */}
                           <div className="flex items-center gap-1.5 text-xs">
                             <Cpu className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
                             {user.boundHwid ? (
@@ -428,7 +428,7 @@ export default function UserAccountsPage() {
                                 <button
                                   onClick={() => copyHwid(user.boundHwid!)}
                                   className="p-0.5 rounded hover:bg-zinc-800 text-zinc-500 hover:text-zinc-200 transition-colors shrink-0"
-                                  title="Copy Bound Machine SID"
+                                  title="Copy Bound HWID"
                                 >
                                   {copiedHwid === user.boundHwid ? (
                                     <Check className="w-3 h-3 text-emerald-400" />

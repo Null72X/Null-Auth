@@ -239,8 +239,8 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
               type="text"
               placeholder={
                 app.type === 'LICENSE'
-                  ? 'Search by license key, bound Machine SID, or Client Name...'
-                  : 'Search by authorized Machine SID or Client Name...'
+                  ? 'Search by license key, bound HWID, or Client Name...'
+                  : 'Search by authorized HWID or Client Name...'
               }
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -309,7 +309,7 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
                       <button
                         onClick={() => copyToClipboard(displayVal, r.id)}
                         className="p-1 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors shrink-0 border border-zinc-800"
-                        title="Copy Key / Username / SID"
+                        title="Copy Key / Username / HWID"
                       >
                         {copiedId === r.id ? (
                           <Check className="w-3.5 h-3.5 text-emerald-400" />
@@ -370,7 +370,7 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
                   {(app.type === 'LICENSE' || app.type === 'USER_AUTH') && (
                     <div className="flex items-center justify-between text-[11px] text-zinc-400 bg-zinc-900/80 p-2 rounded-[6px] border border-zinc-800/80 font-mono">
                       <div className="flex items-center gap-2 truncate">
-                        <span className="text-zinc-500 font-bold uppercase text-[9px]">Bound SID:</span>
+                        <span className="text-zinc-500 font-bold uppercase text-[9px]">Bound HWID:</span>
                         <span className={r.boundHwid ? 'text-zinc-200 font-bold truncate' : 'text-zinc-600 italic'}>
                           {r.boundHwid || 'Not yet bound to machine'}
                         </span>
@@ -379,9 +379,9 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
                         <button
                           onClick={() => handleResetHwid(r.id)}
                           className="text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1 text-[10px] font-bold shrink-0 ml-2 bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800"
-                          title="Reset Bound Machine SID"
+                          title="Reset Bound HWID"
                         >
-                          <RotateCcw className="w-3 h-3" /> Reset SID
+                          <RotateCcw className="w-3 h-3" /> Reset HWID
                         </button>
                       )}
                     </div>

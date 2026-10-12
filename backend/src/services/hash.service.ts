@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 
 /**
- * Normalizes client machine HWID or Windows User SID.
+ * Normalizes client machine hardware HWID.
  */
 export function hashHwid(rawHwid: string): string {
   if (!rawHwid) return '';
@@ -13,7 +13,7 @@ export function hashHwid(rawHwid: string): string {
 }
 
 /**
- * Generates a SHA-256 cryptographic hash of a raw HWID/SID string
+ * Generates a SHA-256 cryptographic hash of a raw HWID string
  */
 export function sha256Hwid(rawHwid: string): string {
   if (!rawHwid) return '';

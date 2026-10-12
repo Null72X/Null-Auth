@@ -1187,7 +1187,7 @@ export default function SettingsPage() {
                   </span>
                 </div>
                 <p className="text-xs text-zinc-400">
-                  Plug-and-play single-file SDKs with dynamic Native Win32 popup error messages & SID HWID detection.
+                  Plug-and-play single-file SDKs with dynamic Native Win32 popup error messages & real Hardware ID (HWID) detection.
                 </p>
               </div>
 

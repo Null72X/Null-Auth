@@ -161,7 +161,7 @@ export default function HwidPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <Header
           title="HWID Whitelist Access Manager"
-          subtitle="Authorize machine SIDs / HWIDs directly for applications running in Whitelist mode."
+          subtitle="Authorize machine Hardware IDs (HWIDs) directly for applications running in Whitelist mode."
         />
         <Button onClick={() => setIsAddOpen(true)} className="gap-2 shrink-0 shadow-lg shadow-purple-950/40">
           <Plus className="w-4 h-4" /> Authorize HWID
@@ -218,7 +218,7 @@ export default function HwidPage() {
             <Search className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3" />
             <input
               type="text"
-              placeholder="Search by Windows SID / HWID string or Client Name..."
+              placeholder="Search by Hardware ID (HWID) or Client Name..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-purple-500/80"
@@ -262,7 +262,7 @@ export default function HwidPage() {
           <table className="w-full text-left text-sm">
             <thead className="bg-zinc-950/90 border-b border-zinc-800/80 text-xs font-bold text-zinc-400 uppercase tracking-wider">
               <tr>
-                <th className="p-4">Machine SID / HWID String</th>
+                <th className="p-4">Hardware ID (HWID)</th>
                 <th className="p-4">Application</th>
                 <th className="p-4">Status</th>
                 <th className="p-4">Expiration</th>
@@ -295,7 +295,7 @@ export default function HwidPage() {
                         <button
                           onClick={() => copyHwid(item.hwidHash)}
                           className="p-1 rounded text-zinc-500 hover:text-zinc-200 transition-colors shrink-0"
-                          title="Copy HWID / SID"
+                          title="Copy HWID"
                         >
                           {copiedHwid === item.hwidHash ? (
                             <Check className="w-3.5 h-3.5 text-emerald-400" />
@@ -344,7 +344,7 @@ export default function HwidPage() {
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => setItemToEdit(item)}
-                          title="Edit HWID Record (SID, Client, Expiry, Status)"
+                          title="Edit HWID Record (HWID, Client, Expiry, Status)"
                           className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white transition-colors active:scale-95 flex items-center gap-1 font-semibold text-xs border border-zinc-700/60"
                         >
                           <Edit2 className="w-3.5 h-3.5 text-purple-400" />
@@ -432,23 +432,23 @@ export default function HwidPage() {
       <Modal
         isOpen={!!itemToChangeHwid}
         onClose={() => setItemToChangeHwid(null)}
-        title="HWID Changer — Update Authorized Machine SID"
+        title="HWID Changer — Update Authorized Hardware ID"
       >
         <form onSubmit={handleUpdateHwidString} className="space-y-4">
           <p className="text-xs text-zinc-400">
-            Enter the new Machine SID / HWID string for this user. The application authorization will immediately transfer to the new HWID.
+            Enter the new Hardware ID (HWID) for this user. The application authorization will immediately transfer to the new HWID.
           </p>
 
           <div>
             <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">
-              New Machine SID / HWID String *
+              New Hardware ID (HWID) *
             </label>
             <input
               type="text"
               value={newHwidString}
               onChange={(e) => setNewHwidString(e.target.value)}
               required
-              placeholder="e.g. S-1-5-21-3242978600-3580298177-1240389739-1001"
+              placeholder="e.g. 43f3ef9ce386ba5ca3a97714c92346a2a4da153e0c1fbbc23e4d75234cdaff4b"
               className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2.5 text-xs font-mono text-purple-400 focus:outline-none focus:border-purple-500"
             />
           </div>

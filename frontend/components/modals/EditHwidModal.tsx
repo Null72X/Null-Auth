@@ -127,11 +127,11 @@ export function EditHwidModal({
           </div>
         )}
 
-        {/* Machine SID / HWID Identifier */}
+        {/* Hardware ID (HWID) Identifier */}
         <div>
           <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1.5 flex items-center justify-between">
             <span className="flex items-center gap-1.5">
-              <Cpu className="w-3.5 h-3.5 text-purple-400" /> Machine SID / HWID Hash
+              <Cpu className="w-3.5 h-3.5 text-purple-400" /> Hardware ID (HWID) Hash
             </span>
             <button
               type="button"
@@ -148,10 +148,10 @@ export function EditHwidModal({
             onChange={(e) => setHwid(e.target.value)}
             required
             className="w-full bg-zinc-950 border border-zinc-800 rounded-[10px] px-3.5 py-2.5 text-sm font-mono text-purple-300 focus:outline-none focus:border-purple-500 transition-colors"
-            placeholder="Windows SID or HWID string"
+            placeholder="e.g. 43f3ef9ce386ba5ca3a97714c92346a2a4da153e0c1fbbc23e4d75234cdaff4b"
           />
           <span className="block text-[11px] text-zinc-500 font-mono mt-1">
-            Raw SID values (e.g. S-1-5-21-...) will be automatically SHA256 hashed on save.
+            Standard 64-character SHA-256 hardware identifier (MachineGuid + Volume Serial).
           </span>
         </div>
 

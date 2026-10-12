@@ -323,9 +323,9 @@ int main() {
     std::cout << "[+] Hardware HWID: " << hwid << "\n\n";
 
     std::cout << "Select Authentication Method:\n";
-    std::cout << "  1. Method 1: License Key + Bound Machine SID\n";
+    std::cout << "  1. Method 1: License Key + Bound Hardware ID (HWID)\n";
     std::cout << "  2. Method 2: HWID Whitelist Only (No License Key)\n";
-    std::cout << "  3. Method 3: Username + Password (Bound Machine SID)\n";
+    std::cout << "  3. Method 3: Username + Password (Bound Hardware ID)\n";
     std::cout << "\nEnter Choice (1, 2, or 3): ";
 
     int choice = 1;

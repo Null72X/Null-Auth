@@ -46,7 +46,7 @@ model ClientUser {
   appId            String
   application      Application @relation(fields: [appId], references: [id], onDelete: Cascade)
   status           String      @default("ACTIVE") // "ACTIVE", "PAUSED", "EXPIRED", "BANNED"
-  boundHwid        String?     // Hashed or sanitized machine SID / HWID
+  boundHwid        String?     // SHA-256 Hardware ID (MachineGuid + Volume Serial)
   expiresAt        DateTime
   clientName       String?     @map("notes")
   firstActivatedAt DateTime?
@@ -67,7 +67,7 @@ model License {
   appId            String
   application      Application @relation(fields: [appId], references: [id], onDelete: Cascade)
   status           String      @default("ACTIVE") // "ACTIVE", "PAUSED", "EXPIRED", "BANNED"
-  boundHwid        String?     // Hashed or sanitized machine SID / HWID
+  boundHwid        String?     // SHA-256 Hardware ID (MachineGuid + Volume Serial)
   expiresAt        DateTime
   clientName       String?     @map("notes")
   firstActivatedAt DateTime?
@@ -83,7 +83,7 @@ model License {
 
 model HwidAccess {
   id          String      @id @default(uuid())
-  hwidHash    String      // Hashed or sanitized machine SID / HWID
+  hwidHash    String      // SHA-256 Hardware ID (MachineGuid + Volume Serial)
   appId       String
   application Application @relation(fields: [appId], references: [id], onDelete: Cascade)
   status      String      @default("ACTIVE") // "ACTIVE", "PAUSED", "EXPIRED", "BANNED"

@@ -271,13 +271,13 @@ export async function notifyHwidWhitelisted(data: {
     eventType: 'KEY_CREATE',
     embed: {
       title: '💻 HWID Whitelist Authorized',
-      description: `A machine HWID SID has been authorized to access **${data.appName}**.`,
+      description: `A machine Hardware ID (HWID) has been authorized to access **${data.appName}**.`,
       color: DISCORD_COLORS.PURPLE,
       fields: [
         { name: 'Application', value: `**${data.appName}** (\`${data.appId}\`)`, inline: true },
         { name: 'Client Name', value: data.clientName ? `**${data.clientName}**` : '*None specified*', inline: true },
         { name: 'Duration', value: `\`${data.days} Days\``, inline: true },
-        { name: 'Authorized Machine SID', value: `\`\`\`${data.hwidHash}\`\`\``, inline: false },
+        { name: 'Authorized Hardware ID (HWID)', value: `\`\`\`${data.hwidHash}\`\`\``, inline: false },
         { name: 'Admin IP', value: `\`${data.adminIp || 'Console'}\``, inline: true },
         { name: 'Timestamp', value: `<t:${unixTime}:R>`, inline: true },
       ],
@@ -383,7 +383,7 @@ export async function notifySecurityAlert(data: {
   }
 
   if (data.hwid) {
-    fields.push({ name: 'Reported Machine SID', value: `\`${data.hwid}\``, inline: false });
+    fields.push({ name: 'Reported Hardware ID (HWID)', value: `\`${data.hwid}\``, inline: false });
   }
 
   fields.push({ name: 'Origin IP', value: `\`${data.ip || 'Unknown'}\``, inline: true });
