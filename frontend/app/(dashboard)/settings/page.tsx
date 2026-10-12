@@ -23,6 +23,10 @@ import {
   Send,
   Eye,
   EyeOff,
+  Laptop,
+  CheckCircle2,
+  HardDrive,
+  Key,
 } from 'lucide-react';
 
 const CSHARP_SDK = `using System;
@@ -582,8 +586,12 @@ if __name__ == "__main__":
     else:
         print("ACCESS DENIED!")`;
 
+const HWID_POWERSHELL_CLIPBOARD = `$g = (Get-ItemProperty 'HKLM:\\SOFTWARE\\Microsoft\\Cryptography').MachineGuid; $v = (Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'").VolumeSerialNumber; $id = [BitConverter]::ToString([Security.Cryptography.SHA256]::Create().ComputeHash([Text.Encoding]::UTF8.GetBytes($g + ':' + $v))).Replace('-','').ToLower(); Set-Clipboard $id; Write-Host "HWID (Copied to Clipboard): $id" -ForegroundColor Green`;
+
+const HWID_POWERSHELL_STANDARD = `$g = (Get-ItemProperty 'HKLM:\\SOFTWARE\\Microsoft\\Cryptography').MachineGuid; $v = (Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'").VolumeSerialNumber; [BitConverter]::ToString([Security.Cryptography.SHA256]::Create().ComputeHash([Text.Encoding]::UTF8.GetBytes($g + ':' + $v))).Replace('-','').ToLower()`;
+
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<'webhook' | 'sdk' | 'api' | 'security'>('webhook');
+  const [activeTab, setActiveTab] = useState<'webhook' | 'sdk' | 'api' | 'security' | 'hwid'>('webhook');
   const [sdkLang, setSdkLang] = useState<'csharp' | 'cpp' | 'python'>('csharp');
 
   const [currentPassword, setCurrentPassword] = useState('');
@@ -593,6 +601,7 @@ export default function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [copiedSdk, setCopiedSdk] = useState<string | null>(null);
+  const [copiedHwidCmd, setCopiedHwidCmd] = useState<string | null>(null);
 
   // Discord Webhook State
   const [webhookUrl, setWebhookUrl] = useState('');
@@ -744,15 +753,31 @@ export default function SettingsPage() {
     document.body.removeChild(element);
   };
 
+  const copyHwidCommand = (cmd: string, key: string) => {
+    navigator.clipboard.writeText(cmd);
+    setCopiedHwidCmd(key);
+    setTimeout(() => setCopiedHwidCmd(null), 2000);
+  };
+
   return (
     <div className="space-y-8 animate-fade-in max-w-5xl">
       <Header
         title="Settings & Client SDK Integration"
-        subtitle="Manage administrator security, view live API endpoints, and download single-file client SDKs for C#, C++, and Python."
+        subtitle="Manage administrator security, view live API endpoints, generate machine HWID with PowerShell, and download single-file client SDKs for C#, C++, and Python."
       />
 
       {/* Tab Selectors */}
       <div className="flex items-center gap-2 border-b border-zinc-800 pb-3 text-sm flex-wrap">
+        <button
+          onClick={() => setActiveTab('hwid')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-[10px] font-bold transition-all ${
+            activeTab === 'hwid'
+              ? 'btn-red-gradient text-white border border-red-500/40 shadow-md'
+              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
+          }`}
+        >
+          <Terminal className="w-4 h-4 text-emerald-400" /> Machine HWID Tool
+        </button>
         <button
           onClick={() => setActiveTab('webhook')}
           className={`flex items-center gap-2 px-4 py-2 rounded-[10px] font-bold transition-all ${
@@ -794,6 +819,211 @@ export default function SettingsPage() {
           <Lock className="w-4 h-4" /> Admin Security
         </button>
       </div>
+
+      {/* Machine HWID Tool Tab */}
+      {activeTab === 'hwid' && (
+        <div className="space-y-6 animate-slide-up">
+          {/* Main Command Card */}
+          <Card className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-[10px] bg-emerald-950/60 border border-emerald-700/50">
+                    <Terminal className="w-5 h-5 text-emerald-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold text-white flex items-center gap-2">
+                      Machine Hardware ID (HWID) Tool
+                    </h2>
+                    <p className="text-xs text-zinc-400">
+                      Generate, inspect, and copy your Windows PC's exact Hardware ID matching Null-Auth client SDKs.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-700/60 text-emerald-400 text-xs font-mono font-bold flex items-center gap-1.5 shadow-sm">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  POWERSHELL COMPATIBLE
+                </span>
+                <span className="px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 text-xs font-mono font-bold">
+                  SHA-256 HASH
+                </span>
+              </div>
+            </div>
+
+            {/* Quick Explanation Banner */}
+            <div className="p-4 rounded-[12px] bg-emerald-950/20 border border-emerald-800/40 text-xs text-emerald-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-start sm:items-center gap-3">
+                <Shield className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5 sm:mt-0" />
+                <span>
+                  <strong>Exact Algorithm Match:</strong> Calculates the SHA-256 hash of <code className="bg-emerald-950/80 px-1.5 py-0.5 rounded text-emerald-300 font-mono">MachineGuid:VolumeSerialNumber</code> — identical to the C#, C++, and Python SDKs.
+                </span>
+              </div>
+              <span className="text-[11px] font-mono bg-emerald-900/40 border border-emerald-700/40 px-2 py-1 rounded text-emerald-300 shrink-0">
+                64 Hex Characters
+              </span>
+            </div>
+
+            {/* Recommended: PowerShell One-Liner (Auto-Copies to Clipboard) */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                    Recommended: Auto-Copy PowerShell Command
+                  </span>
+                  <span className="text-[10px] bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 px-2 py-0.5 rounded font-mono font-bold">
+                    AUTO-CLIPBOARD
+                  </span>
+                </div>
+                <Button
+                  variant="secondary"
+                  onClick={() => copyHwidCommand(HWID_POWERSHELL_CLIPBOARD, 'clipboard')}
+                  className="text-xs font-bold gap-1.5 py-1.5 px-3 h-auto border-emerald-700/60 hover:border-emerald-500 text-emerald-300 hover:bg-emerald-950/40"
+                >
+                  {copiedHwidCmd === 'clipboard' ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-400" /> Copied Command!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5 text-emerald-400" /> Copy Command
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              <div className="bg-zinc-950 border border-zinc-800 rounded-[10px] p-4 font-mono text-xs text-zinc-300 relative group overflow-x-auto shadow-inner">
+                <pre className="text-emerald-400 whitespace-pre-wrap break-all select-all font-mono leading-relaxed">
+                  {HWID_POWERSHELL_CLIPBOARD}
+                </pre>
+              </div>
+              <p className="text-[11px] text-zinc-400">
+                ⚡ When executed in PowerShell, this command calculates your HWID, prints it to the console in green, and automatically saves it to your Windows clipboard.
+              </p>
+            </div>
+
+            {/* Standard Output Command (Print Only) */}
+            <div className="space-y-2 pt-2 border-t border-zinc-800/80">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-zinc-300 uppercase tracking-wider">
+                  Alternative: Standard Output (Print Only)
+                </span>
+                <Button
+                  variant="secondary"
+                  onClick={() => copyHwidCommand(HWID_POWERSHELL_STANDARD, 'standard')}
+                  className="text-xs font-bold gap-1.5 py-1 px-2.5 h-auto border-zinc-700 hover:border-zinc-500 text-zinc-300"
+                >
+                  {copiedHwidCmd === 'standard' ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-400" /> Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" /> Copy
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              <div className="bg-zinc-950 border border-zinc-800 rounded-[10px] p-3.5 font-mono text-xs text-zinc-300 relative group overflow-x-auto">
+                <pre className="text-zinc-300 whitespace-pre-wrap break-all select-all font-mono leading-relaxed">
+                  {HWID_POWERSHELL_STANDARD}
+                </pre>
+              </div>
+              <p className="text-[11px] text-zinc-500">
+                Prints only the raw 64-character lowercase hexadecimal hash to standard output without touching clipboard.
+              </p>
+            </div>
+
+            {/* Step-by-Step Guide */}
+            <div className="space-y-3 pt-3 border-t border-zinc-800">
+              <h3 className="text-xs font-bold text-zinc-200 uppercase tracking-wider flex items-center gap-2">
+                <Cpu className="w-4 h-4 text-emerald-400" /> How to use this HWID:
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+                <div className="p-3.5 rounded-[10px] bg-zinc-950 border border-zinc-800/80 space-y-1.5">
+                  <div className="flex items-center gap-2 font-bold text-emerald-400">
+                    <span className="w-5 h-5 rounded-full bg-emerald-950 border border-emerald-700/60 flex items-center justify-center text-[11px]">1</span>
+                    Copy Command
+                  </div>
+                  <p className="text-zinc-400 text-[11px] leading-relaxed">
+                    Click the <strong>Copy Command</strong> button above to copy the PowerShell one-liner.
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-[10px] bg-zinc-950 border border-zinc-800/80 space-y-1.5">
+                  <div className="flex items-center gap-2 font-bold text-emerald-400">
+                    <span className="w-5 h-5 rounded-full bg-emerald-950 border border-emerald-700/60 flex items-center justify-center text-[11px]">2</span>
+                    Open PowerShell
+                  </div>
+                  <p className="text-zinc-400 text-[11px] leading-relaxed">
+                    Press <code className="bg-zinc-900 px-1 py-0.5 rounded text-zinc-300">Win + R</code>, type <code className="bg-zinc-900 px-1 py-0.5 rounded text-zinc-300">powershell</code>, and press Enter.
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-[10px] bg-zinc-950 border border-zinc-800/80 space-y-1.5">
+                  <div className="flex items-center gap-2 font-bold text-emerald-400">
+                    <span className="w-5 h-5 rounded-full bg-emerald-950 border border-emerald-700/60 flex items-center justify-center text-[11px]">3</span>
+                    Paste & Press Enter
+                  </div>
+                  <p className="text-zinc-400 text-[11px] leading-relaxed">
+                    Right-click or press <code className="bg-zinc-900 px-1 py-0.5 rounded text-zinc-300">Ctrl + V</code> to paste into PowerShell. Press Enter to run.
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-[10px] bg-zinc-950 border border-zinc-800/80 space-y-1.5">
+                  <div className="flex items-center gap-2 font-bold text-emerald-400">
+                    <span className="w-5 h-5 rounded-full bg-emerald-950 border border-emerald-700/60 flex items-center justify-center text-[11px]">4</span>
+                    Paste in Null-Auth
+                  </div>
+                  <p className="text-zinc-400 text-[11px] leading-relaxed">
+                    Your HWID is now copied! Paste it directly into the <strong>Licenses</strong> or <strong>Users</strong> page to bind the device.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Cryptographic Architecture Card */}
+            <div className="p-4 rounded-[12px] bg-zinc-950 border border-zinc-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
+                  <HardDrive className="w-4 h-4 text-emerald-400" />
+                  Hardware Signature Breakdown
+                </span>
+                <span className="text-[10px] font-mono text-zinc-500">Zero Dependencies Required</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                <div className="p-3 rounded-[8px] bg-zinc-900/50 border border-zinc-800/60 space-y-1">
+                  <span className="text-zinc-400 font-bold block text-[11px]">1. Cryptography MachineGuid</span>
+                  <p className="text-zinc-300 text-[11px]">
+                    Read from Windows registry: <br />
+                    <code className="text-emerald-300 text-[10px] font-mono break-all">HKLM:\SOFTWARE\Microsoft\Cryptography</code>
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-[8px] bg-zinc-900/50 border border-zinc-800/60 space-y-1">
+                  <span className="text-zinc-400 font-bold block text-[11px]">2. System Volume Serial</span>
+                  <p className="text-zinc-300 text-[11px]">
+                    Root drive serial number: <br />
+                    <code className="text-emerald-300 text-[10px] font-mono break-all">Win32_LogicalDisk (DeviceID='C:')</code>
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-[8px] bg-zinc-900/50 border border-zinc-800/60 space-y-1">
+                  <span className="text-zinc-400 font-bold block text-[11px]">3. SHA-256 Digest</span>
+                  <p className="text-zinc-300 text-[11px]">
+                    Standard cryptographic hash: <br />
+                    <code className="text-emerald-300 text-[10px] font-mono break-all">SHA256(Guid + ':' + Serial)</code>
+                  </p>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
 
       {/* Discord Webhook Tab */}
       {activeTab === 'webhook' && (
@@ -1382,6 +1612,39 @@ export default function SettingsPage() {
       {/* SDK Integration Tab */}
       {activeTab === 'sdk' && (
         <div className="space-y-6 animate-slide-up">
+          {/* Quick HWID Generator Callout */}
+          <div className="p-3.5 rounded-[10px] bg-gradient-to-r from-zinc-950 via-zinc-950 to-emerald-950/30 border border-emerald-800/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2.5">
+              <Terminal className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span className="text-zinc-300">
+                Need your Windows PC's exact <strong>Hardware ID (HWID)</strong> for testing client authentication?
+              </span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                variant="secondary"
+                onClick={() => copyHwidCommand(HWID_POWERSHELL_CLIPBOARD, 'sdk_banner')}
+                className="text-xs font-bold gap-1.5 py-1 px-2.5 h-auto border-emerald-700/60 text-emerald-300 hover:bg-emerald-950/40"
+              >
+                {copiedHwidCmd === 'sdk_banner' ? (
+                  <>
+                    <Check className="w-3 h-3 text-emerald-400" /> Copied Command!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3 h-3 text-emerald-400" /> Copy PowerShell One-Liner
+                  </>
+                )}
+              </Button>
+              <button
+                onClick={() => setActiveTab('hwid')}
+                className="text-[11px] font-bold text-zinc-400 hover:text-white transition-colors underline underline-offset-2"
+              >
+                View HWID Tool &rarr;
+              </button>
+            </div>
+          </div>
+
           <Card className="space-y-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-4">
               <div className="space-y-1">
