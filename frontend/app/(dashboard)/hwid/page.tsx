@@ -316,10 +316,14 @@ export default function HwidPage() {
                     <td className="p-4 font-mono text-xs">
                       <div className="space-y-0.5">
                         <div className="font-bold text-zinc-200">
-                          {item.remainingDays > 0 ? `${item.remainingDays} days left` : 'Expired'}
+                          {item.remainingDays != null && item.remainingDays >= 9999
+                            ? 'Lifetime'
+                            : item.remainingDays > 0
+                            ? `${item.remainingDays} days left`
+                            : 'Expired'}
                         </div>
                         <div className="text-[11px] text-zinc-500">
-                          {new Date(item.expiresAt).toLocaleDateString()}
+                          {item.remainingDays != null && item.remainingDays >= 9999 ? 'No Expiry' : new Date(item.expiresAt).toLocaleDateString()}
                         </div>
                       </div>
                     </td>

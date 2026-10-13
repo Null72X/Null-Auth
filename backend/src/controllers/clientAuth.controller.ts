@@ -572,6 +572,28 @@ export async function authenticateHwid(req: Request, res: Response) {
 
     // If Free Trial Mode is Active for HWID App -> Non-banned devices get instant access!
     if (app.freeTrialEnabled) {
+      let isTrialExpired = false;
+      let remainingDays = 9999;
+      let expiresAtStr = '2099-01-01T00:00:00.000Z';
+
+      if (app.freeTrialKey && app.freeTrialKey !== 'LIFETIME') {
+        const parsedExp = new Date(app.freeTrialKey);
+        if (!isNaN(parsedExp.getTime())) {
+          expiresAtStr = parsedExp.toISOString();
+          const diff = parsedExp.getTime() - Date.now();
+          if (diff <= 0) {
+            isTrialExpired = true;
+            remainingDays = 0;
+          } else {
+            remainingDays = Math.ceil(diff / (1000 * 60 * 60 * 24));
+          }
+        }
+      }
+
+      if (isTrialExpired) {
+        return sendError(res, 'Free Trial Expired: Free trial access for this application has concluded.', 403, 'TRIAL_EXPIRED');
+      }
+
       const now = new Date();
       await prisma.hwidAccess.updateMany({
         where: { hwidHash: cleanHwid, appId: app.id },
@@ -603,8 +625,8 @@ export async function authenticateHwid(req: Request, res: Response) {
 
       return sendSuccess(res, 'Authentication successful (Free Trial Active)', {
         status: 'active',
-        expires_at: '2099-01-01T00:00:00.000Z',
-        remaining_days: 9999,
+        expires_at: expiresAtStr,
+        remaining_days: remainingDays >= 1000 ? 9999 : remainingDays,
         version: app.version,
       });
     }

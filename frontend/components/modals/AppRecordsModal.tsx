@@ -438,7 +438,7 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
                         </span>
                       )}
                       <span className="text-emerald-400 font-mono font-bold">
-                        {r.remainingDays} Days Left
+                        {r.remainingDays != null && r.remainingDays >= 9999 ? 'Lifetime' : `${r.remainingDays} Days Left`}
                       </span>
                     </div>
                   </div>

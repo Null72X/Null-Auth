@@ -532,10 +532,14 @@ export default function UserAccountsPage() {
                       <td className="p-4 text-xs">
                         <div className="space-y-1">
                           <span className="text-zinc-200 font-bold block">
-                            {user.remainingDays} days left
+                            {user.remainingDays != null && user.remainingDays >= 9999
+                              ? 'Lifetime'
+                              : user.remainingDays > 0
+                              ? `${user.remainingDays} days left`
+                              : 'Expired'}
                           </span>
                           <span className="text-[11px] text-zinc-500 block">
-                            {new Date(user.expiresAt).toLocaleDateString()}
+                            {user.remainingDays != null && user.remainingDays >= 9999 ? 'No Expiry' : new Date(user.expiresAt).toLocaleDateString()}
                           </span>
                         </div>
                       </td>

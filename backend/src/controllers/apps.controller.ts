@@ -106,8 +106,8 @@ export async function listApps(req: Request, res: Response) {
         let freeTrialExpiresAt: string | null = null;
         let freeTrialRemainingDays: number | null = null;
 
-        if (app.freeTrialEnabled && app.freeTrialKey) {
-          if (app.type === 'LICENSE') {
+        if (app.freeTrialEnabled) {
+          if (app.type === 'LICENSE' && app.freeTrialKey) {
             const lic = await prisma.license.findFirst({
               where: { key: app.freeTrialKey, appId: app.id },
               select: { expiresAt: true },
@@ -117,7 +117,7 @@ export async function listApps(req: Request, res: Response) {
               const diffTime = lic.expiresAt.getTime() - now.getTime();
               freeTrialRemainingDays = diffTime > 0 ? Math.ceil(diffTime / (1000 * 60 * 60 * 24)) : 0;
             }
-          } else if (app.type === 'USER_AUTH') {
+          } else if (app.type === 'USER_AUTH' && app.freeTrialKey) {
             const trialUser = await (prisma as any).clientUser.findFirst({
               where: { appId: app.id, username: app.freeTrialKey },
               select: { plainPassword: true, expiresAt: true },
@@ -128,6 +128,21 @@ export async function listApps(req: Request, res: Response) {
                 freeTrialExpiresAt = trialUser.expiresAt.toISOString();
                 const diffTime = trialUser.expiresAt.getTime() - now.getTime();
                 freeTrialRemainingDays = diffTime > 0 ? Math.ceil(diffTime / (1000 * 60 * 60 * 24)) : 0;
+              }
+            }
+          } else if (app.type === 'HWID') {
+            if (!app.freeTrialKey || app.freeTrialKey === 'LIFETIME') {
+              freeTrialExpiresAt = '2099-01-01T00:00:00.000Z';
+              freeTrialRemainingDays = 9999;
+            } else {
+              const parsedDate = new Date(app.freeTrialKey);
+              if (!isNaN(parsedDate.getTime())) {
+                freeTrialExpiresAt = parsedDate.toISOString();
+                const diffTime = parsedDate.getTime() - now.getTime();
+                freeTrialRemainingDays = diffTime > 0 ? Math.ceil(diffTime / (1000 * 60 * 60 * 24)) : 0;
+              } else {
+                freeTrialExpiresAt = '2099-01-01T00:00:00.000Z';
+                freeTrialRemainingDays = 9999;
               }
             }
           }
@@ -250,12 +265,59 @@ export async function getAppById(req: Request, res: Response) {
       freeTrialPassword = trialUser?.plainPassword || 'trial123';
     }
 
+    let freeTrialExpiresAt: string | null = null;
+    let freeTrialRemainingDays: number | null = null;
+
+    if (app.freeTrialEnabled) {
+      if (app.type === 'LICENSE' && app.freeTrialKey) {
+        const lic = await prisma.license.findFirst({
+          where: { key: app.freeTrialKey, appId: app.id },
+          select: { expiresAt: true },
+        }).catch(() => null);
+        if (lic) {
+          freeTrialExpiresAt = lic.expiresAt.toISOString();
+          const diffTime = lic.expiresAt.getTime() - now.getTime();
+          freeTrialRemainingDays = diffTime > 0 ? Math.ceil(diffTime / (1000 * 60 * 60 * 24)) : 0;
+        }
+      } else if (app.type === 'USER_AUTH' && app.freeTrialKey) {
+        const trialUser = await (prisma as any).clientUser.findFirst({
+          where: { appId: app.id, username: app.freeTrialKey },
+          select: { plainPassword: true, expiresAt: true },
+        }).catch(() => null);
+        if (trialUser) {
+          freeTrialPassword = trialUser.plainPassword || 'trial123';
+          if (trialUser.expiresAt) {
+            freeTrialExpiresAt = trialUser.expiresAt.toISOString();
+            const diffTime = trialUser.expiresAt.getTime() - now.getTime();
+            freeTrialRemainingDays = diffTime > 0 ? Math.ceil(diffTime / (1000 * 60 * 60 * 24)) : 0;
+          }
+        }
+      } else if (app.type === 'HWID') {
+        if (!app.freeTrialKey || app.freeTrialKey === 'LIFETIME') {
+          freeTrialExpiresAt = '2099-01-01T00:00:00.000Z';
+          freeTrialRemainingDays = 9999;
+        } else {
+          const parsedDate = new Date(app.freeTrialKey);
+          if (!isNaN(parsedDate.getTime())) {
+            freeTrialExpiresAt = parsedDate.toISOString();
+            const diffTime = parsedDate.getTime() - now.getTime();
+            freeTrialRemainingDays = diffTime > 0 ? Math.ceil(diffTime / (1000 * 60 * 60 * 24)) : 0;
+          } else {
+            freeTrialExpiresAt = '2099-01-01T00:00:00.000Z';
+            freeTrialRemainingDays = 9999;
+          }
+        }
+      }
+    }
+
     return sendSuccess(res, 'Application details retrieved', {
       ...app,
       freeTrialPassword: freeTrialPassword || (app.type === 'USER_AUTH' && app.freeTrialKey ? 'trial123' : null),
       freeTrialSuffix: trialSuffix,
       trialUsername: app.type === 'USER_AUTH' ? app.freeTrialKey : null,
       hasTrialPassword: app.type === 'USER_AUTH' && Boolean(app.freeTrialKey),
+      freeTrialExpiresAt,
+      freeTrialRemainingDays,
       stats: {
         activeUsers,
         expiredUsers,
@@ -569,6 +631,19 @@ export async function updateApp(req: Request, res: Response) {
         } else if (!existing.freeTrialPassword) {
           updateData.freeTrialPassword = 'trial123';
         }
+      } else if (existing.type === 'HWID') {
+        if (days !== undefined || trialDays !== undefined) {
+          const parsedDays = Number(days !== undefined ? days : trialDays);
+          if (parsedDays >= 9999) {
+            updateData.freeTrialKey = 'LIFETIME';
+          } else if (customTrialExpiresAt) {
+            updateData.freeTrialKey = customTrialExpiresAt.toISOString();
+          } else {
+            updateData.freeTrialKey = 'LIFETIME';
+          }
+        } else if (!existing.freeTrialKey) {
+          updateData.freeTrialKey = 'LIFETIME';
+        }
       }
     } else {
       if (existing.freeTrialEnabled) {
@@ -582,6 +657,8 @@ export async function updateApp(req: Request, res: Response) {
             where: { username: existing.freeTrialKey, appId: existing.id },
             data: { status: 'EXPIRED' },
           }).catch(() => {});
+        } else if (existing.type === 'HWID') {
+          updateData.freeTrialKey = null;
         }
       }
     }
@@ -725,6 +802,8 @@ export async function toggleFreeTrial(req: Request, res: Response) {
             clientName: 'Dynamic Master Free Trial User',
           },
         });
+      } else if (app.type === 'HWID') {
+        newTrialKey = parsedDays >= 9999 ? 'LIFETIME' : expiresAt.toISOString();
       }
     } else {
       if (app.type === 'LICENSE' && app.freeTrialKey) {
@@ -739,6 +818,8 @@ export async function toggleFreeTrial(req: Request, res: Response) {
           where: { username: app.freeTrialKey, appId: app.id },
           data: { status: 'EXPIRED' },
         }).catch(() => {});
+      } else if (app.type === 'HWID') {
+        newTrialKey = null;
       }
     }
 

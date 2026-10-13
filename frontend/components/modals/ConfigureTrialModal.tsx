@@ -59,7 +59,11 @@ export function ConfigureTrialModal({
     if (app && isOpen) {
       setError(null);
       setShowPassword(false);
-      setDays(app.freeTrialRemainingDays && app.freeTrialRemainingDays > 0 ? app.freeTrialRemainingDays : 30);
+      const initialDays =
+        app.freeTrialRemainingDays != null && app.freeTrialRemainingDays > 0
+          ? (app.freeTrialRemainingDays >= 9999 ? 9999 : app.freeTrialRemainingDays)
+          : (app.freeTrialEnabled ? 9999 : 30);
+      setDays(initialDays);
 
       if (app.type === 'LICENSE') {
         const existingKey = app.freeTrialSuffix || app.freeTrialKey || '';
@@ -131,6 +135,8 @@ export function ConfigureTrialModal({
       } else if (app.type === 'USER_AUTH') {
         payload.trialUsername = username.trim();
         payload.trialPassword = password.trim() || app.freeTrialPassword || 'trial123';
+      } else if (app.type === 'HWID') {
+        payload.days = Number(days);
       }
 
       const res = await fetchApi(`/admin/apps/${app.id}`, {
