@@ -61,6 +61,8 @@ interface AppItem {
   freeTrialEnabled: boolean;
   freeTrialKey: string | null;
   freeTrialPassword?: string | null;
+  freeTrialExpiresAt?: string | null;
+  freeTrialRemainingDays?: number;
   discordWebhookUrl?: string | null;
   createdAt: string;
   activeUsers: number;
@@ -608,15 +610,15 @@ export default function ApplicationsPage() {
                 } ${draggedId === app.id ? 'opacity-40 scale-[0.98]' : 'opacity-100'}`}
               >
                 <Card
-                  className="flex flex-col justify-between space-y-5 animate-slide-up group border-zinc-800/90 hover:border-red-500/50 bg-zinc-950/80 backdrop-blur-md shadow-xl h-full"
+                  className="flex flex-col justify-between space-y-4 animate-slide-up border-zinc-800/80 hover:border-zinc-700 bg-zinc-950/80 shadow-lg h-full"
                   style={{ animationDelay: `${index * 50}ms` }}
                 >
-                  <div className="space-y-4">
-                    {/* App Header & Title */}
+                  <div className="space-y-3.5">
+                    {/* App Header */}
                     <div className="flex items-start justify-between gap-3">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-base font-bold text-white tracking-wide group-hover:text-red-400 transition-colors">
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <h3 className="text-base font-bold text-white tracking-wide truncate">
                             {app.name}
                           </h3>
                           <button
@@ -624,7 +626,7 @@ export default function ApplicationsPage() {
                               setAppToEdit(app);
                               setEditName(app.name);
                             }}
-                            className="text-zinc-500 hover:text-zinc-300 transition-colors p-1"
+                            className="text-zinc-500 hover:text-zinc-300 transition-colors p-1 shrink-0"
                             title="Edit Application Name"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
@@ -632,376 +634,285 @@ export default function ApplicationsPage() {
                         </div>
                         <div className="flex items-center gap-2">
                           <Badge status={app.type} />
-                          {/* Reorder / Arrange Widget */}
-                          <div
-                            className="inline-flex items-center gap-0.5 bg-zinc-900/90 border border-zinc-800/80 rounded px-1.5 py-0.5 text-zinc-400"
-                            title="Drag card to reorder or use arrows"
-                          >
-                            <span className="cursor-grab active:cursor-grabbing p-0.5 hover:text-white" title="Drag to reorder">
-                              <GripVertical className="w-3 h-3 text-zinc-400" />
-                            </span>
-                            <button
-                              type="button"
-                              disabled={index === 0}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                moveApp(app.id, -1);
-                              }}
-                              className="p-0.5 hover:text-white disabled:opacity-20 disabled:hover:text-zinc-500 transition-colors"
-                              title="Move left"
-                            >
-                              <ChevronLeft className="w-3 h-3" />
-                            </button>
-                            <button
-                              type="button"
-                              disabled={index === filteredApps.length - 1}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                moveApp(app.id, 1);
-                              }}
-                              className="p-0.5 hover:text-white disabled:opacity-20 disabled:hover:text-zinc-500 transition-colors"
-                              title="Move right"
-                            >
-                              <ChevronRight className="w-3 h-3" />
-                            </button>
-                          </div>
+                          <Badge status={app.status} />
                         </div>
                       </div>
 
-                      <div className="flex flex-col items-end gap-1.5">
-                        <Badge status={app.status} />
-
-                      {/* ULTRA-PREMIUM VERSION CONTROL BUTTON */}
+                      {/* Clean Version Button */}
                       <button
                         onClick={() => {
                           setAppToEditVersion(app);
                           setEditVersion(app.version || '1.0.0');
                           setEditDownloadUrl(app.downloadUrl || '');
                         }}
-                        className="group/ver relative inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-amber-950/70 via-zinc-900 to-amber-950/50 hover:from-amber-900/80 hover:to-amber-900/60 text-[11px] font-mono font-extrabold text-amber-300 border border-amber-500/40 hover:border-amber-400 shadow-md shadow-amber-950/40 transition-all duration-200 hover:scale-105 active:scale-95"
-                        title="Click to manage version enforcement & auto-update download link"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-amber-500/50 text-[11px] font-mono font-bold text-amber-400 transition-colors shrink-0"
+                        title="Click to edit required version & download link"
                       >
-                        <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-400" />
-                        </span>
-                        <Tag className="w-3 h-3 text-amber-400 group-hover/ver:rotate-12 transition-transform" />
-                        <span className="tracking-wide">v{app.version || '1.0.0'}</span>
-                        <Settings2 className="w-2.5 h-2.5 text-amber-400/70 opacity-0 group-hover/ver:opacity-100 transition-opacity ml-0.5" />
+                        <Tag className="w-3 h-3 text-amber-400" />
+                        <span>v{app.version || '1.0.0'}</span>
                       </button>
                     </div>
-                  </div>
 
-                  {/* HIGH-END APPLICATION CREDENTIALS BLOCK */}
-                  <div className="p-3.5 rounded-[7px] bg-zinc-900/90 border border-zinc-800/80 space-y-2 font-mono text-xs shadow-inner">
-                    {/* App ID Row */}
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider flex items-center gap-1.5 shrink-0">
-                        <Key className="w-3 h-3 text-red-400" /> App ID
-                      </span>
-                      <div className="flex items-center gap-1.5 truncate">
-                        <span className="text-red-400 font-bold truncate">{app.appId}</span>
-                        <button
-                          onClick={() => copyAppId(app.appId)}
-                          className="p-1 rounded-[5px] bg-zinc-950 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors shrink-0 border border-zinc-800"
-                          title="Copy App ID"
-                        >
-                          {copiedAppId === app.appId ? (
-                            <Check className="w-3 h-3 text-emerald-400" />
-                          ) : (
-                            <Copy className="w-3 h-3" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* App Secret Row */}
-                    <div className="space-y-1.5 border-t border-zinc-800/90 pt-2">
+                    {/* Clean Credentials Box */}
+                    <div className="p-3 rounded-lg bg-zinc-900/60 border border-zinc-800/80 space-y-2 text-xs font-mono">
+                      {/* App ID */}
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider flex items-center gap-1.5 shrink-0">
-                          <Shield className="w-3 h-3 text-amber-400" /> Secret Key
+                        <span className="text-[11px] text-zinc-400 font-sans font-medium flex items-center gap-1.5 shrink-0">
+                          <Key className="w-3.5 h-3.5 text-red-400" /> App ID
                         </span>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 truncate">
+                          <span className="text-red-400 font-bold truncate">{app.appId}</span>
+                          <button
+                            onClick={() => copyAppId(app.appId)}
+                            className="p-1 rounded bg-zinc-950 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors border border-zinc-800 shrink-0"
+                            title="Copy App ID"
+                          >
+                            {copiedAppId === app.appId ? (
+                              <Check className="w-3 h-3 text-emerald-400" />
+                            ) : (
+                              <Copy className="w-3 h-3" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Secret Key */}
+                      <div className="flex items-center justify-between gap-2 pt-2 border-t border-zinc-800/80">
+                        <span className="text-[11px] text-zinc-400 font-sans font-medium flex items-center gap-1.5 shrink-0">
+                          <Shield className="w-3.5 h-3.5 text-amber-400" /> Secret Key
+                        </span>
+                        <div className="flex items-center gap-1.5 truncate">
+                          <span className="text-amber-300 font-bold truncate max-w-[150px]">
+                            {isSecretRevealed ? app.secret : '••••••••••••••••'}
+                          </span>
                           <button
                             type="button"
                             onClick={() => toggleRevealSecret(app.id)}
-                            className="p-1 rounded-[5px] bg-zinc-950 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors shrink-0 border border-zinc-800"
-                            title={isSecretRevealed ? 'Hide Secret' : 'Reveal Full Secret Key'}
+                            className="p-1 rounded bg-zinc-950 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors border border-zinc-800 shrink-0"
+                            title={isSecretRevealed ? 'Hide Secret' : 'Reveal Secret'}
                           >
                             {isSecretRevealed ? (
-                              <EyeOff className="w-3.5 h-3.5 text-amber-400" />
+                              <EyeOff className="w-3 h-3 text-amber-400" />
                             ) : (
-                              <Eye className="w-3.5 h-3.5" />
+                              <Eye className="w-3 h-3" />
                             )}
                           </button>
                           <button
                             type="button"
                             onClick={() => copySecret(app.secret)}
-                            className="p-1 rounded-[5px] bg-zinc-950 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors shrink-0 border border-zinc-800"
+                            className="p-1 rounded bg-zinc-950 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors border border-zinc-800 shrink-0"
                             title="Copy Secret Key"
                           >
                             {copiedSecret === app.secret ? (
-                              <Check className="w-3.5 h-3.5 text-emerald-400" />
+                              <Check className="w-3 h-3 text-emerald-400" />
                             ) : (
-                              <Copy className="w-3.5 h-3.5" />
+                              <Copy className="w-3 h-3" />
                             )}
                           </button>
                         </div>
                       </div>
+                    </div>
 
-                      {/* Full Secret Display Box (Shows entire key without truncation) */}
-                      <div className="p-2 rounded-[5px] bg-zinc-950/90 border border-zinc-800/70 overflow-hidden">
-                        <span
-                          className={`font-mono text-[11px] block select-all ${
-                            isSecretRevealed
-                              ? 'text-amber-300 font-bold break-all leading-relaxed'
-                              : 'text-zinc-600 tracking-widest'
-                          }`}
+                    {/* Free Trial Section (NO TOGGLE - Clean Button Controls) */}
+                    {!app.freeTrialEnabled ? (
+                      <div className="p-3 rounded-lg bg-zinc-900/40 border border-dashed border-zinc-800 flex items-center justify-between gap-2">
+                        <div className="space-y-0.5">
+                          <div className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5 text-zinc-500" /> Free Trial
+                          </div>
+                          <p className="text-[11px] text-zinc-500">Disabled for this app</p>
+                        </div>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setTrialConfigApp(app)}
+                          className="text-xs font-bold gap-1.5 text-amber-400 hover:text-amber-300 border-zinc-800 hover:border-amber-500/50 h-8"
                         >
-                          {isSecretRevealed ? app.secret : '••••••••••••••••••••••••••••••••'}
-                        </span>
+                          <Sparkles className="w-3.5 h-3.5" /> Enable Free Trial
+                        </Button>
                       </div>
-                    </div>
-                  </div>
-
-                  {/* Free Trial Mode Toggle Block */}
-                  <div className="p-3 rounded-[7px] bg-zinc-900/90 border border-zinc-800/80 space-y-2">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="space-y-0.5">
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-200">
-                          <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Free Trial Mode
-                        </div>
-                        <p className="text-[10px] text-zinc-500">
-                          {app.type === 'LICENSE'
-                            ? (app.freeTrialEnabled ? 'Active: Universal Free Trial Key' : 'Enable to generate free trial key')
-                            : app.type === 'USER_AUTH'
-                            ? (app.freeTrialEnabled ? 'Active: Trial Account Enabled' : 'Enable to generate trial user')
-                            : (app.freeTrialEnabled ? 'Active: All devices allowed' : 'Enable to allow all devices')}
-                        </p>
-                      </div>
-
-                      <button
-                        onClick={() => handleToggleFreeTrial(app)}
-                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                          app.freeTrialEnabled ? 'bg-emerald-500' : 'bg-zinc-800'
-                        }`}
-                        title={app.freeTrialEnabled ? 'Click to Disable Free Trial' : 'Click to Enable Free Trial (Generates fresh key)'}
-                      >
-                        <span
-                          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                            app.freeTrialEnabled ? 'translate-x-4' : 'translate-x-0'
-                          }`}
-                        />
-                      </button>
-                    </div>
-
-                    {/* Free Trial Active Banner */}
-                    {app.freeTrialEnabled && (
-                      <div className="p-2 rounded-[5px] bg-emerald-950/40 border border-emerald-800/50 flex items-center justify-between gap-2 text-xs mt-1">
-                        <div className="flex items-center gap-2 truncate">
-                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-                          <span className="text-emerald-300 font-mono font-bold truncate text-[11px]">
-                            {app.type === 'LICENSE'
-                              ? (app.freeTrialKey || 'TRIAL-ACTIVE')
-                              : app.type === 'USER_AUTH'
-                              ? `User: ${app.freeTrialKey || 'trial_user'} | Pass: ${app.freeTrialPassword || 'trial123'}`
-                              : 'FREE TRIAL: All HWIDs Authorized'}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-1 shrink-0">
+                    ) : (
+                      <div className="p-3 rounded-lg bg-emerald-950/20 border border-emerald-800/40 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                            <span className="text-xs font-bold text-emerald-300">Free Trial Active</span>
+                            {app.freeTrialRemainingDays !== undefined && (
+                              <span className="px-1.5 py-0.5 rounded bg-emerald-900/50 text-[10px] font-mono text-emerald-300 font-bold border border-emerald-700/40">
+                                {app.freeTrialRemainingDays >= 9999 ? 'Lifetime' : `${app.freeTrialRemainingDays}d left`}
+                              </span>
+                            )}
+                          </div>
                           <button
                             type="button"
                             onClick={() => setTrialConfigApp(app)}
-                            className="p-1 rounded-[4px] bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-white transition-colors text-[10px] font-bold flex items-center gap-1"
-                            title="Edit Free Trial Configuration"
+                            className="px-2 py-0.5 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-white text-[11px] font-bold transition-colors flex items-center gap-1"
+                            title="Edit Free Trial Settings"
                           >
-                            <Edit2 className="w-3 h-3 text-amber-400" />
-                            <span>Edit</span>
+                            <Settings2 className="w-3 h-3 text-amber-400" />
+                            <span>Configure</span>
                           </button>
+                        </div>
 
-                          {app.freeTrialKey && app.type === 'LICENSE' && (
+                        {/* Credentials or Key Preview */}
+                        <div className="flex items-center justify-between gap-2 p-2 rounded bg-zinc-950/80 border border-zinc-800/80 text-xs font-mono">
+                          <span className="text-emerald-300 font-bold truncate">
+                            {app.type === 'LICENSE'
+                              ? (app.freeTrialKey || 'TRIAL-ACTIVE')
+                              : app.type === 'USER_AUTH'
+                              ? `${app.freeTrialKey || 'trial_user'}:${app.freeTrialPassword || 'trial123'}`
+                              : 'All HWIDs Authorized'}
+                          </span>
+                          {app.type !== 'HWID' && app.freeTrialKey && (
                             <button
                               type="button"
-                              onClick={() => copySecret(app.freeTrialKey!)}
-                              className="p-1 rounded-[4px] bg-emerald-900/60 hover:bg-emerald-800/80 text-emerald-200 transition-colors text-[10px] font-bold flex items-center gap-1"
-                              title="Copy Master Free Trial Key"
+                              onClick={() => {
+                                const val = app.type === 'LICENSE'
+                                  ? app.freeTrialKey!
+                                  : `${app.freeTrialKey}:${app.freeTrialPassword || 'trial123'}`;
+                                copySecret(val);
+                              }}
+                              className="p-1 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-zinc-800 shrink-0 transition-colors"
+                              title="Copy Trial Credentials"
                             >
-                              {copiedSecret === app.freeTrialKey ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                              <span>Copy Key</span>
-                            </button>
-                          )}
-
-                          {app.freeTrialKey && app.type === 'USER_AUTH' && (
-                            <button
-                              type="button"
-                              onClick={() => copySecret(`${app.freeTrialKey}:${app.freeTrialPassword || 'trial123'}`)}
-                              className="p-1 rounded-[4px] bg-emerald-900/60 hover:bg-emerald-800/80 text-emerald-200 transition-colors text-[10px] font-bold flex items-center gap-1"
-                              title="Copy user:pass credentials combo"
-                            >
-                              {copiedSecret === `${app.freeTrialKey}:${app.freeTrialPassword || 'trial123'}` ? (
+                              {copiedSecret === (app.type === 'LICENSE' ? app.freeTrialKey : `${app.freeTrialKey}:${app.freeTrialPassword || 'trial123'}`) ? (
                                 <Check className="w-3 h-3 text-emerald-400" />
                               ) : (
                                 <Copy className="w-3 h-3" />
                               )}
-                              <span>Copy Combo</span>
                             </button>
                           )}
                         </div>
                       </div>
                     )}
-                  </div>
 
-                  {/* Active User Progress Meter & Records Count */}
-                  <div className="space-y-2 pt-1">
-                    <div className="flex items-center justify-between text-xs font-semibold">
-                      <span className="text-zinc-400 flex items-center gap-1.5">
-                        <Users className="w-3.5 h-3.5 text-zinc-500" /> Active Users
-                      </span>
-                      <span className="text-emerald-400">
-                        {app.activeUsers} <span className="text-zinc-500 font-normal">/ {app.totalUsers} Total</span>
-                      </span>
+                    {/* Active User Progress */}
+                    <div className="space-y-1.5 pt-1">
+                      <div className="flex items-center justify-between text-xs font-semibold">
+                        <span className="text-zinc-400 flex items-center gap-1.5">
+                          <Users className="w-3.5 h-3.5 text-zinc-500" /> Users & Records
+                        </span>
+                        <span className="text-emerald-400 font-mono">
+                          {app.activeUsers} <span className="text-zinc-500 font-normal">/ {app.totalUsers} Total</span>
+                        </span>
+                      </div>
+                      <div className="w-full h-1.5 rounded-full bg-zinc-950 overflow-hidden border border-zinc-800">
+                        <div
+                          className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                          style={{ width: `${userRatio}%` }}
+                        />
+                      </div>
                     </div>
-                    <div className="w-full h-2 rounded-[7px] bg-zinc-950 overflow-hidden border border-zinc-800">
-                      <div
-                        className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 rounded-[7px] transition-all duration-500"
-                        style={{ width: `${userRatio}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Card Actions Footer */}
-                <div className="pt-4 border-t border-zinc-800/80 space-y-2">
-                  {/* Horizontal Action Buttons Row (Side by Side) */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {/* Primary Quick Action Button */}
-                    {app.type === 'LICENSE' ? (
-                      <Button
-                        size="sm"
-                        onClick={() => setQuickLicenseApp(app)}
-                        className="w-full h-9 gap-1.5 text-xs font-bold btn-red-gradient shadow-md shadow-red-950/40 justify-center px-2"
-                        title="Generate License Keys"
-                      >
-                        <Sparkles className="w-3.5 h-3.5 shrink-0" />
-                        <span className="truncate">Create License</span>
-                      </Button>
-                    ) : app.type === 'USER_AUTH' ? (
-                      <Button
-                        size="sm"
-                        onClick={() => setQuickUserApp(app)}
-                        className="w-full h-9 gap-1.5 text-xs font-bold bg-gradient-to-r from-cyan-950 via-cyan-900 to-cyan-800 hover:from-cyan-900 hover:to-cyan-700 text-white border border-cyan-500/40 shadow-md shadow-cyan-950/40 justify-center px-2"
-                        title="Create User Account"
-                      >
-                        <User className="w-3.5 h-3.5 shrink-0" />
-                        <span className="truncate">Create User</span>
-                      </Button>
-                    ) : (
-                      <Button
-                        size="sm"
-                        onClick={() => setQuickHwidApp(app)}
-                        className="w-full h-9 gap-1.5 text-xs font-bold bg-gradient-to-r from-purple-950 via-purple-900 to-purple-800 hover:from-purple-900 hover:to-purple-700 text-white border border-purple-500/40 shadow-md shadow-purple-950/40 justify-center px-2"
-                        title="Authorize HWID User"
-                      >
-                        <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
-                        <span className="truncate">Authorize HWID</span>
-                      </Button>
-                    )}
-
-                    {/* View All Licenses / Users / HWIDs Button */}
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => setRecordsApp(app)}
-                      className="w-full h-9 gap-1.5 border-zinc-800 hover:border-amber-500/40 bg-zinc-900/90 hover:bg-zinc-800 text-xs font-mono font-bold text-amber-400 group/rec justify-center px-2"
-                      title={
-                        app.type === 'LICENSE'
-                          ? 'Show All Licenses'
-                          : app.type === 'USER_AUTH'
-                          ? 'Show All User Accounts'
-                          : 'Show All HWID Whitelists'
-                      }
-                    >
-                      <ListFilter className="w-3.5 h-3.5 text-amber-400 group-hover/rec:rotate-180 transition-transform duration-300 shrink-0" />
-                      <span className="truncate">
-                        {app.type === 'LICENSE'
-                          ? 'Show Licenses'
-                          : app.type === 'USER_AUTH'
-                          ? 'Show Users'
-                          : 'Show HWIDs'}
-                      </span>
-                      <span className="ml-1 px-1.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[10px] shrink-0">
-                        {app.totalUsers}
-                      </span>
-                    </Button>
                   </div>
 
-                  {/* Secondary Icon Actions */}
-                  <div className="flex items-center justify-between gap-2 text-xs pt-1">
-                    <div className="flex items-center gap-1.5">
+                  {/* Card Actions Footer */}
+                  <div className="pt-3 border-t border-zinc-800/80 space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      {/* Primary Action Button */}
+                      {app.type === 'LICENSE' ? (
+                        <Button
+                          size="sm"
+                          onClick={() => setQuickLicenseApp(app)}
+                          className="h-8 gap-1.5 text-xs font-bold justify-center"
+                          title="Generate License Key"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                          <span className="truncate">Create License</span>
+                        </Button>
+                      ) : app.type === 'USER_AUTH' ? (
+                        <Button
+                          size="sm"
+                          onClick={() => setQuickUserApp(app)}
+                          className="h-8 gap-1.5 text-xs font-bold justify-center"
+                          title="Create User Account"
+                        >
+                          <User className="w-3.5 h-3.5 shrink-0" />
+                          <span className="truncate">Create User</span>
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          onClick={() => setQuickHwidApp(app)}
+                          className="h-8 gap-1.5 text-xs font-bold justify-center"
+                          title="Authorize HWID"
+                        >
+                          <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+                          <span className="truncate">Add HWID</span>
+                        </Button>
+                      )}
+
+                      {/* View Records Button */}
                       <Button
                         variant="secondary"
                         size="sm"
-                        onClick={() => setSnippetApp(app)}
-                        className="border-zinc-800 hover:border-red-500/40 text-zinc-200 hover:text-white"
-                        title="Developer SDK Integration Snippets (C#, C++, Python, Node.js, cURL)"
+                        onClick={() => setRecordsApp(app)}
+                        className="h-8 gap-1.5 text-xs font-bold justify-center text-amber-400 border-zinc-800 hover:border-amber-500/40"
+                        title="View All Records"
                       >
-                        <Code className="w-3.5 h-3.5 mr-1 text-red-400" /> SDK Code
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => setSelectedAppSecret(app)}
-                        title="View Full Credentials & Keys"
-                      >
-                        <Key className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => setAppToEdit(app)}
-                        title="Edit Application Configurations"
-                      >
-                        <Settings2 className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => handleRegenerateSecret(app)}
-                        title="Regenerate Secret Key"
-                      >
-                        <RefreshCw className="w-3.5 h-3.5" />
+                        <ListFilter className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">Records ({app.totalUsers})</span>
                       </Button>
                     </div>
 
-                    <div className="flex items-center gap-1.5">
-                      <Button
-                        variant={app.status === 'ACTIVE' ? 'secondary' : 'primary'}
-                        size="sm"
-                        onClick={() => handleToggleStatus(app)}
-                      >
-                        {app.status === 'ACTIVE' ? (
-                          <>
-                            <Pause className="w-3.5 h-3.5 text-amber-400" />
-                          </>
-                        ) : (
-                          <>
-                            <Play className="w-3.5 h-3.5 text-emerald-400" />
-                          </>
-                        )}
-                      </Button>
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        onClick={() => setAppToDelete(app)}
-                        title="Delete Application"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
+                    {/* Secondary Action Row */}
+                    <div className="flex items-center justify-between gap-1 pt-1 text-xs">
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setSnippetApp(app)}
+                          className="h-7 px-2 text-xs border-zinc-800 hover:border-red-500/40 text-zinc-300 hover:text-white"
+                          title="Developer SDK Integration Snippets"
+                        >
+                          <Code className="w-3 h-3 mr-1 text-red-400" /> SDK
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setSelectedAppSecret(app)}
+                          className="h-7 px-2 text-xs border-zinc-800"
+                          title="View Full Credentials & Keys"
+                        >
+                          <Key className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setAppToEdit(app)}
+                          className="h-7 px-2 text-xs border-zinc-800"
+                          title="Application Settings"
+                        >
+                          <Settings2 className="w-3 h-3" />
+                        </Button>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant={app.status === 'ACTIVE' ? 'secondary' : 'primary'}
+                          size="sm"
+                          onClick={() => handleToggleStatus(app)}
+                          className="h-7 px-2"
+                          title={app.status === 'ACTIVE' ? 'Pause Application' : 'Activate Application'}
+                        >
+                          {app.status === 'ACTIVE' ? (
+                            <Pause className="w-3 h-3 text-amber-400" />
+                          ) : (
+                            <Play className="w-3 h-3 text-emerald-400" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => setAppToDelete(app)}
+                          className="h-7 px-2"
+                          title="Delete Application"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </Card>
+                </Card>
             </div>
           );
           })}
@@ -1061,16 +972,26 @@ export default function ApplicationsPage() {
                                 )}
                               </button>
                             </div>
-                            {app.freeTrialEnabled && (
+                            {app.freeTrialEnabled ? (
                               <button
                                 type="button"
                                 onClick={() => setTrialConfigApp(app)}
-                                className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-800/40 hover:border-emerald-700/60 text-[9px] font-mono text-emerald-300 transition-colors cursor-pointer"
+                                className="mt-1 inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-950/50 hover:bg-emerald-900/60 border border-emerald-800/40 text-[10px] font-mono text-emerald-300 transition-colors cursor-pointer"
                                 title="Click to view or edit Free Trial configuration"
                               >
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                <span>Free Trial On</span>
-                                <Edit2 className="w-2.5 h-2.5 ml-0.5 text-emerald-400 opacity-60" />
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                <span>Trial Active ({app.freeTrialRemainingDays && app.freeTrialRemainingDays >= 9999 ? 'Lifetime' : `${app.freeTrialRemainingDays || 30}d`})</span>
+                                <Settings2 className="w-2.5 h-2.5 text-emerald-400/70" />
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setTrialConfigApp(app)}
+                                className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-[10px] text-zinc-400 hover:text-zinc-200 transition-colors"
+                                title="Click to enable Free Trial"
+                              >
+                                <Sparkles className="w-2.5 h-2.5 text-amber-400" />
+                                <span>+ Free Trial</span>
                               </button>
                             )}
                           </div>

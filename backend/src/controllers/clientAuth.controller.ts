@@ -199,10 +199,14 @@ export async function authenticateLicense(req: Request, res: Response) {
         });
       } catch (discordErr) {}
 
+      const trialExpires = (license && license.expiresAt) ? license.expiresAt : new Date('2099-01-01T00:00:00.000Z');
+      const remainingMs = trialExpires.getTime() - now.getTime();
+      const remainingDays = Math.max(0, Math.ceil(remainingMs / (1000 * 60 * 60 * 24)));
+
       return sendSuccess(res, 'Authentication successful (Free Trial Active)', {
         status: 'active',
-        expires_at: '2099-01-01T00:00:00.000Z',
-        remaining_days: 9999,
+        expires_at: trialExpires.toISOString(),
+        remaining_days: remainingDays,
         version: app.version,
       });
     }
@@ -947,11 +951,15 @@ export async function authenticateUser(req: Request, res: Response) {
         });
       } catch (discordErr) {}
 
+      const trialExpires = trialUser.expiresAt || new Date('2099-01-01T00:00:00.000Z');
+      const remainingMs = trialExpires.getTime() - now.getTime();
+      const remainingDays = Math.max(0, Math.ceil(remainingMs / (1000 * 60 * 60 * 24)));
+
       return sendSuccess(res, 'Authentication successful (Free Trial Active)', {
         status: 'active',
         username: trimmedUsername,
-        expires_at: trialUser.expiresAt ? trialUser.expiresAt.toISOString() : '2099-01-01T00:00:00.000Z',
-        remaining_days: 9999,
+        expires_at: trialExpires.toISOString(),
+        remaining_days: remainingDays,
         version: app.version,
       });
     }

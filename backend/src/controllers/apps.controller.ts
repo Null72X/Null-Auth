@@ -103,12 +103,34 @@ export async function listApps(req: Request, res: Response) {
           : null;
 
         let freeTrialPassword = (app as any).freeTrialPassword || null;
-        if (!freeTrialPassword && app.type === 'USER_AUTH' && app.freeTrialKey) {
-          const trialUser = await (prisma as any).clientUser.findFirst({
-            where: { appId: app.id, username: app.freeTrialKey },
-            select: { plainPassword: true },
-          }).catch(() => null);
-          freeTrialPassword = trialUser?.plainPassword || 'trial123';
+        let freeTrialExpiresAt: string | null = null;
+        let freeTrialRemainingDays: number | null = null;
+
+        if (app.freeTrialEnabled && app.freeTrialKey) {
+          if (app.type === 'LICENSE') {
+            const lic = await prisma.license.findFirst({
+              where: { key: app.freeTrialKey, appId: app.id },
+              select: { expiresAt: true },
+            }).catch(() => null);
+            if (lic) {
+              freeTrialExpiresAt = lic.expiresAt.toISOString();
+              const diffTime = lic.expiresAt.getTime() - now.getTime();
+              freeTrialRemainingDays = diffTime > 0 ? Math.ceil(diffTime / (1000 * 60 * 60 * 24)) : 0;
+            }
+          } else if (app.type === 'USER_AUTH') {
+            const trialUser = await (prisma as any).clientUser.findFirst({
+              where: { appId: app.id, username: app.freeTrialKey },
+              select: { plainPassword: true, expiresAt: true },
+            }).catch(() => null);
+            if (trialUser) {
+              freeTrialPassword = trialUser.plainPassword || 'trial123';
+              if (trialUser.expiresAt) {
+                freeTrialExpiresAt = trialUser.expiresAt.toISOString();
+                const diffTime = trialUser.expiresAt.getTime() - now.getTime();
+                freeTrialRemainingDays = diffTime > 0 ? Math.ceil(diffTime / (1000 * 60 * 60 * 24)) : 0;
+              }
+            }
+          }
         }
 
         return {
@@ -126,6 +148,8 @@ export async function listApps(req: Request, res: Response) {
           freeTrialSuffix: trialSuffix,
           trialUsername: app.type === 'USER_AUTH' ? app.freeTrialKey : null,
           hasTrialPassword: app.type === 'USER_AUTH' && Boolean(app.freeTrialKey),
+          freeTrialExpiresAt,
+          freeTrialRemainingDays,
           discordWebhookUrl: (app as any).discordWebhookUrl || null,
           createdAt: app.createdAt,
           updatedAt: app.updatedAt,
@@ -326,6 +350,8 @@ export async function updateApp(req: Request, res: Response) {
     trialPassword,
     discordWebhookUrl,
     secret,
+    days,
+    trialDays,
   } = req.body;
 
   try {
@@ -347,6 +373,17 @@ export async function updateApp(req: Request, res: Response) {
 
     const willBeEnabled = freeTrialEnabled !== undefined ? Boolean(freeTrialEnabled) : existing.freeTrialEnabled;
     updateData.freeTrialEnabled = willBeEnabled;
+
+    const parsedDays = days !== undefined ? Number(days) : trialDays !== undefined ? Number(trialDays) : undefined;
+    let customTrialExpiresAt: Date | undefined = undefined;
+    if (parsedDays !== undefined && !isNaN(parsedDays) && parsedDays > 0) {
+      customTrialExpiresAt = new Date();
+      if (parsedDays >= 9999) {
+        customTrialExpiresAt.setFullYear(customTrialExpiresAt.getFullYear() + 50); // Lifetime
+      } else {
+        customTrialExpiresAt.setDate(customTrialExpiresAt.getDate() + parsedDays);
+      }
+    }
 
     if (willBeEnabled) {
       if (existing.type === 'LICENSE') {
@@ -383,21 +420,23 @@ export async function updateApp(req: Request, res: Response) {
           return sendError(res, 'This license key is already in use by another application. Please choose a different suffix.', 400);
         }
 
+        const defaultExpiresAt = new Date();
+        defaultExpiresAt.setFullYear(defaultExpiresAt.getFullYear() + 10);
+        const effectiveExpiresAt = customTrialExpiresAt || defaultExpiresAt;
+
         const oldKey = existing.freeTrialKey;
         if (oldKey && oldKey !== finalKey) {
           const updatedLic = await prisma.license.updateMany({
             where: { key: oldKey, appId: existing.id },
-            data: { key: finalKey, status: 'ACTIVE' },
+            data: { key: finalKey, status: 'ACTIVE', ...(customTrialExpiresAt ? { expiresAt: customTrialExpiresAt } : {}) },
           });
           if (updatedLic.count === 0) {
-            const expiresAt = new Date();
-            expiresAt.setFullYear(expiresAt.getFullYear() + 10);
             await prisma.license.create({
               data: {
                 key: finalKey,
                 appId: existing.id,
                 status: 'ACTIVE',
-                expiresAt,
+                expiresAt: effectiveExpiresAt,
                 clientName: 'Master Free Trial Key',
               },
             });
@@ -407,21 +446,17 @@ export async function updateApp(req: Request, res: Response) {
             where: { key: finalKey, appId: existing.id },
           });
           if (existingLic) {
-            if (existingLic.status !== 'ACTIVE') {
-              await prisma.license.update({
-                where: { id: existingLic.id },
-                data: { status: 'ACTIVE' },
-              });
-            }
+            await prisma.license.update({
+              where: { id: existingLic.id },
+              data: { status: 'ACTIVE', ...(customTrialExpiresAt ? { expiresAt: customTrialExpiresAt } : {}) },
+            });
           } else {
-            const expiresAt = new Date();
-            expiresAt.setFullYear(expiresAt.getFullYear() + 10);
             await prisma.license.create({
               data: {
                 key: finalKey,
                 appId: existing.id,
                 status: 'ACTIVE',
-                expiresAt,
+                expiresAt: effectiveExpiresAt,
                 clientName: 'Master Free Trial Key',
               },
             });
@@ -473,10 +508,15 @@ export async function updateApp(req: Request, res: Response) {
           passwordHash = await bcrypt.hash(pwd, salt);
         }
 
+        const defaultExpiresAt = new Date();
+        defaultExpiresAt.setFullYear(defaultExpiresAt.getFullYear() + 10);
+        const effectiveExpiresAt = customTrialExpiresAt || defaultExpiresAt;
+
         if (oldUsername) {
           const updatePayload: any = {
             username: targetUsername,
             status: 'ACTIVE',
+            ...(customTrialExpiresAt ? { expiresAt: customTrialExpiresAt } : {}),
           };
           const plainPwd = (trialPassword !== undefined && trialPassword !== null && String(trialPassword).trim() !== '')
             ? String(trialPassword).trim()
@@ -493,8 +533,6 @@ export async function updateApp(req: Request, res: Response) {
             data: updatePayload,
           });
           if (updatedUser.count === 0) {
-            const expiresAt = new Date();
-            expiresAt.setFullYear(expiresAt.getFullYear() + 10);
             const finalHash = passwordHash || (await bcrypt.hash('trial123', await bcrypt.genSalt(10)));
             await (prisma as any).clientUser.create({
               data: {
@@ -503,7 +541,7 @@ export async function updateApp(req: Request, res: Response) {
                 plainPassword: plainPwd,
                 appId: existing.id,
                 status: 'ACTIVE',
-                expiresAt,
+                expiresAt: effectiveExpiresAt,
                 clientName: 'Dynamic Master Free Trial User',
               },
             });
@@ -512,8 +550,6 @@ export async function updateApp(req: Request, res: Response) {
           const plainPwd = (trialPassword !== undefined && trialPassword !== null && String(trialPassword).trim() !== '')
             ? String(trialPassword).trim()
             : 'trial123';
-          const expiresAt = new Date();
-          expiresAt.setFullYear(expiresAt.getFullYear() + 10);
           const finalHash = passwordHash || (await bcrypt.hash('trial123', await bcrypt.genSalt(10)));
           await (prisma as any).clientUser.create({
             data: {
@@ -522,7 +558,7 @@ export async function updateApp(req: Request, res: Response) {
               plainPassword: plainPwd,
               appId: existing.id,
               status: 'ACTIVE',
-              expiresAt,
+              expiresAt: effectiveExpiresAt,
               clientName: 'Dynamic Master Free Trial User',
             },
           });
@@ -637,7 +673,7 @@ export async function toggleAppStatus(req: Request, res: Response) {
 
 export async function toggleFreeTrial(req: Request, res: Response) {
   const { id } = req.params;
-  const { enabled } = req.body;
+  const { enabled, days, trialDays } = req.body;
 
   try {
     const app = await prisma.application.findUnique({ where: { id } });
@@ -648,14 +684,19 @@ export async function toggleFreeTrial(req: Request, res: Response) {
     let newTrialKey: string | null = app.freeTrialKey;
 
     if (enabled) {
+      const parsedDays = days !== undefined ? Number(days) : trialDays !== undefined ? Number(trialDays) : 30;
+      const expiresAt = new Date();
+      if (parsedDays >= 9999) {
+        expiresAt.setFullYear(expiresAt.getFullYear() + 50);
+      } else {
+        expiresAt.setDate(expiresAt.getDate() + Math.max(1, parsedDays));
+      }
+
       if (app.type === 'LICENSE') {
         // Generate a fresh unique master free trial key every time Free Trial is enabled
         const part1 = Math.random().toString(36).substring(2, 6).toUpperCase();
         const part2 = Math.random().toString(36).substring(2, 6).toUpperCase();
         newTrialKey = `TRIAL-${part1}-${part2}`;
-
-        const expiresAt = new Date();
-        expiresAt.setFullYear(expiresAt.getFullYear() + 10);
 
         await prisma.license.create({
           data: {
@@ -669,9 +710,6 @@ export async function toggleFreeTrial(req: Request, res: Response) {
       } else if (app.type === 'USER_AUTH') {
         const part1 = Math.random().toString(36).substring(2, 6).toLowerCase();
         newTrialKey = `trial_${part1}`;
-
-        const expiresAt = new Date();
-        expiresAt.setFullYear(expiresAt.getFullYear() + 10);
 
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash('trial123', salt);

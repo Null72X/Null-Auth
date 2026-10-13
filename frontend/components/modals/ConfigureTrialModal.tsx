@@ -34,6 +34,7 @@ export function ConfigureTrialModal({
   const [suffix, setSuffix] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('trial123');
+  const [days, setDays] = useState(30);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isDisabling, setIsDisabling] = useState(false);
@@ -58,6 +59,7 @@ export function ConfigureTrialModal({
     if (app && isOpen) {
       setError(null);
       setShowPassword(false);
+      setDays(app.freeTrialRemainingDays && app.freeTrialRemainingDays > 0 ? app.freeTrialRemainingDays : 30);
 
       if (app.type === 'LICENSE') {
         const existingKey = app.freeTrialSuffix || app.freeTrialKey || '';
@@ -121,6 +123,7 @@ export function ConfigureTrialModal({
     try {
       const payload: any = {
         freeTrialEnabled: true,
+        days: Number(days),
       };
 
       if (app.type === 'LICENSE') {
@@ -340,6 +343,56 @@ export function ConfigureTrialModal({
             </p>
           </div>
         )}
+
+        {/* Trial Duration (Days & Lifetime Presets) */}
+        <div className="p-3.5 rounded-[8px] bg-zinc-900/80 border border-zinc-800 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider">
+              Trial Duration
+            </label>
+            <span className="text-xs font-mono font-bold text-amber-400">
+              {days >= 9999 ? 'Lifetime Access' : `${days} Day${days === 1 ? '' : 's'}`}
+            </span>
+          </div>
+
+          <input
+            type="number"
+            min={1}
+            value={days}
+            onChange={(e) => setDays(Math.max(1, parseInt(e.target.value, 10) || 1))}
+            required
+            className="w-full bg-zinc-950 border border-zinc-800 rounded-[8px] px-3 py-2 text-xs font-mono font-bold text-amber-400 focus:outline-none focus:border-amber-500"
+          />
+
+          <div>
+            <span className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
+              Quick Duration Presets
+            </span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {[
+                { label: '1 Day', value: 1 },
+                { label: '7 Days', value: 7 },
+                { label: '30 Days', value: 30 },
+                { label: '90 Days', value: 90 },
+                { label: '365 Days', value: 365 },
+                { label: 'Lifetime', value: 9999 },
+              ].map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => setDays(preset.value)}
+                  className={`px-2.5 py-1 rounded-[6px] text-xs font-mono font-bold border transition-all ${
+                    days === preset.value
+                      ? 'bg-amber-950 text-amber-400 border-amber-600 shadow-sm'
+                      : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:text-zinc-200 hover:border-zinc-700'
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
 
         {/* Footer Actions */}
         <div className="flex items-center justify-between pt-3 border-t border-zinc-800/80">
