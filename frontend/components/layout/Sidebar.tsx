@@ -28,6 +28,15 @@ const navItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const [adminUser, setAdminUser] = React.useState<string>('admin');
+
+  React.useEffect(() => {
+    fetchApi('/admin/auth/me').then((res) => {
+      if (res.success && res.data?.username) {
+        setAdminUser(res.data.username);
+      }
+    }).catch(() => {});
+  }, []);
 
   const handleLogout = async () => {
     await fetchApi('/admin/auth/logout', { method: 'POST' });
@@ -39,9 +48,8 @@ export function Sidebar() {
     <aside className="w-64 bg-zinc-950/90 backdrop-blur-2xl border-r border-zinc-800/80 flex flex-col h-screen sticky top-0 select-none z-40 shadow-2xl">
       {/* Brand Logo Header */}
       <div className="h-16 flex items-center px-6 border-b border-zinc-800/80 gap-3 relative overflow-hidden">
-        <div className="w-9 h-9 rounded-[10px] bg-red-950/80 border border-red-800/60 flex items-center justify-center text-red-500 shadow-lg shadow-red-950/60 relative group shrink-0">
+        <div className="w-9 h-9 rounded-lg bg-red-950/80 border border-red-800/60 flex items-center justify-center text-red-500 shadow-lg shadow-red-950/60 relative group shrink-0">
           <Shield className="w-5 h-5 transition-transform duration-300 group-hover:scale-110" />
-          <span className="absolute inset-0 rounded-[10px] bg-red-500/25 blur-md opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
         <div>
           <span className="font-extrabold text-lg text-white tracking-wide flex items-center gap-1.5 font-sans">
@@ -62,10 +70,10 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center justify-between px-3.5 py-2.5 rounded-[10px] text-xs font-bold transition-all duration-200 ${
+              className={`flex items-center justify-between px-3.5 py-2.5 rounded-lg text-xs font-semibold transition-all duration-150 ${
                 isActive
-                  ? 'bg-gradient-to-r from-red-950/90 to-zinc-900 text-red-400 border border-red-800/60 shadow-md shadow-red-950/40 translate-x-1'
-                  : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900/70 hover:translate-x-0.5'
+                  ? 'bg-zinc-900 text-red-400 border border-zinc-800 shadow-sm font-bold'
+                  : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900/60'
               }`}
             >
               <div className="flex items-center gap-3">
@@ -77,20 +85,28 @@ export function Sidebar() {
                 <span>{item.name}</span>
               </div>
               {isActive && (
-                <span className="logo-badge-dot" />
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
               )}
             </Link>
           );
         })}
       </nav>
 
-      {/* Logout Button */}
-      <div className="p-3.5 border-t border-zinc-800/80">
+      {/* Footer Profile & Logout */}
+      <div className="p-3.5 border-t border-zinc-800/80 space-y-2">
+        <div className="flex items-center justify-between px-2.5 py-2 rounded-lg bg-zinc-900/70 border border-zinc-800/80">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+            <span className="font-semibold text-zinc-200 truncate text-xs">{adminUser}</span>
+          </div>
+          <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold">Online</span>
+        </div>
+
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-[10px] text-xs font-bold text-zinc-400 hover:text-red-400 hover:bg-red-950/40 border border-transparent hover:border-red-900/50 transition-all duration-200 active:scale-[0.98]"
+          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-zinc-400 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all duration-150"
         >
-          <LogOut className="w-4 h-4 text-zinc-400 group-hover:text-red-400" />
+          <LogOut className="w-4 h-4 text-zinc-400" />
           Logout
         </button>
       </div>

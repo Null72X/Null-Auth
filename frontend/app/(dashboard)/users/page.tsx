@@ -94,7 +94,15 @@ export default function UserAccountsPage() {
 
     const res = await fetchApi(url);
     if (res.success && res.data) {
-      setUsers(Array.isArray(res.data) ? res.data : []);
+      const rawList = Array.isArray(res.data) ? res.data : [];
+      const list = rawList.filter((u: UserItem) => {
+        const isTrial =
+          u.username?.toLowerCase().startsWith('trial_') ||
+          u.username?.toLowerCase().startsWith('trial-') ||
+          u.clientName?.toLowerCase().includes('free trial');
+        return !isTrial;
+      });
+      setUsers(list);
       if (res.meta?.totalPages) setTotalPages(res.meta.totalPages);
     }
     setIsLoading(false);
@@ -211,8 +219,8 @@ export default function UserAccountsPage() {
       {/* Top Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <Header
-          title="User Accounts Manager"
-          subtitle="Manage user authentication credentials, machine HWID locks, expiration dates, and access states."
+          title="User Accounts"
+          subtitle="Manage customer login credentials, bound hardware IDs, and account access states."
         />
         <Button onClick={() => setIsCreateOpen(true)} className="gap-2 shrink-0 shadow-lg shadow-red-950/40">
           <Plus className="w-4 h-4" /> Create User Account

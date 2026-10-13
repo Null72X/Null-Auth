@@ -84,9 +84,15 @@ export default function HwidPage() {
     ]);
 
     if (hwidRes.success && hwidRes.data) {
-      const list = Array.isArray(hwidRes.data)
+      const rawList = Array.isArray(hwidRes.data)
         ? hwidRes.data
         : hwidRes.data.entries || hwidRes.data.hwids || [];
+      const list = rawList.filter((h: HwidItem) => {
+        const isTrial =
+          h.hwidHash === 'FREE-TRIAL-MASTER' ||
+          h.clientName?.toLowerCase().includes('free trial');
+        return !isTrial;
+      });
       setHwids(list);
     }
     if (appRes.success && appRes.data) {
@@ -160,8 +166,8 @@ export default function HwidPage() {
     <div className="space-y-8 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <Header
-          title="HWID Whitelist Access Manager"
-          subtitle="Authorize machine Hardware IDs (HWIDs) directly for applications running in Whitelist mode."
+          title="HWID Whitelist"
+          subtitle="Authorize and manage client hardware IDs directly for whitelist mode applications."
         />
         <Button onClick={() => setIsAddOpen(true)} className="gap-2 shrink-0 shadow-lg shadow-purple-950/40">
           <Plus className="w-4 h-4" /> Authorize HWID

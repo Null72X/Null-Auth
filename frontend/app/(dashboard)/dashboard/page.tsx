@@ -223,8 +223,8 @@ export default function DashboardOverviewPage() {
   return (
     <div className="space-y-8 animate-fade-in">
       <Header
-        title="Dashboard Overview"
-        subtitle="Real-time performance metrics, system status, and administrative quick controls."
+        title="Dashboard"
+        subtitle="Platform telemetry, active client authentications, and system overview."
       />
 
       {/* Hero Welcome Banner */}

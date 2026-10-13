@@ -837,8 +837,8 @@ export default function SettingsPage() {
   return (
     <div className="space-y-8 animate-fade-in max-w-5xl">
       <Header
-        title="Settings & Client SDK Integration"
-        subtitle="Manage administrator security, view live API endpoints, generate machine HWID with PowerShell, and download single-file client SDKs for C#, C++, and Python."
+        title="Settings"
+        subtitle="Manage administrator security, live endpoints, Discord webhook alerts, and official client SDKs."
       />
 
       {/* Tab Selectors */}

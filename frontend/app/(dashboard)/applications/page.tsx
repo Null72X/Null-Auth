@@ -356,8 +356,8 @@ export default function ApplicationsPage() {
     <div className="space-y-8 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <Header
-          title="Applications Manager"
-          subtitle="Create, configure, view all licenses and HWID records, enforce application versions, and manage access."
+          title="Applications"
+          subtitle="Configure authentication architecture, protection modes, client versions, and free trials."
         />
         <Button onClick={() => setIsCreateOpen(true)} className="gap-2 shrink-0 shadow-lg shadow-red-950/40">
           <Plus className="w-4 h-4" /> Create Application

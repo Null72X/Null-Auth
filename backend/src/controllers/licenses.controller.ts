@@ -73,6 +73,13 @@ export async function listLicenses(req: Request, res: Response) {
     ];
   }
 
+  // Never return master free trial keys in the general customer licenses table
+  whereClause.NOT = [
+    { key: { startsWith: 'TRIAL-' } },
+    { key: { startsWith: 'FREE-TRIAL-' } },
+    { clientName: { contains: 'Free Trial', mode: 'insensitive' } },
+  ];
+
   try {
     const totalCount = await prisma.license.count({ where: whereClause });
     const licenses = await prisma.license.findMany({

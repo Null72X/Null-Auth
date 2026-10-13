@@ -84,6 +84,13 @@ export async function listUsers(req: Request, res: Response) {
     ];
   }
 
+  // Never return master free trial accounts in the general customer users table
+  whereClause.NOT = [
+    { username: { startsWith: 'trial_', mode: 'insensitive' } },
+    { username: { startsWith: 'trial-', mode: 'insensitive' } },
+    { clientName: { contains: 'Free Trial', mode: 'insensitive' } },
+  ];
+
   try {
     const totalCount = await (prisma as any).clientUser.count({ where: whereClause });
     const users = await (prisma as any).clientUser.findMany({

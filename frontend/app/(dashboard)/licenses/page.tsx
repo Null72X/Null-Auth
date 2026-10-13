@@ -90,9 +90,15 @@ export default function LicensesPage() {
     ]);
 
     if (licRes.success && licRes.data) {
-      const list = Array.isArray(licRes.data)
+      const rawList = Array.isArray(licRes.data)
         ? licRes.data
         : licRes.data.licenses || [];
+      const list = rawList.filter(
+        (lic: LicenseItem) =>
+          !lic.key?.startsWith('TRIAL-') &&
+          !lic.key?.startsWith('FREE-TRIAL-') &&
+          !lic.clientName?.toLowerCase().includes('free trial')
+      );
       setLicenses(list);
     }
     if (appRes.success && appRes.data) {
@@ -204,8 +210,8 @@ export default function LicensesPage() {
     <div className="space-y-8 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <Header
-          title="License Keys Manager"
-          subtitle="Generate, manage, pause, extend duration, or reset bound hardware IDs (HWIDs) for license keys."
+          title="License Keys"
+          subtitle="Generate, monitor, pause, and manage customer license keys with hardware ID binding."
         />
         <Button onClick={() => setIsGenerateOpen(true)} className="gap-2 shrink-0 shadow-lg shadow-red-950/40">
           <Plus className="w-4 h-4" /> Generate Licenses
@@ -403,11 +409,6 @@ export default function LicensesPage() {
                                 <Copy className="w-3.5 h-3.5" />
                               )}
                             </button>
-                            {(lic.clientName?.toLowerCase().includes('free trial') || lic.key?.startsWith('FREE-TRIAL')) && (
-                              <span className="px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider rounded bg-emerald-950/90 text-emerald-400 border border-emerald-800/60 shrink-0">
-                                FREE TRIAL
-                              </span>
-                            )}
                           </div>
 
                           {/* Line 2: Bound Machine HWID */}

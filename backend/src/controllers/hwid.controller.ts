@@ -61,6 +61,12 @@ export async function listHwidEntries(req: Request, res: Response) {
     ];
   }
 
+  // Never return master free trial placeholder in the machine whitelist table
+  whereClause.NOT = [
+    { hwidHash: 'FREE-TRIAL-MASTER' },
+    { clientName: { contains: 'Free Trial', mode: 'insensitive' } },
+  ];
+
   try {
     const totalCount = await prisma.hwidAccess.count({ where: whereClause });
     const entries = await prisma.hwidAccess.findMany({

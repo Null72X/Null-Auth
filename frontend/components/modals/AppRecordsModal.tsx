@@ -170,6 +170,14 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
   // Filtered records
   const filteredRecords = useMemo(() => {
     return records.filter((r) => {
+      const isTrial =
+        r.key?.startsWith('TRIAL-') ||
+        r.key?.startsWith('FREE-TRIAL-') ||
+        r.username?.toLowerCase().startsWith('trial_') ||
+        r.hwidHash === 'FREE-TRIAL-MASTER' ||
+        (r.clientName || r.notes)?.toLowerCase().includes('free trial');
+      if (isTrial) return false;
+
       const query = search.toLowerCase().trim();
       const effStatus = r.effectiveStatus || r.status;
       const matchesStatus = statusFilter === 'ALL' || effStatus === statusFilter;
