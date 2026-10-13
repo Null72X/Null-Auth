@@ -221,50 +221,50 @@ export default function UserAccountsPage() {
 
       {/* Summary Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="flex items-center gap-4 bg-zinc-900/90 border-zinc-800">
-          <div className="w-11 h-11 rounded-xl bg-cyan-950/80 border border-cyan-800/60 flex items-center justify-center text-cyan-400">
+        <Card className="flex items-center gap-3.5 bg-zinc-900/90 border-zinc-800/80">
+          <div className="w-10 h-10 rounded-lg bg-cyan-950/80 border border-cyan-800/60 flex items-center justify-center text-cyan-400 shrink-0">
             <User className="w-5 h-5" />
           </div>
-          <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Total User Accounts</span>
+          <div className="min-w-0">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 block truncate">Total Users</span>
             <h4 className="text-xl font-extrabold text-white mt-0.5">{metrics.total}</h4>
           </div>
         </Card>
 
-        <Card className="flex items-center gap-4 bg-zinc-900/90 border-zinc-800">
-          <div className="w-11 h-11 rounded-xl bg-emerald-950/80 border border-emerald-800/60 flex items-center justify-center text-emerald-400">
+        <Card className="flex items-center gap-3.5 bg-zinc-900/90 border-zinc-800/80">
+          <div className="w-10 h-10 rounded-lg bg-emerald-950/80 border border-emerald-800/60 flex items-center justify-center text-emerald-400 shrink-0">
             <ShieldCheck className="w-5 h-5" />
           </div>
-          <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Active Accounts</span>
+          <div className="min-w-0">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 block truncate">Active Accounts</span>
             <h4 className="text-xl font-extrabold text-emerald-400 mt-0.5">{metrics.active}</h4>
           </div>
         </Card>
 
-        <Card className="flex items-center gap-4 bg-zinc-900/90 border-zinc-800">
-          <div className="w-11 h-11 rounded-xl bg-amber-950/80 border border-amber-800/60 flex items-center justify-center text-amber-400">
+        <Card className="flex items-center gap-3.5 bg-zinc-900/90 border-zinc-800/80">
+          <div className="w-10 h-10 rounded-lg bg-amber-950/80 border border-amber-800/60 flex items-center justify-center text-amber-400 shrink-0">
             <Clock className="w-5 h-5" />
           </div>
-          <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Paused / Expired</span>
+          <div className="min-w-0">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 block truncate">Paused / Expired</span>
             <h4 className="text-xl font-extrabold text-amber-400 mt-0.5">{metrics.paused + metrics.expired}</h4>
           </div>
         </Card>
 
-        <Card className="flex items-center gap-4 bg-zinc-900/90 border-zinc-800">
-          <div className="w-11 h-11 rounded-xl bg-red-950/80 border border-red-800/60 flex items-center justify-center text-red-400">
+        <Card className="flex items-center gap-3.5 bg-zinc-900/90 border-zinc-800/80">
+          <div className="w-10 h-10 rounded-lg bg-red-950/80 border border-red-800/60 flex items-center justify-center text-red-400 shrink-0">
             <Ban className="w-5 h-5" />
           </div>
-          <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Banned Accounts</span>
+          <div className="min-w-0">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 block truncate">Banned Accounts</span>
             <h4 className="text-xl font-extrabold text-red-400 mt-0.5">{metrics.banned}</h4>
           </div>
         </Card>
       </div>
 
       {/* Control Bar: Search & Filters */}
-      <Card className="p-4 space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <Card className="p-4 space-y-4 border-zinc-800/80 bg-zinc-950/80">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="relative flex-1">
             <Search className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3" />
             <input
@@ -272,15 +272,15 @@ export default function UserAccountsPage() {
               placeholder="Search by username, client notes, or bound HWID..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-red-500/80"
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg pl-10 pr-4 py-2.5 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-red-500/80"
             />
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-zinc-200 focus:outline-none focus:border-red-500"
+              className="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-200 focus:outline-none focus:border-red-500"
             >
               <option value="">All Statuses</option>
               <option value="ACTIVE">Active</option>
@@ -292,9 +292,9 @@ export default function UserAccountsPage() {
             <select
               value={appFilter}
               onChange={(e) => setAppFilter(e.target.value)}
-              className="bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-zinc-200 focus:outline-none focus:border-red-500"
+              className="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-200 focus:outline-none focus:border-red-500"
             >
-              <option value="">All User-Auth Applications</option>
+              <option value="">All Applications</option>
               {apps
                 .filter((a) => a.type === 'USER_AUTH')
                 .map((app) => (
@@ -414,122 +414,89 @@ export default function UserAccountsPage() {
                       </td>
                       {/* Credentials (Username & Password) & Bound Machine HWID */}
                       <td className="p-4">
-                        <div className="flex flex-col gap-2 min-w-[260px] max-w-[340px]">
-                          {/* Line 1: Username */}
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <div className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-cyan-400 w-12 shrink-0">
-                              <User className="w-3.5 h-3.5" />
-                              <span>User</span>
+                        <div className="flex flex-col gap-1.5 min-w-[250px] max-w-[330px]">
+                          {/* Row 1: User & Pass in clean line with copy buttons */}
+                          <div className="flex items-center gap-2 flex-wrap text-xs font-mono">
+                            <div className="flex items-center gap-1">
+                              <User className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                              <span className="font-bold text-white bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800 select-all">
+                                {user.username}
+                              </span>
+                              <button
+                                onClick={() => copyToClipboard(user.username, user.id, 'user')}
+                                className="p-0.5 rounded hover:bg-zinc-800 text-zinc-500 hover:text-zinc-200 transition-colors"
+                                title="Copy Username"
+                              >
+                                {copiedField?.id === user.id && copiedField.field === 'user' ? (
+                                  <Check className="w-3 h-3 text-emerald-400" />
+                                ) : (
+                                  <Copy className="w-3 h-3" />
+                                )}
+                              </button>
                             </div>
-                            <span className="font-mono font-bold text-white bg-zinc-950/90 px-2 py-0.5 rounded-md border border-zinc-800 text-xs tracking-wider shadow-sm select-all">
-                              {user.username}
-                            </span>
-                            <button
-                              onClick={() => copyToClipboard(user.username, user.id, 'user')}
-                              className="p-1 rounded hover:bg-zinc-800 text-zinc-500 hover:text-zinc-200 transition-colors"
-                              title="Copy Username"
-                            >
-                              {copiedField?.id === user.id && copiedField.field === 'user' ? (
-                                <Check className="w-3.5 h-3.5 text-emerald-400" />
+
+                            <div className="flex items-center gap-1">
+                              <Key className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                              {user.plainPassword ? (
+                                <>
+                                  <span className="font-bold text-amber-300 bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800 select-all">
+                                    {revealAllPasswords || visiblePasswords[user.id] ? user.plainPassword : '••••••••'}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => togglePasswordVisibility(user.id)}
+                                    className="p-0.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-amber-300 transition-colors"
+                                    title={visiblePasswords[user.id] || revealAllPasswords ? 'Hide Password' : 'Show Password'}
+                                  >
+                                    {revealAllPasswords || visiblePasswords[user.id] ? (
+                                      <EyeOff className="w-3 h-3 text-amber-400" />
+                                    ) : (
+                                      <Eye className="w-3 h-3" />
+                                    )}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => copyToClipboard(user.plainPassword!, user.id, 'pass')}
+                                    className="p-0.5 rounded hover:bg-zinc-800 text-zinc-500 hover:text-zinc-200 transition-colors"
+                                    title="Copy Password"
+                                  >
+                                    {copiedField?.id === user.id && copiedField.field === 'pass' ? (
+                                      <Check className="w-3 h-3 text-emerald-400" />
+                                    ) : (
+                                      <Copy className="w-3 h-3" />
+                                    )}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => copyToClipboard(`${user.username}:${user.plainPassword}`, user.id, 'combo')}
+                                    className="px-1.5 py-0.5 rounded bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-800/40 text-[10px] text-cyan-300 font-bold transition-colors ml-0.5"
+                                    title="Copy user:pass combo"
+                                  >
+                                    {copiedField?.id === user.id && copiedField.field === 'combo' ? 'Copied!' : 'Combo'}
+                                  </button>
+                                </>
                               ) : (
-                                <Copy className="w-3.5 h-3.5" />
+                                <span className="text-[11px] text-zinc-500 italic bg-zinc-950 px-1.5 py-0.5 rounded border border-zinc-800">
+                                  •••••••• (Hashed)
+                                </span>
                               )}
-                            </button>
+                            </div>
+
                             {(user.clientName?.toLowerCase().includes('free trial') || user.username.startsWith('trial_')) && (
-                              <span className="px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider rounded bg-emerald-950/90 text-emerald-400 border border-emerald-800/60 shrink-0">
-                                FREE TRIAL
+                              <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase rounded bg-emerald-950 text-emerald-400 border border-emerald-800/60">
+                                TRIAL
                               </span>
                             )}
                           </div>
 
-                          {/* Line 2: Password */}
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <div className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-amber-400 w-12 shrink-0">
-                              <Key className="w-3.5 h-3.5" />
-                              <span>Pass</span>
-                            </div>
-                            {user.plainPassword ? (
-                              <>
-                                <span className="font-mono text-xs text-amber-300 bg-amber-950/30 px-2 py-0.5 rounded-md border border-amber-800/40 tracking-wider shadow-sm select-all">
-                                  {revealAllPasswords || visiblePasswords[user.id] ? user.plainPassword : '••••••••'}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => togglePasswordVisibility(user.id)}
-                                  className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-amber-300 transition-colors"
-                                  title={visiblePasswords[user.id] || revealAllPasswords ? 'Hide Password' : 'Show Password'}
-                                >
-                                  {revealAllPasswords || visiblePasswords[user.id] ? (
-                                    <EyeOff className="w-3.5 h-3.5 text-amber-400" />
-                                  ) : (
-                                    <Eye className="w-3.5 h-3.5" />
-                                  )}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => copyToClipboard(user.plainPassword!, user.id, 'pass')}
-                                  className="p-1 rounded hover:bg-zinc-800 text-zinc-500 hover:text-zinc-200 transition-colors"
-                                  title="Copy Password"
-                                >
-                                  {copiedField?.id === user.id && copiedField.field === 'pass' ? (
-                                    <Check className="w-3.5 h-3.5 text-emerald-400" />
-                                  ) : (
-                                    <Copy className="w-3.5 h-3.5" />
-                                  )}
-                                </button>
-                              </>
-                            ) : (
-                              <div className="flex items-center gap-1.5">
-                                <span
-                                  className="font-mono text-[11px] text-zinc-500 bg-zinc-900/80 px-2 py-0.5 rounded border border-zinc-800/80 italic"
-                                  title="Existing hash in database. Click Set to assign a visible password."
-                                >
-                                  •••••••• (Hashed)
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => setEditingUser(user)}
-                                  className="text-[10px] text-red-400 hover:underline hover:text-red-300 font-medium"
-                                  title="Edit user to set password"
-                                >
-                                  Set Plain
-                                </button>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Line 3: Quick "Copy user:pass" Combo Pill */}
-                          {user.plainPassword && (
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => copyToClipboard(`${user.username}:${user.plainPassword}`, user.id, 'combo')}
-                                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono font-bold text-cyan-300 hover:text-cyan-100 bg-cyan-950/40 hover:bg-cyan-900/60 border border-cyan-800/40 transition-colors"
-                                title="Copy credentials in user:password format for instant client login"
-                              >
-                                {copiedField?.id === user.id && copiedField.field === 'combo' ? (
-                                  <>
-                                    <Check className="w-3 h-3 text-emerald-400" />
-                                    <span className="text-emerald-400">Copied user:pass!</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <Copy className="w-3 h-3 text-cyan-400" />
-                                    <span>Copy user:pass</span>
-                                  </>
-                                )}
-                              </button>
-                            </div>
-                          )}
-
-                          {/* Line 4: Bound Machine HWID */}
-                          <div className="flex items-center gap-1.5 text-xs pt-1 border-t border-zinc-800/40">
+                          {/* Row 2: Bound Machine HWID */}
+                          <div className="flex items-center gap-1.5 text-xs">
                             <Cpu className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
                             {user.boundHwid ? (
                               <div className="flex items-center gap-1.5 overflow-hidden">
                                 <span
                                   title={user.boundHwid}
-                                  className="font-mono text-[11px] text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40 truncate max-w-[200px]"
+                                  className="font-mono text-[11px] text-zinc-300 bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800/80 truncate max-w-[210px]"
                                 >
                                   {user.boundHwid}
                                 </span>
@@ -548,7 +515,7 @@ export default function UserAccountsPage() {
                               </div>
                             ) : (
                               <span className="text-[11px] text-zinc-500 italic">
-                                Unbound (First machine will lock)
+                                Unbound (Locks on first login)
                               </span>
                             )}
                           </div>

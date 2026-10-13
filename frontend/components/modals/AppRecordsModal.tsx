@@ -210,31 +210,31 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
       <div className="space-y-5">
         {/* Metric Summary Header */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-          <div className="p-3 rounded-[10px] bg-zinc-950 border border-zinc-800 flex items-center justify-between">
+          <div className="p-3 rounded-lg bg-zinc-900/90 border border-zinc-800/80 flex items-center justify-between">
             <span className="text-zinc-400 font-bold uppercase text-[10px]">Total Records</span>
             <span className="font-mono font-bold text-white text-sm">{metrics.total}</span>
           </div>
 
-          <div className="p-3 rounded-[10px] bg-emerald-950/40 border border-emerald-800/50 flex items-center justify-between">
+          <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between">
             <span className="text-emerald-400 font-bold uppercase text-[10px]">Active</span>
             <span className="font-mono font-bold text-emerald-400 text-sm">{metrics.active}</span>
           </div>
 
-          <div className="p-3 rounded-[10px] bg-amber-950/40 border border-amber-800/50 flex items-center justify-between">
+          <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-between">
             <span className="text-amber-400 font-bold uppercase text-[10px]">Expired / Paused</span>
             <span className="font-mono font-bold text-amber-400 text-sm">{metrics.expired + metrics.paused}</span>
           </div>
 
-          <div className="p-3 rounded-[10px] bg-red-950/40 border border-red-800/50 flex items-center justify-between">
+          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-between">
             <span className="text-red-400 font-bold uppercase text-[10px]">Banned</span>
             <span className="font-mono font-bold text-red-400 text-sm">{metrics.banned}</span>
           </div>
         </div>
 
         {/* Search & Status Filter Controls */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-zinc-950 p-3.5 rounded-[12px] border border-zinc-800">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-zinc-950/80 p-3 rounded-lg border border-zinc-800/80">
           <div className="relative flex-1 w-full">
-            <Search className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3" />
+            <Search className="w-4 h-4 text-zinc-500 absolute left-3.5 top-2.5" />
             <input
               type="text"
               placeholder={
@@ -244,19 +244,19 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
               }
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-[8px] pl-10 pr-4 py-2 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-red-500"
+              className="w-full bg-zinc-900/80 border border-zinc-800 rounded-lg pl-10 pr-4 py-2 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-700"
             />
           </div>
 
           {/* Status Filter Tabs */}
-          <div className="flex items-center p-1 bg-zinc-900 border border-zinc-800 rounded-[8px] text-[11px] font-bold shrink-0">
+          <div className="flex items-center p-1 bg-zinc-900/80 border border-zinc-800 rounded-lg text-[11px] font-semibold shrink-0">
             {(['ALL', 'ACTIVE', 'PAUSED', 'EXPIRED', 'BANNED'] as const).map((st) => (
               <button
                 key={st}
                 onClick={() => setStatusFilter(st)}
-                className={`px-2.5 py-1 rounded-[6px] transition-all ${
+                className={`px-2.5 py-1 rounded-md transition-all ${
                   statusFilter === st
-                    ? 'bg-zinc-800 text-white shadow-sm'
+                    ? 'bg-zinc-800 text-white shadow-sm font-bold'
                     : 'text-zinc-400 hover:text-zinc-200'
                 }`}
               >

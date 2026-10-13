@@ -214,50 +214,50 @@ export default function LicensesPage() {
 
       {/* Summary Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="flex items-center gap-4 bg-zinc-900/90 border-zinc-800">
-          <div className="w-11 h-11 rounded-xl bg-blue-950/80 border border-blue-800/60 flex items-center justify-center text-blue-400">
+        <Card className="flex items-center gap-3.5 bg-zinc-900/90 border-zinc-800/80">
+          <div className="w-10 h-10 rounded-lg bg-blue-950/80 border border-blue-800/60 flex items-center justify-center text-blue-400 shrink-0">
             <Key className="w-5 h-5" />
           </div>
-          <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Total Keys</span>
+          <div className="min-w-0">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 block truncate">Total Keys</span>
             <h4 className="text-xl font-extrabold text-white mt-0.5">{metrics.total}</h4>
           </div>
         </Card>
 
-        <Card className="flex items-center gap-4 bg-zinc-900/90 border-zinc-800">
-          <div className="w-11 h-11 rounded-xl bg-emerald-950/80 border border-emerald-800/60 flex items-center justify-center text-emerald-400">
+        <Card className="flex items-center gap-3.5 bg-zinc-900/90 border-zinc-800/80">
+          <div className="w-10 h-10 rounded-lg bg-emerald-950/80 border border-emerald-800/60 flex items-center justify-center text-emerald-400 shrink-0">
             <ShieldCheck className="w-5 h-5" />
           </div>
-          <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Active Keys</span>
+          <div className="min-w-0">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 block truncate">Active Keys</span>
             <h4 className="text-xl font-extrabold text-emerald-400 mt-0.5">{metrics.active}</h4>
           </div>
         </Card>
 
-        <Card className="flex items-center gap-4 bg-zinc-900/90 border-zinc-800">
-          <div className="w-11 h-11 rounded-xl bg-amber-950/80 border border-amber-800/60 flex items-center justify-center text-amber-400">
+        <Card className="flex items-center gap-3.5 bg-zinc-900/90 border-zinc-800/80">
+          <div className="w-10 h-10 rounded-lg bg-amber-950/80 border border-amber-800/60 flex items-center justify-center text-amber-400 shrink-0">
             <Clock className="w-5 h-5" />
           </div>
-          <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Paused / Expired</span>
+          <div className="min-w-0">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 block truncate">Paused / Expired</span>
             <h4 className="text-xl font-extrabold text-amber-400 mt-0.5">{metrics.paused + metrics.expired}</h4>
           </div>
         </Card>
 
-        <Card className="flex items-center gap-4 bg-zinc-900/90 border-zinc-800">
-          <div className="w-11 h-11 rounded-xl bg-red-950/80 border border-red-800/60 flex items-center justify-center text-red-400">
+        <Card className="flex items-center gap-3.5 bg-zinc-900/90 border-zinc-800/80">
+          <div className="w-10 h-10 rounded-lg bg-red-950/80 border border-red-800/60 flex items-center justify-center text-red-400 shrink-0">
             <Ban className="w-5 h-5" />
           </div>
-          <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Banned Keys</span>
+          <div className="min-w-0">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 block truncate">Banned Keys</span>
             <h4 className="text-xl font-extrabold text-red-400 mt-0.5">{metrics.banned}</h4>
           </div>
         </Card>
       </div>
 
       {/* Control Bar: Search & Filters */}
-      <Card className="p-4 space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <Card className="p-4 space-y-4 border-zinc-800/80 bg-zinc-950/80">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="relative flex-1">
             <Search className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3" />
             <input
@@ -265,15 +265,15 @@ export default function LicensesPage() {
               placeholder="Search by license key (NULL-XXXX), Client Name, or bound HWID..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-red-500/80"
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg pl-10 pr-4 py-2.5 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-red-500/80"
             />
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-zinc-200 focus:outline-none focus:border-red-500"
+              className="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-200 focus:outline-none focus:border-red-500"
             >
               <option value="">All Statuses</option>
               <option value="ACTIVE">Active</option>
@@ -285,9 +285,9 @@ export default function LicensesPage() {
             <select
               value={appFilter}
               onChange={(e) => setAppFilter(e.target.value)}
-              className="bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-zinc-200 focus:outline-none focus:border-red-500"
+              className="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-200 focus:outline-none focus:border-red-500"
             >
-              <option value="">All License Applications</option>
+              <option value="">All Applications</option>
               {apps
                 .filter((a) => a.type === 'LICENSE')
                 .map((app) => (

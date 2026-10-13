@@ -842,53 +842,53 @@ export default function SettingsPage() {
       />
 
       {/* Tab Selectors */}
-      <div className="flex items-center gap-2 border-b border-zinc-800 pb-3 text-sm flex-wrap">
+      <div className="flex items-center gap-1.5 border-b border-zinc-800 pb-3 text-xs flex-wrap">
         <button
           onClick={() => setActiveTab('hwid')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-[10px] font-bold transition-all ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg font-semibold transition-all ${
             activeTab === 'hwid'
-              ? 'btn-red-gradient text-white border border-red-500/40 shadow-md'
-              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
+              ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm'
+              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60'
           }`}
         >
           <Terminal className="w-4 h-4 text-emerald-400" /> Machine HWID Tool
         </button>
         <button
           onClick={() => setActiveTab('webhook')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-[10px] font-bold transition-all ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg font-semibold transition-all ${
             activeTab === 'webhook'
-              ? 'btn-red-gradient text-white border border-red-500/40 shadow-md'
-              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
+              ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm'
+              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60'
           }`}
         >
           <Bell className="w-4 h-4 text-indigo-400" /> Discord Webhook
         </button>
         <button
           onClick={() => setActiveTab('sdk')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-[10px] font-bold transition-all ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg font-semibold transition-all ${
             activeTab === 'sdk'
-              ? 'btn-red-gradient text-white border border-red-500/40 shadow-md'
-              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
+              ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm'
+              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60'
           }`}
         >
           <Code className="w-4 h-4" /> Official Client SDKs
         </button>
         <button
           onClick={() => setActiveTab('api')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-[10px] font-bold transition-all ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg font-semibold transition-all ${
             activeTab === 'api'
-              ? 'btn-red-gradient text-white border border-red-500/40 shadow-md'
-              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
+              ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm'
+              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60'
           }`}
         >
           <Server className="w-4 h-4" /> Live Endpoints
         </button>
         <button
           onClick={() => setActiveTab('security')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-[10px] font-bold transition-all ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg font-semibold transition-all ${
             activeTab === 'security'
-              ? 'btn-red-gradient text-white border border-red-500/40 shadow-md'
-              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
+              ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm'
+              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60'
           }`}
         >
           <Lock className="w-4 h-4" /> Admin Security

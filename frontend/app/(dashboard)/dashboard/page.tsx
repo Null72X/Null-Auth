@@ -228,150 +228,130 @@ export default function DashboardOverviewPage() {
       />
 
       {/* Hero Welcome Banner */}
-      <Card className="relative overflow-hidden bg-gradient-to-r from-zinc-900 via-red-950/40 to-zinc-900 border-zinc-800 p-6 shadow-xl">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-950/80 border border-red-800/60 text-red-400 text-xs font-bold">
-              <Zap className="w-3.5 h-3.5" /> Null-Auth Private Cloud Platform
+      <Card className="bg-zinc-950/80 border-zinc-800/80 p-5 shadow-lg">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Null-Auth Platform Active</span>
             </div>
-            <h2 className="text-2xl font-black text-white tracking-tight">
+            <h2 className="text-xl font-bold text-white tracking-tight">
               Welcome back, Administrator
             </h2>
             <p className="text-xs text-zinc-400 max-w-xl">
-              Manage your applications, generate secure license keys bound to client hardware IDs (HWIDs), and control HWID access whitelists.
+              Real-time administrative control center for client apps, license keys, machine hardware IDs, and live authentication telemetry.
             </p>
           </div>
 
           {/* Quick Control Shortcuts */}
-          <div className="flex flex-wrap items-center gap-3 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             <Button
               onClick={() => setIsCreateAppOpen(true)}
-              className="gap-2 text-xs font-bold shadow-lg shadow-red-950/50"
+              className="gap-1.5 text-xs font-bold h-8 px-3"
             >
               <Plus className="w-3.5 h-3.5" /> App
             </Button>
             <Button
               variant="secondary"
               onClick={() => setIsGenerateLicenseOpen(true)}
-              className="gap-2 text-xs font-bold border-blue-900/40 hover:border-blue-500/50"
+              className="gap-1.5 text-xs font-bold border-zinc-800 text-blue-400 hover:text-blue-300 h-8 px-3"
             >
-              <Key className="w-3.5 h-3.5 text-blue-400" /> License
+              <Key className="w-3.5 h-3.5" /> License
             </Button>
             <Button
               variant="secondary"
               onClick={() => setIsAddHwidOpen(true)}
-              className="gap-2 text-xs font-bold border-purple-900/40 hover:border-purple-500/50"
+              className="gap-1.5 text-xs font-bold border-zinc-800 text-purple-400 hover:text-purple-300 h-8 px-3"
             >
-              <ShieldCheck className="w-3.5 h-3.5 text-purple-400" /> HWID
+              <ShieldCheck className="w-3.5 h-3.5" /> HWID
             </Button>
             <Button
               variant="secondary"
               onClick={() => setIsCreateUserOpen(true)}
-              className="gap-2 text-xs font-bold border-emerald-900/40 hover:border-emerald-500/50"
+              className="gap-1.5 text-xs font-bold border-zinc-800 text-cyan-400 hover:text-cyan-300 h-8 px-3"
             >
-              <Users className="w-3.5 h-3.5 text-emerald-400" /> User
+              <Users className="w-3.5 h-3.5" /> User
             </Button>
           </div>
         </div>
       </Card>
 
       {/* Metrics Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <Card className="flex items-center gap-4 animate-slide-up group" style={{ animationDelay: '0ms' }}>
-          <div className="w-12 h-12 rounded-2xl bg-red-950/80 border border-red-800/60 flex items-center justify-center text-red-400 shadow-md shadow-red-950/40 group-hover:scale-110 transition-transform">
-            <AppWindow className="w-6 h-6" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <Card className="flex items-center gap-3.5 bg-zinc-900/90 border-zinc-800/80">
+          <div className="w-10 h-10 rounded-lg bg-red-950/80 border border-red-800/60 flex items-center justify-center text-red-400 shrink-0">
+            <AppWindow className="w-5 h-5" />
           </div>
-          <div>
-            <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Total Apps</p>
-            <h3 className="text-2xl font-black text-white mt-0.5">
-              {isLoading ? '...' : stats?.totalApps || 0}
-            </h3>
-            <p className="text-[11px] text-emerald-400 font-semibold mt-0.5">
-              {stats?.activeApps || 0} Active Applications
-            </p>
+          <div className="min-w-0">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 block truncate">Total Apps</span>
+            <h4 className="text-xl font-extrabold text-white mt-0.5">{isLoading ? '...' : stats?.totalApps || 0}</h4>
+            <span className="text-[10px] text-emerald-400 font-medium block truncate">{stats?.activeApps || 0} Active</span>
           </div>
         </Card>
 
-        <Card className="flex items-center gap-4 animate-slide-up group" style={{ animationDelay: '50ms' }}>
-          <div className="w-12 h-12 rounded-2xl bg-blue-950/80 border border-blue-800/60 flex items-center justify-center text-blue-400 shadow-md shadow-blue-950/40 group-hover:scale-110 transition-transform">
-            <Key className="w-6 h-6" />
+        <Card className="flex items-center gap-3.5 bg-zinc-900/90 border-zinc-800/80">
+          <div className="w-10 h-10 rounded-lg bg-blue-950/80 border border-blue-800/60 flex items-center justify-center text-blue-400 shrink-0">
+            <Key className="w-5 h-5" />
           </div>
-          <div>
-            <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Active Licenses</p>
-            <h3 className="text-2xl font-black text-white mt-0.5">
-              {isLoading ? '...' : stats?.activeLicenses || 0}
-            </h3>
-            <p className="text-[11px] text-zinc-500 mt-0.5">
-              Out of {stats?.totalLicenses || 0} Total Licenses
-            </p>
+          <div className="min-w-0">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 block truncate">Active Licenses</span>
+            <h4 className="text-xl font-extrabold text-white mt-0.5">{isLoading ? '...' : stats?.activeLicenses || 0}</h4>
+            <span className="text-[10px] text-zinc-500 font-medium block truncate">/ {stats?.totalLicenses || 0} Total</span>
           </div>
         </Card>
 
-        <Card className="flex items-center gap-4 animate-slide-up group" style={{ animationDelay: '100ms' }}>
-          <div className="w-12 h-12 rounded-2xl bg-purple-950/80 border border-purple-800/60 flex items-center justify-center text-purple-400 shadow-md shadow-purple-950/40 group-hover:scale-110 transition-transform">
-            <ShieldCheck className="w-6 h-6" />
+        <Card className="flex items-center gap-3.5 bg-zinc-900/90 border-zinc-800/80">
+          <div className="w-10 h-10 rounded-lg bg-purple-950/80 border border-purple-800/60 flex items-center justify-center text-purple-400 shrink-0">
+            <ShieldCheck className="w-5 h-5" />
           </div>
-          <div>
-            <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Active HWIDs</p>
-            <h3 className="text-2xl font-black text-white mt-0.5">
-              {isLoading ? '...' : stats?.activeHwids || 0}
-            </h3>
-            <p className="text-[11px] text-zinc-500 mt-0.5">
-              Out of {stats?.totalHwids || 0} Whitelisted
-            </p>
+          <div className="min-w-0">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 block truncate">Active HWIDs</span>
+            <h4 className="text-xl font-extrabold text-white mt-0.5">{isLoading ? '...' : stats?.activeHwids || 0}</h4>
+            <span className="text-[10px] text-zinc-500 font-medium block truncate">/ {stats?.totalHwids || 0} Total</span>
           </div>
         </Card>
 
-        <Card className="flex items-center gap-4 animate-slide-up group" style={{ animationDelay: '150ms' }}>
-          <div className="w-12 h-12 rounded-2xl bg-emerald-950/80 border border-emerald-800/60 flex items-center justify-center text-emerald-400 shadow-md shadow-emerald-950/40 group-hover:scale-110 transition-transform">
-            <Users className="w-6 h-6" />
+        <Card className="flex items-center gap-3.5 bg-zinc-900/90 border-zinc-800/80">
+          <div className="w-10 h-10 rounded-lg bg-cyan-950/80 border border-cyan-800/60 flex items-center justify-center text-cyan-400 shrink-0">
+            <Users className="w-5 h-5" />
           </div>
-          <div>
-            <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Active User Accounts</p>
-            <h3 className="text-2xl font-black text-white mt-0.5">
-              {isLoading ? '...' : stats?.activeUsers || 0}
-            </h3>
-            <p className="text-[11px] text-zinc-500 mt-0.5">
-              Out of {stats?.totalUsers || 0} User Accounts
-            </p>
+          <div className="min-w-0">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 block truncate">User Accounts</span>
+            <h4 className="text-xl font-extrabold text-white mt-0.5">{isLoading ? '...' : stats?.activeUsers || 0}</h4>
+            <span className="text-[10px] text-zinc-500 font-medium block truncate">/ {stats?.totalUsers || 0} Total</span>
           </div>
         </Card>
 
-        <Card className="flex items-center gap-4 animate-slide-up group" style={{ animationDelay: '200ms' }}>
-          <div className="w-12 h-12 rounded-2xl bg-amber-950/80 border border-amber-800/60 flex items-center justify-center text-amber-400 shadow-md shadow-amber-950/40 group-hover:scale-110 transition-transform">
-            <AlertTriangle className="w-6 h-6" />
+        <Card className="flex items-center gap-3.5 bg-zinc-900/90 border-zinc-800/80">
+          <div className="w-10 h-10 rounded-lg bg-amber-950/80 border border-amber-800/60 flex items-center justify-center text-amber-400 shrink-0">
+            <AlertTriangle className="w-5 h-5" />
           </div>
-          <div>
-            <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Expired Keys</p>
-            <h3 className="text-2xl font-black text-white mt-0.5">
-              {isLoading ? '...' : stats?.expiredLicenses || 0}
-            </h3>
-            <p className="text-[11px] text-zinc-500 mt-0.5">Expired or Inactive Keys</p>
+          <div className="min-w-0">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 block truncate">Expired Keys</span>
+            <h4 className="text-xl font-extrabold text-white mt-0.5">{isLoading ? '...' : stats?.expiredLicenses || 0}</h4>
+            <span className="text-[10px] text-zinc-500 font-medium block truncate">Inactive / Expired</span>
           </div>
         </Card>
       </div>
 
       {/* Main Live Telemetry Section - Modern Card Window UI */}
       <div className="w-full">
-        <Card className="space-y-6 animate-slide-up border-zinc-800 bg-zinc-900/60 backdrop-blur-md shadow-xl p-6" style={{ animationDelay: '200ms' }}>
+        <Card className="space-y-5 animate-slide-up border-zinc-800/80 bg-zinc-950/80 shadow-xl p-5" style={{ animationDelay: '100ms' }}>
           {/* Header Bar */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-zinc-800 pb-5">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-zinc-800/80 pb-4">
             <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl bg-red-950/60 border border-red-800/60 flex items-center justify-center text-red-400 shrink-0 shadow-inner">
-                <Activity className="w-5 h-5 animate-pulse" />
+              <div className="w-9 h-9 rounded-lg bg-red-950/60 border border-red-800/60 flex items-center justify-center text-red-400 shrink-0">
+                <Activity className="w-4 h-4" />
               </div>
               <div>
-                <div className="flex items-center gap-2.5">
-                  <h2 className="text-lg font-bold text-white tracking-tight">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-bold text-white tracking-tight">
                     Live Authentication Stream
                   </h2>
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-800/80 text-[10px] font-bold text-emerald-400">
-                    <span className="relative flex h-1.5 w-1.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
-                    </span>
-                    LIVE FEED
-                  </div>
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-800/60 text-[10px] font-bold text-emerald-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    LIVE
+                  </span>
                 </div>
                 <p className="text-xs text-zinc-400 mt-0.5">
                   Real-time telemetry of authentication traffic, license verification, HWID authorization, and system logs.
@@ -380,16 +360,16 @@ export default function DashboardOverviewPage() {
             </div>
 
             {/* Controls Right */}
-            <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex flex-wrap items-center gap-2">
               {/* Search Bar */}
-              <div className="relative min-w-[240px] sm:min-w-[280px]">
-                <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <div className="relative min-w-[220px]">
+                <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   placeholder="Search logs by IP, user, key, HWID..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-red-500/60 transition-all"
+                  className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-red-500/80 transition-all"
                 />
                 {searchQuery && (
                   <button
@@ -405,7 +385,7 @@ export default function DashboardOverviewPage() {
               <button
                 type="button"
                 onClick={() => setAutoRefresh(!autoRefresh)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all flex items-center gap-1.5 ${
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all flex items-center gap-1.5 ${
                   autoRefresh
                     ? 'bg-zinc-800 text-zinc-200 border-zinc-700'
                     : 'bg-zinc-950 text-zinc-500 border-zinc-800'
@@ -413,7 +393,7 @@ export default function DashboardOverviewPage() {
                 title="Toggle 10-second automatic polling"
               >
                 <Clock className="w-3.5 h-3.5" />
-                <span>Auto Polling: {autoRefresh ? 'ON' : 'OFF'}</span>
+                <span>Auto: {autoRefresh ? 'ON' : 'OFF'}</span>
               </button>
 
               {/* Manual Refresh Button */}
@@ -422,7 +402,7 @@ export default function DashboardOverviewPage() {
                 size="sm"
                 onClick={loadLogs}
                 disabled={isRefreshingLogs}
-                className="gap-2 text-xs font-semibold"
+                className="gap-1.5 text-xs font-semibold h-8"
                 title="Refresh Stream Now"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingLogs ? 'animate-spin text-red-400' : ''}`} />
@@ -432,11 +412,11 @@ export default function DashboardOverviewPage() {
           </div>
 
           {/* Telemetry Summary Stats Strip & Filter Tabs */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-zinc-950/50 p-3 rounded-xl border border-zinc-800/80">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-950/60 p-2.5 rounded-lg border border-zinc-800/80">
             {/* Filter Tabs */}
-            <div className="flex items-center gap-1.5 overflow-x-auto text-xs">
+            <div className="flex items-center p-1 bg-zinc-950 border border-zinc-800 rounded-lg text-xs">
               {[
-                { id: 'ALL', label: `All Events (${logsList.length})` },
+                { id: 'ALL', label: `All (${logsList.length})` },
                 { id: 'CLIENT', label: 'Client Traffic' },
                 { id: 'ADMIN', label: 'Admin Ops' },
                 { id: 'THREATS', label: `Alerts (${logMetrics.blocked})` },
@@ -445,12 +425,10 @@ export default function DashboardOverviewPage() {
                   key={tab.id}
                   type="button"
                   onClick={() => setSelectedFilter(tab.id as any)}
-                  className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
+                  className={`px-3 py-1 rounded-md font-semibold transition-all ${
                     selectedFilter === tab.id
-                      ? tab.id === 'THREATS' && logMetrics.blocked > 0
-                        ? 'bg-red-950 text-red-400 border border-red-800'
-                        : 'bg-red-600 text-white shadow-md shadow-red-950/50 font-semibold'
-                      : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800/60'
+                      ? 'bg-zinc-800 text-white shadow-sm'
+                      : 'text-zinc-400 hover:text-zinc-200'
                   }`}
                 >
                   {tab.label}
