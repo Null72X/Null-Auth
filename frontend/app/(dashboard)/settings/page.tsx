@@ -32,9 +32,11 @@ import {
 const CSHARP_SDK = `using System;
 using System.Diagnostics;
 using System.Net.Http;
+using System.Security.Cryptography;
 using System.Security.Principal;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -50,6 +52,7 @@ namespace NullAuthClient
         public string Hwid { get; set; } = "";
         public string Version { get; set; } = "";
         public string Ip { get; set; } = "";
+        public string SessionToken { get; set; } = "";
     }
 
     public class NullAuthResult
@@ -63,6 +66,7 @@ namespace NullAuthClient
 
     /// <summary>
     /// Ultra-Advanced Single-File C# SDK (NativeAOT & Trimming Safe)
+    /// Features: Anti-Debug Guard, HMAC-SHA256 Response Signing, 45s Heartbeat Remote Kill
     /// Initialization: new NullAuth(appId, secret, version)
     /// </summary>
     public class NullAuth
@@ -75,6 +79,7 @@ namespace NullAuthClient
         public bool Initialized { get; private set; } = false;
 
         private static readonly HttpClient _http = new HttpClient();
+        private Timer _heartbeatTimer;
 
         public NullAuth(string appId, string secret, string version = "1.0.0", string serverUrl = "https://nullauthbackend.vercel.app")
         {
@@ -82,6 +87,33 @@ namespace NullAuthClient
             Secret = secret?.Trim() ?? "";
             Version = version?.Trim() ?? "1.0.0";
             ServerUrl = serverUrl?.TrimEnd('/') ?? "https://nullauthbackend.vercel.app";
+        }
+
+        [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
+        private static extern bool IsDebuggerPresent();
+
+        [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
+        private static extern bool CheckRemoteDebuggerPresent(IntPtr hProcess, ref bool isDebuggerPresent);
+
+        public static void CheckAntiDebug()
+        {
+            if (Debugger.IsAttached || IsDebuggerPresent())
+            {
+                ShowPopup("Security Violation", "Active debugger detected! Execution terminated for safety.", MessageBoxIcon.Stop);
+                Environment.Exit(0xDEB);
+            }
+
+            bool isRemote = false;
+            try
+            {
+                CheckRemoteDebuggerPresent(Process.GetCurrentProcess().Handle, ref isRemote);
+                if (isRemote)
+                {
+                    ShowPopup("Security Violation", "Remote debugger detected! Execution terminated for safety.", MessageBoxIcon.Stop);
+                    Environment.Exit(0xDEB);
+                }
+            }
+            catch { }
         }
 
         [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true, CharSet = System.Runtime.InteropServices.CharSet.Auto)]
@@ -121,7 +153,7 @@ namespace NullAuthClient
                     catch { rawHwid = Environment.MachineName; }
                 }
 
-                using var sha256 = System.Security.Cryptography.SHA256.Create();
+                using var sha256 = SHA256.Create();
                 byte[] bytes = Encoding.UTF8.GetBytes(rawHwid);
                 byte[] hash = sha256.ComputeHash(bytes);
                 var sb = new StringBuilder(hash.Length * 2);
@@ -151,12 +183,13 @@ namespace NullAuthClient
 
             string title = "Null-Auth Security Alert";
             if (errCode == "VERSION_MISMATCH") title = "Update Required";
-            else if (errCode == "LICENSE_EXPIRED" || errCode == "IDENTIFIER_EXPIRED") title = "License Expired";
-            else if (errCode == "LICENSE_BANNED" || errCode == "IDENTIFIER_BANNED") title = "Account Banned";
-            else if (errCode == "LICENSE_PAUSED" || errCode == "IDENTIFIER_PAUSED") title = "Access Paused";
+            else if (errCode == "LICENSE_EXPIRED" || errCode == "IDENTIFIER_EXPIRED" || errCode == "USER_EXPIRED" || errCode == "TRIAL_EXPIRED") title = "License Expired";
+            else if (errCode == "LICENSE_BANNED" || errCode == "IDENTIFIER_BANNED" || errCode == "USER_BANNED") title = "Account Banned";
+            else if (errCode == "LICENSE_PAUSED" || errCode == "IDENTIFIER_PAUSED" || errCode == "USER_PAUSED") title = "Access Paused";
             else if (errCode == "HWID_MISMATCH") title = "HWID Mismatch";
-            else if (errCode == "LICENSE_NOT_FOUND" || errCode == "IDENTIFIER_NOT_FOUND") title = "Invalid Key / HWID";
+            else if (errCode == "LICENSE_NOT_FOUND" || errCode == "IDENTIFIER_NOT_FOUND" || errCode == "USER_NOT_FOUND") title = "Invalid Credentials";
             else if (errCode == "APPLICATION_DISABLED") title = "Application Paused";
+            else if (errCode == "TAMPERING_DETECTED") title = "Security Violation: Tampered Response";
 
             string popupMsg = string.IsNullOrEmpty(serverMessage) ? "Authentication request failed." : serverMessage;
             if (errCode == "VERSION_MISMATCH" && !string.IsNullOrEmpty(downloadUrl))
@@ -193,20 +226,77 @@ namespace NullAuthClient
             return str.Replace("\\\\", "\\\\\\\\").Replace("\\"", "\\\\\\"").Replace("\\n", "\\\\n").Replace("\\r", "\\\\r");
         }
 
+        public static string ComputeHmacSha256(string key, string message)
+        {
+            using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(key));
+            byte[] hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(message));
+            var sb = new StringBuilder(hash.Length * 2);
+            foreach (byte b in hash) sb.Append(b.ToString("x2"));
+            return sb.ToString();
+        }
+
+        private bool VerifyResponseSignature(string identifier, string status, string expiresAt, long timestamp, string nonce, string signature)
+        {
+            if (string.IsNullOrEmpty(signature) || string.IsNullOrEmpty(nonce) || timestamp == 0) return false;
+            long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            if (Math.Abs(now - timestamp) > 300) return false;
+
+            string normAppId = AppId.Replace("NA-", "").Trim();
+            string normSecret = Secret.Replace("nas_", "").Trim();
+            string payload = $"{normAppId}:{identifier}:{timestamp}:{nonce}:{status}:{expiresAt}";
+            string expectedSig = ComputeHmacSha256(normSecret, payload);
+            return string.Equals(expectedSig, signature, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private void StartHeartbeat(string sessionToken)
+        {
+            _heartbeatTimer?.Dispose();
+            _heartbeatTimer = new Timer(async _ =>
+            {
+                try
+                {
+                    CheckAntiDebug();
+                    string hwid = GetHwid();
+                    string body = $"{{\"appId\":\"{EscapeJson(AppId)}\",\"appSecret\":\"{EscapeJson(Secret)}\",\"sessionToken\":\"{EscapeJson(sessionToken)}\",\"hwid\":\"{EscapeJson(hwid)}\"}}";
+                    var content = new StringContent(body, Encoding.UTF8, "application/json");
+                    var response = await _http.PostAsync($"{ServerUrl}/api/v1/client/auth/heartbeat", content);
+                    string resStr = await response.Content.ReadAsStringAsync();
+
+                    using var doc = JsonDocument.Parse(resStr);
+                    var root = doc.RootElement;
+                    bool kill = root.TryGetProperty("kill", out var k) && k.GetBoolean();
+                    if (!response.IsSuccessStatusCode || kill)
+                    {
+                        ShowPopup("Access Terminated", "Session revoked, paused, or expired by administrator. Terminating process.", MessageBoxIcon.Warning);
+                        Environment.Exit(0xDEAD);
+                    }
+                }
+                catch { }
+            }, null, TimeSpan.FromSeconds(45), TimeSpan.FromSeconds(45));
+        }
+
         public async Task<bool> LicenseAsync(string key, bool showMsgbox = true)
         {
+            CheckAntiDebug();
             string hwid = GetHwid();
             string endpoint = $"{ServerUrl}/api/v1/client/license/authenticate";
+            string cleanKey = key?.Trim() ?? "";
 
-            // NativeAOT-Safe explicit JSON payload construction
-            string jsonBody = $"{{\\"appId\\":\\"{EscapeJson(AppId)}\\",\\"appSecret\\":\\"{EscapeJson(Secret)}\\",\\"licenseKey\\":\\"{EscapeJson(key?.Trim())}\\",\\"hwid\\":\\"{hwid}\\",\\"version\\":\\"{EscapeJson(Version)}\\"}}";
+            string jsonBody = $"{{\"appId\":\"{EscapeJson(AppId)}\",\"appSecret\":\"{EscapeJson(Secret)}\",\"licenseKey\":\"{EscapeJson(cleanKey)}\",\"hwid\":\"{EscapeJson(hwid)}\",\"version\":\"{EscapeJson(Version)}\"}}";
 
             var res = await SendRequestAsync(endpoint, jsonBody);
             if (res.Success && res.Data != null)
             {
+                if (!VerifyResponseSignature(cleanKey, res.Data.Status, res.Data.Expires, res.RawTimestamp, res.RawNonce, res.RawSignature))
+                {
+                    HandleError("TAMPERING_DETECTED", "Cryptographic signature mismatch! Response has been intercepted or modified.", null, showMsgbox);
+                    return false;
+                }
+
                 UserData = res.Data;
                 UserData.Hwid = hwid;
                 UserData.Version = Version;
+                StartHeartbeat(res.Data.SessionToken);
                 return true;
             }
 
@@ -216,18 +306,25 @@ namespace NullAuthClient
 
         public async Task<bool> CheckHwidAsync(bool showMsgbox = true)
         {
+            CheckAntiDebug();
             string hwid = GetHwid();
             string endpoint = $"{ServerUrl}/api/v1/client/hwid/authenticate";
 
-            // NativeAOT-Safe explicit JSON payload construction
-            string jsonBody = $"{{\\"appId\\":\\"{EscapeJson(AppId)}\\",\\"appSecret\\":\\"{EscapeJson(Secret)}\\",\\"hwid\\":\\"{hwid}\\",\\"version\\":\\"{EscapeJson(Version)}\\"}}";
+            string jsonBody = $"{{\"appId\":\"{EscapeJson(AppId)}\",\"appSecret\":\"{EscapeJson(Secret)}\",\"hwid\":\"{EscapeJson(hwid)}\",\"version\":\"{EscapeJson(Version)}\"}}";
 
             var res = await SendRequestAsync(endpoint, jsonBody);
             if (res.Success && res.Data != null)
             {
+                if (!VerifyResponseSignature(hwid, res.Data.Status, res.Data.Expires, res.RawTimestamp, res.RawNonce, res.RawSignature))
+                {
+                    HandleError("TAMPERING_DETECTED", "Cryptographic signature mismatch! Response has been intercepted or modified.", null, showMsgbox);
+                    return false;
+                }
+
                 UserData = res.Data;
                 UserData.Hwid = hwid;
                 UserData.Version = Version;
+                StartHeartbeat(res.Data.SessionToken);
                 return true;
             }
 
@@ -237,18 +334,26 @@ namespace NullAuthClient
 
         public async Task<bool> UserLoginAsync(string username, string password, bool showMsgbox = true)
         {
+            CheckAntiDebug();
             string hwid = GetHwid();
             string endpoint = $"{ServerUrl}/api/v1/client/user/authenticate";
+            string cleanUser = username?.Trim() ?? "";
 
-            // NativeAOT-Safe explicit JSON payload construction
-            string jsonBody = $"{{\\"appId\\":\\"{EscapeJson(AppId)}\\",\\"appSecret\\":\\"{EscapeJson(Secret)}\\",\\"username\\":\\"{EscapeJson(username?.Trim())}\\",\\"password\\":\\"{EscapeJson(password?.Trim())}\\",\\"hwid\\":\\"{hwid}\\",\\"version\\":\\"{EscapeJson(Version)}\\"}}";
+            string jsonBody = $"{{\"appId\":\"{EscapeJson(AppId)}\",\"appSecret\":\"{EscapeJson(Secret)}\",\"username\":\"{EscapeJson(cleanUser)}\",\"password\":\"{EscapeJson(password?.Trim())}\",\"hwid\":\"{EscapeJson(hwid)}\",\"version\":\"{EscapeJson(Version)}\"}}";
 
             var res = await SendRequestAsync(endpoint, jsonBody);
             if (res.Success && res.Data != null)
             {
+                if (!VerifyResponseSignature(cleanUser, res.Data.Status, res.Data.Expires, res.RawTimestamp, res.RawNonce, res.RawSignature))
+                {
+                    HandleError("TAMPERING_DETECTED", "Cryptographic signature mismatch! Response has been intercepted or modified.", null, showMsgbox);
+                    return false;
+                }
+
                 UserData = res.Data;
                 UserData.Hwid = hwid;
                 UserData.Version = Version;
+                StartHeartbeat(res.Data.SessionToken);
                 return true;
             }
 
@@ -256,7 +361,14 @@ namespace NullAuthClient
             return false;
         }
 
-        private async Task<NullAuthResult> SendRequestAsync(string endpoint, string jsonBody)
+        public class RawResponse : NullAuthResult
+        {
+            public long RawTimestamp { get; set; }
+            public string RawNonce { get; set; }
+            public string RawSignature { get; set; }
+        }
+
+        private async Task<RawResponse> SendRequestAsync(string endpoint, string jsonBody)
         {
             try
             {
@@ -273,12 +385,19 @@ namespace NullAuthClient
 
                 UserData data = null;
                 string downloadUrl = null;
+                long timestamp = 0;
+                string nonce = null;
+                string signature = null;
 
                 if (root.TryGetProperty("data", out var d))
                 {
                     if (d.ValueKind == JsonValueKind.Object)
                     {
                         if (d.TryGetProperty("downloadUrl", out var dl)) downloadUrl = dl.GetString();
+                        if (d.TryGetProperty("timestamp", out var ts)) timestamp = ts.GetInt64();
+                        if (d.TryGetProperty("nonce", out var n)) nonce = n.GetString();
+                        if (d.TryGetProperty("signature", out var sig)) signature = sig.GetString();
+
                         data = new UserData
                         {
                             Status = d.TryGetProperty("status", out var s) ? s.GetString() : "active",
@@ -286,21 +405,40 @@ namespace NullAuthClient
                             Expires = d.TryGetProperty("expires_at", out var e) ? e.GetString() : "",
                             RemainingDays = d.TryGetProperty("remaining_days", out var r) ? r.GetInt32() : 0,
                             Ip = d.TryGetProperty("ip", out var ip) ? ip.GetString() : "",
+                            SessionToken = d.TryGetProperty("session_token", out var st) ? st.GetString() : "",
                         };
                     }
                 }
 
-                return new NullAuthResult { Success = success, Message = message, ErrorCode = errorCode, DownloadUrl = downloadUrl, Data = data };
+                return new RawResponse
+                {
+                    Success = success,
+                    Message = message,
+                    ErrorCode = errorCode,
+                    DownloadUrl = downloadUrl,
+                    Data = data,
+                    RawTimestamp = timestamp,
+                    RawNonce = nonce,
+                    RawSignature = signature
+                };
             }
             catch (Exception ex)
             {
-                return new NullAuthResult { Success = false, Message = ex.Message, ErrorCode = "NETWORK_ERROR" };
+                return new RawResponse { Success = false, Message = ex.Message, ErrorCode = "NETWORK_ERROR" };
             }
         }
     }
 }`;
 
-const CPP_SDK = `#include <iostream>
+const CPP_SDK = `// -------------------------------------------------------------
+// Null-Auth C++ Integration
+// 100% Standalone Single-File (WinINet HTTPS, WinCrypt HMAC-SHA256)
+// Features: Hardware HWID, Anti-Debug Guard (IsDebugger, HW Breakpoints),
+//           HMAC-SHA256 Response Signing, Real-Time Remote Kill Heartbeat (45s)
+// Compile with MSVC: cl /EHsc main.cpp /link wininet.lib advapi32.lib
+// Compile with MinGW: g++ -O2 main.cpp -lwininet -ladvapi32 -o app.exe
+// -------------------------------------------------------------
+#include <iostream>
 #include <string>
 #include <windows.h>
 #include <wininet.h>
@@ -312,6 +450,95 @@ const CPP_SDK = `#include <iostream>
 #pragma comment(lib, "advapi32.lib")
 
 namespace NullAuthClient {
+    // --- Anti-Debugging Guard ---
+    inline bool CheckHardwareBreakpoints() {
+        CONTEXT ctx;
+        ZeroMemory(&ctx, sizeof(CONTEXT));
+        ctx.ContextFlags = CONTEXT_DEBUG_REGISTERS;
+        HANDLE hThread = GetCurrentThread();
+        if (GetThreadContext(hThread, &ctx)) {
+            if (ctx.Dr0 || ctx.Dr1 || ctx.Dr2 || ctx.Dr3) return true;
+        }
+        return false;
+    }
+
+    inline void CheckAntiDebug() {
+        if (IsDebuggerPresent()) {
+            MessageBoxA(0, "Debugger detected! Execution terminated for safety.", "Security Violation", MB_ICONSTOP | MB_OK);
+            ExitProcess(0xDEB);
+        }
+        BOOL isRemote = FALSE;
+        CheckRemoteDebuggerPresent(GetCurrentProcess(), &isRemote);
+        if (isRemote) {
+            MessageBoxA(0, "Remote debugger detected! Execution terminated for safety.", "Security Violation", MB_ICONSTOP | MB_OK);
+            ExitProcess(0xDEB);
+        }
+        if (CheckHardwareBreakpoints()) {
+            MessageBoxA(0, "Hardware breakpoint detected! Execution terminated.", "Security Violation", MB_ICONSTOP | MB_OK);
+            ExitProcess(0xDEB);
+        }
+    }
+
+    // --- WinCrypt SHA-256 and HMAC-SHA256 ---
+    inline bool Sha256Raw(const BYTE* data, DWORD len, BYTE* out32) {
+        HCRYPTPROV hProv = 0;
+        HCRYPTHASH hHash = 0;
+        DWORD cbHash = 32;
+        bool ok = false;
+        if (CryptAcquireContextA(&hProv, NULL, NULL, PROV_RSA_AES, CRYPT_VERIFYCONTEXT)) {
+            if (CryptCreateHash(hProv, CALG_SHA_256, 0, 0, &hHash)) {
+                if (CryptHashData(hHash, data, len, 0)) {
+                    if (CryptGetHashParam(hHash, HP_HASHVAL, out32, &cbHash, 0)) ok = true;
+                }
+                CryptDestroyHash(hHash);
+            }
+            CryptReleaseContext(hProv, 0);
+        }
+        return ok;
+    }
+
+    inline std::string Sha256(const std::string& input) {
+        BYTE hash[32];
+        if (!Sha256Raw((const BYTE*)input.c_str(), (DWORD)input.length(), hash)) return "";
+        char hexDigits[] = "0123456789abcdef";
+        std::string res = "";
+        for (int i = 0; i < 32; i++) {
+            res += hexDigits[(hash[i] >> 4) & 0x0F];
+            res += hexDigits[hash[i] & 0x0F];
+        }
+        return res;
+    }
+
+    inline std::string HmacSha256(const std::string& key, const std::string& data) {
+        BYTE k[64] = {0};
+        if (key.length() > 64) Sha256Raw((const BYTE*)key.c_str(), (DWORD)key.length(), k);
+        else memcpy(k, key.c_str(), key.length());
+
+        BYTE k_ipad[64], k_opad[64];
+        for (int i = 0; i < 64; i++) {
+            k_ipad[i] = k[i] ^ 0x36;
+            k_opad[i] = k[i] ^ 0x5c;
+        }
+
+        std::string innerInput((char*)k_ipad, 64);
+        innerInput += data;
+        BYTE innerHash[32];
+        Sha256Raw((const BYTE*)innerInput.c_str(), (DWORD)innerInput.length(), innerHash);
+
+        std::string outerInput((char*)k_opad, 64);
+        outerInput.append((char*)innerHash, 32);
+        BYTE outerHash[32];
+        Sha256Raw((const BYTE*)outerInput.c_str(), (DWORD)outerInput.length(), outerHash);
+
+        char hexDigits[] = "0123456789abcdef";
+        std::string res = "";
+        for (int i = 0; i < 32; i++) {
+            res += hexDigits[(outerHash[i] >> 4) & 0x0F];
+            res += hexDigits[outerHash[i] & 0x0F];
+        }
+        return res;
+    }
+
     struct UserData {
         std::string status = "unknown";
         std::string clientName = "";
@@ -321,7 +548,54 @@ namespace NullAuthClient {
         std::string firstActivated = "";
         std::string hwid = "";
         std::string version = "";
+        std::string sessionToken = "";
     };
+
+    struct HeartbeatConfig {
+        std::string host;
+        std::string appId;
+        std::string appSecret;
+        std::string sessionToken;
+        std::string hwid;
+    };
+
+    inline HeartbeatConfig g_hb;
+
+    inline DWORD WINAPI HeartbeatWorker(LPVOID lpParam) {
+        while (true) {
+            Sleep(45000);
+            CheckAntiDebug();
+
+            HINTERNET hInternet = InternetOpenA("NullAuthGuard/2.0", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
+            if (hInternet) {
+                HINTERNET hConnect = InternetConnectA(hInternet, g_hb.host.c_str(), INTERNET_DEFAULT_HTTPS_PORT, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
+                if (hConnect) {
+                    HINTERNET hRequest = HttpOpenRequestA(hConnect, "POST", "/api/v1/client/auth/heartbeat", NULL, NULL, NULL, INTERNET_FLAG_SECURE | INTERNET_FLAG_RELOAD | INTERNET_FLAG_NO_CACHE_WRITE, 0);
+                    if (hRequest) {
+                        std::string hbBody = "{\\"appId\\":\\"" + g_hb.appId + "\\",\\"appSecret\\":\\"" + g_hb.appSecret + "\\",\\"sessionToken\\":\\"" + g_hb.sessionToken + "\\",\\"hwid\\":\\"" + g_hb.hwid + "\\"}";
+                        std::string headers = "Content-Type: application/json\\r\\n";
+                        if (HttpSendRequestA(hRequest, headers.c_str(), (DWORD)headers.length(), (LPVOID)hbBody.c_str(), (DWORD)hbBody.length())) {
+                            char buf[1024];
+                            DWORD bytesRead = 0;
+                            std::string res = "";
+                            while (InternetReadFile(hRequest, buf, sizeof(buf) - 1, &bytesRead) && bytesRead > 0) {
+                                buf[bytesRead] = '\\0';
+                                res += buf;
+                            }
+                            if (res.find("\\"kill\\":true") != std::string::npos) {
+                                MessageBoxA(0, "Session revoked, paused, or expired by administrator.", "Access Revoked", MB_ICONSTOP | MB_OK);
+                                ExitProcess(0xDEAD);
+                            }
+                        }
+                        InternetCloseHandle(hRequest);
+                    }
+                    InternetCloseHandle(hConnect);
+                }
+                InternetCloseHandle(hInternet);
+            }
+        }
+        return 0;
+    }
 
     class NullAuth {
     private:
@@ -344,7 +618,7 @@ namespace NullAuthClient {
             return json.substr(start, end - start);
         }
 
-        static int ExtractJsonInt(const std::string& json, const std::string& key) {
+        static long long ExtractJsonLong(const std::string& json, const std::string& key) {
             std::string search = "\\"" + key + "\\":";
             size_t pos = json.find(search);
             if (pos == std::string::npos) return 0;
@@ -353,40 +627,23 @@ namespace NullAuthClient {
             size_t end = start;
             while (end < json.length() && (isdigit(static_cast<unsigned char>(json[end])) || json[end] == '-')) end++;
             if (start == end) return 0;
-            try { return std::stoi(json.substr(start, end - start)); } catch (...) { return 0; }
+            try { return std::stoll(json.substr(start, end - start)); } catch (...) { return 0; }
+        }
+
+        static int ExtractJsonInt(const std::string& json, const std::string& key) {
+            return static_cast<int>(ExtractJsonLong(json, key));
+        }
+
+        static std::string CleanPrefix(const std::string& str, const std::string& prefix) {
+            if (str.rfind(prefix, 0) == 0) return str.substr(prefix.length());
+            return str;
         }
 
     public:
         UserData userData;
 
-        // Usage: NullAuthClient::NullAuth auth("13026130", "YOUR_RAW_SECRET", "1.0.0");
-        NullAuth(const std::string& appId, const std::string& secret, const std::string& version = "1.0.0", const std::string& host = "null-auth-backend.vercel.app")
+        NullAuth(const std::string& appId, const std::string& secret, const std::string& version = "1.0.0", const std::string& host = "nullauthbackend.vercel.app")
             : appId(appId), secret(secret), version(version), host(host) {}
-
-        static std::string Sha256(const std::string& input) {
-            HCRYPTPROV hProv = 0;
-            HCRYPTHASH hHash = 0;
-            BYTE rgbHash[32];
-            DWORD cbHash = 32;
-            std::string result = "";
-
-            if (CryptAcquireContextA(&hProv, NULL, NULL, PROV_RSA_AES, CRYPT_VERIFYCONTEXT)) {
-                if (CryptCreateHash(hProv, CALG_SHA_256, 0, 0, &hHash)) {
-                    if (CryptHashData(hHash, (const BYTE*)input.c_str(), (DWORD)input.length(), 0)) {
-                        if (CryptGetHashParam(hHash, HP_HASHVAL, rgbHash, &cbHash, 0)) {
-                            char hexDigits[] = "0123456789abcdef";
-                            for (DWORD i = 0; i < cbHash; i++) {
-                                result += hexDigits[(rgbHash[i] >> 4) & 0x0F];
-                                result += hexDigits[rgbHash[i] & 0x0F];
-                            }
-                        }
-                    }
-                    CryptDestroyHash(hHash);
-                }
-                CryptReleaseContext(hProv, 0);
-            }
-            return result.empty() ? input : result;
-        }
 
         static std::string GetHwid() {
             std::string machineGuid = "";
@@ -417,17 +674,14 @@ namespace NullAuthClient {
             return Sha256(raw);
         }
 
-        static std::string GetWindowsUserSid() {
-            return GetHwid();
-        }
-
         bool License(const std::string& key, bool showMsgbox = true) {
+            CheckAntiDebug();
             std::string hwid = GetHwid();
             std::string body = "{\\"appId\\":\\"" + appId + "\\",\\"appSecret\\":\\"" + secret + "\\",\\"licenseKey\\":\\"" + key + "\\",\\"hwid\\":\\"" + hwid + "\\",\\"version\\":\\"" + version + "\\"}";
             
-            HINTERNET hInternet = InternetOpenA("NullAuthCpp/2.0", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
+            HINTERNET hInternet = InternetOpenA("NullAuthGuard/2.0", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
             HINTERNET hConnect = InternetConnectA(hInternet, host.c_str(), INTERNET_DEFAULT_HTTPS_PORT, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
-            HINTERNET hRequest = HttpOpenRequestA(hConnect, "POST", "/api/client/auth/license", NULL, NULL, NULL, INTERNET_FLAG_SECURE, 0);
+            HINTERNET hRequest = HttpOpenRequestA(hConnect, "POST", "/api/v1/client/auth/license", NULL, NULL, NULL, INTERNET_FLAG_SECURE | INTERNET_FLAG_RELOAD | INTERNET_FLAG_NO_CACHE_WRITE, 0);
 
             std::string headers = "Content-Type: application/json\\r\\n";
             HttpSendRequestA(hRequest, headers.c_str(), (DWORD)headers.length(), (LPVOID)body.c_str(), (DWORD)body.length());
@@ -445,108 +699,83 @@ namespace NullAuthClient {
             InternetCloseHandle(hInternet);
 
             if (response.find("\\"success\\":true") != std::string::npos) {
+                // Verify HMAC Signature
+                std::string sig = ExtractJsonString(response, "signature");
+                std::string nonce = ExtractJsonString(response, "nonce");
+                long long timestamp = ExtractJsonLong(response, "timestamp");
+                std::string status = ExtractJsonString(response, "status");
+                if (status.empty()) status = "active";
+                std::string expiresAt = ExtractJsonString(response, "expires_at");
+
+                std::string normAppId = CleanPrefix(appId, "NA-");
+                std::string normSecret = CleanPrefix(secret, "nas_");
+                std::string payload = normAppId + ":" + key + ":" + std::to_string(timestamp) + ":" + nonce + ":" + status + ":" + expiresAt;
+                std::string expectedSig = HmacSha256(normSecret, payload);
+
+                if (sig.empty() || sig != expectedSig) {
+                    if (showMsgbox) MessageBoxA(0, "Cryptographic signature verification failed! Response tampering detected.", "Security Violation", MB_ICONSTOP | MB_OK);
+                    ExitProcess(0xBAD);
+                }
+
                 userData.status = "active";
                 userData.clientName = ExtractJsonString(response, "client_name");
                 userData.ip = ExtractJsonString(response, "ip");
-                userData.expires = ExtractJsonString(response, "expires_at");
+                userData.expires = expiresAt;
                 userData.remainingDays = ExtractJsonInt(response, "remaining_days");
                 userData.hwid = hwid;
                 userData.version = version;
+                userData.sessionToken = ExtractJsonString(response, "session_token");
+
+                // Launch heartbeat thread
+                g_hb.host = host;
+                g_hb.appId = appId;
+                g_hb.appSecret = secret;
+                g_hb.sessionToken = userData.sessionToken;
+                g_hb.hwid = hwid;
+                CreateThread(NULL, 0, HeartbeatWorker, NULL, 0, NULL);
+
                 return true;
             }
             if (showMsgbox) MessageBoxA(0, "Authentication Failed!", "Null-Auth Error", MB_ICONERROR | MB_OK);
-            return false;
-        }
-
-        bool CheckHwid(bool showMsgbox = true) {
-            std::string hwid = GetHwid();
-            std::string body = "{\\"appId\\":\\"" + appId + "\\",\\"appSecret\\":\\"" + secret + "\\",\\"hwid\\":\\"" + hwid + "\\",\\"version\\":\\"" + version + "\\"}";
-            
-            HINTERNET hInternet = InternetOpenA("NullAuthCpp/2.0", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
-            HINTERNET hConnect = InternetConnectA(hInternet, host.c_str(), INTERNET_DEFAULT_HTTPS_PORT, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
-            HINTERNET hRequest = HttpOpenRequestA(hConnect, "POST", "/api/client/auth/hwid", NULL, NULL, NULL, INTERNET_FLAG_SECURE, 0);
-
-            std::string headers = "Content-Type: application/json\\r\\n";
-            HttpSendRequestA(hRequest, headers.c_str(), (DWORD)headers.length(), (LPVOID)body.c_str(), (DWORD)body.length());
-
-            char buffer[2048];
-            DWORD bytesRead = 0;
-            std::string response = "";
-            while (InternetReadFile(hRequest, buffer, sizeof(buffer) - 1, &bytesRead) && bytesRead > 0) {
-                buffer[bytesRead] = '\\0';
-                response += buffer;
-            }
-
-            InternetCloseHandle(hRequest);
-            InternetCloseHandle(hConnect);
-            InternetCloseHandle(hInternet);
-
-            if (response.find("\\"success\\":true") != std::string::npos) {
-                userData.status = "active";
-                userData.clientName = ExtractJsonString(response, "client_name");
-                userData.ip = ExtractJsonString(response, "ip");
-                userData.expires = ExtractJsonString(response, "expires_at");
-                userData.remainingDays = ExtractJsonInt(response, "remaining_days");
-                userData.hwid = hwid;
-                userData.version = version;
-                return true;
-            }
-            if (showMsgbox) MessageBoxA(0, "HWID Whitelist Authorization Failed!", "Null-Auth Error", MB_ICONERROR | MB_OK);
-            return false;
-        }
-
-        bool UserLogin(const std::string& username, const std::string& userPassword, bool showMsgbox = true) {
-            std::string hwid = GetHwid();
-            std::string body = "{\\"appId\\":\\"" + appId + "\\",\\"appSecret\\":\\"" + secret + "\\",\\"username\\":\\"" + username + "\\",\\"password\\":\\"" + userPassword + "\\",\\"hwid\\":\\"" + hwid + "\\",\\"version\\":\\"" + version + "\\"}";
-            
-            HINTERNET hInternet = InternetOpenA("NullAuthCpp/2.0", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
-            HINTERNET hConnect = InternetConnectA(hInternet, host.c_str(), INTERNET_DEFAULT_HTTPS_PORT, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
-            HINTERNET hRequest = HttpOpenRequestA(hConnect, "POST", "/api/v1/client/user/authenticate", NULL, NULL, NULL, INTERNET_FLAG_SECURE, 0);
-
-            std::string headers = "Content-Type: application/json\\r\\n";
-            HttpSendRequestA(hRequest, headers.c_str(), (DWORD)headers.length(), (LPVOID)body.c_str(), (DWORD)body.length());
-
-            char buffer[2048];
-            DWORD bytesRead = 0;
-            std::string response = "";
-            while (InternetReadFile(hRequest, buffer, sizeof(buffer) - 1, &bytesRead) && bytesRead > 0) {
-                buffer[bytesRead] = '\\0';
-                response += buffer;
-            }
-
-            InternetCloseHandle(hRequest);
-            InternetCloseHandle(hConnect);
-            InternetCloseHandle(hInternet);
-
-            if (response.find("\\"success\\":true") != std::string::npos) {
-                userData.status = "active";
-                userData.clientName = ExtractJsonString(response, "client_name");
-                userData.ip = ExtractJsonString(response, "ip");
-                userData.expires = ExtractJsonString(response, "expires_at");
-                userData.remainingDays = ExtractJsonInt(response, "remaining_days");
-                userData.hwid = hwid;
-                userData.version = version;
-                return true;
-            }
-            if (showMsgbox) MessageBoxA(0, "User Authentication Failed!", "Null-Auth Error", MB_ICONERROR | MB_OK);
             return false;
         }
     };
 }
 
 int main() {
+    NullAuthClient::CheckAntiDebug();
     NullAuthClient::NullAuth auth("13026130", "YOUR_RAW_SECRET", "1.0.0");
     std::cout << "Enter License Key: ";
     std::string key;
     std::cin >> key;
     if (auth.License(key)) {
-        std::cout << "Access Granted to " << auth.userData.clientName << "!" << std::endl;
-        std::cout << "Days Remaining: " << auth.userData.remainingDays << std::endl;
+        std::cout << "[+] Access Granted to " << auth.userData.clientName << "!" << std::endl;
+        std::cout << "[+] Days Remaining: " << auth.userData.remainingDays << std::endl;
+        std::cout << "[+] HMAC-SHA256: VERIFIED" << std::endl;
+        std::cout << "[+] 45s Heartbeat Remote Kill: RUNNING" << std::endl;
     }
     return 0;
 }`;
 
-const PYTHON_SDK = `import urllib.request, urllib.error, json, subprocess, ctypes, platform, hashlib
+const PYTHON_SDK = `import urllib.request, urllib.error, json, subprocess, ctypes, platform, hashlib, hmac, time, threading, sys, os
+
+def check_anti_debug():
+    if sys.gettrace() is not None:
+        if platform.system() == "Windows":
+            ctypes.windll.user32.MessageBoxW(0, "Debugger detected! Execution terminated.", "Security Violation", 16)
+        os._exit(0xDEB)
+    if platform.system() == "Windows":
+        try:
+            if ctypes.windll.kernel32.IsDebuggerPresent():
+                ctypes.windll.user32.MessageBoxW(0, "Debugger detected! Execution terminated.", "Security Violation", 16)
+                os._exit(0xDEB)
+            is_remote = ctypes.c_bool(False)
+            ctypes.windll.kernel32.CheckRemoteDebuggerPresent(ctypes.windll.kernel32.GetCurrentProcess(), ctypes.byref(is_remote))
+            if is_remote.value:
+                ctypes.windll.user32.MessageBoxW(0, "Remote debugger detected! Execution terminated.", "Security Violation", 16)
+                os._exit(0xDEB)
+        except Exception:
+            pass
 
 class UserData:
     def __init__(self, data: dict = None):
@@ -558,6 +787,7 @@ class UserData:
         self.remaining_days = int(data.get("remaining_days", 0)) if str(data.get("remaining_days", 0)).isdigit() else 0
         self.first_activated = str(data.get("first_activated_at", "") or "")
         self.version = str(data.get("version", "") or "")
+        self.session_token = str(data.get("session_token", "") or "")
 
 class NullAuth:
     # Usage: auth = NullAuth(app_id="13026130", secret="YOUR_RAW_SECRET", version="1.0.0")
@@ -576,7 +806,7 @@ class NullAuth:
             vol_serial = ""
             try:
                 import winreg
-                with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\\Microsoft\\Cryptography", 0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as key:
+                with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\\\\Microsoft\\\\Cryptography", 0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as key:
                     machine_guid = str(winreg.QueryValueEx(key, "MachineGuid")[0]).strip()
             except Exception:
                 pass
@@ -597,13 +827,46 @@ class NullAuth:
         else:
             return hashlib.sha256(platform.node().encode('utf-8')).hexdigest()
 
-    @staticmethod
-    def get_windows_user_sid() -> str:
-        return NullAuth.get_hwid()
+    def _verify_signature(self, identifier: str, status: str, expires_at: str, timestamp: int, nonce: str, signature: str) -> bool:
+        if not signature or not nonce or not timestamp: return False
+        if abs(time.time() - timestamp) > 300: return False
+        norm_app_id = self.app_id.replace("NA-", "").strip()
+        norm_secret = self.secret.replace("nas_", "").strip()
+        payload = f"{norm_app_id}:{identifier}:{timestamp}:{nonce}:{status}:{expires_at}"
+        expected = hmac.new(norm_secret.encode('utf-8'), payload.encode('utf-8'), hashlib.sha256).hexdigest()
+        return hmac.compare_digest(expected.lower(), signature.lower())
+
+    def _start_heartbeat(self, session_token: str, hwid: str):
+        def worker():
+            while True:
+                time.sleep(45)
+                check_anti_debug()
+                try:
+                    hb_url = f"{self.server_url}/api/v1/client/auth/heartbeat"
+                    hb_body = json.dumps({"appId": self.app_id, "appSecret": self.secret, "sessionToken": session_token, "hwid": hwid}).encode('utf-8')
+                    req = urllib.request.Request(hb_url, data=hb_body, headers={"Content-Type": "application/json", "User-Agent": "NullAuthClient/2.0"}, method="POST")
+                    with urllib.request.urlopen(req, timeout=10) as resp:
+                        res = json.loads(resp.read().decode('utf-8'))
+                        if res.get("kill", False):
+                            if platform.system() == "Windows":
+                                ctypes.windll.user32.MessageBoxW(0, "Session revoked, paused, or expired by administrator.", "Access Terminated", 16)
+                            os._exit(0xDEAD)
+                except urllib.error.HTTPError as e:
+                    try:
+                        err_res = json.loads(e.read().decode('utf-8'))
+                        if err_res.get("kill", False):
+                            if platform.system() == "Windows":
+                                ctypes.windll.user32.MessageBoxW(0, err_res.get("message", "Session revoked."), "Access Terminated", 16)
+                            os._exit(0xDEAD)
+                    except Exception: pass
+                except Exception: pass
+        t = threading.Thread(target=worker, daemon=True)
+        t.start()
 
     def license(self, key: str, show_msgbox: bool = True) -> bool:
+        check_anti_debug()
         hwid = self.get_hwid()
-        url = f"{self.server_url}/api/client/auth/license"
+        url = f"{self.server_url}/api/v1/client/auth/license"
         payload = {"appId": self.app_id, "appSecret": self.secret, "licenseKey": key.strip(), "hwid": hwid, "version": self.version}
         
         req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers={"Content-Type": "application/json", "User-Agent": "NullAuthClient/2.0"}, method="POST")
@@ -611,53 +874,38 @@ class NullAuth:
             with urllib.request.urlopen(req, timeout=10) as res:
                 data = json.loads(res.read().decode('utf-8'))
                 if data.get("success"):
-                    self.user_data = UserData(data.get("data", {}))
-                    return True
-                if show_msgbox: ctypes.windll.user32.MessageBoxW(0, data.get("message", "Error"), "Null-Auth Error", 16)
-        except Exception as e:
-            if show_msgbox: ctypes.windll.user32.MessageBoxW(0, str(e), "Null-Auth Network Error", 16)
-        return False
+                    d = data.get("data", {})
+                    status = d.get("status", "active")
+                    exp = d.get("expires_at", "")
+                    ts = d.get("timestamp", 0)
+                    nonce = d.get("nonce", "")
+                    sig = d.get("signature", "")
+                    token = d.get("session_token", "")
 
-    def check_hwid(self, show_msgbox: bool = True) -> bool:
-        hwid = self.get_hwid()
-        url = f"{self.server_url}/api/client/auth/hwid"
-        payload = {"appId": self.app_id, "appSecret": self.secret, "hwid": hwid, "version": self.version}
-        
-        req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers={"Content-Type": "application/json", "User-Agent": "NullAuthClient/2.0"}, method="POST")
-        try:
-            with urllib.request.urlopen(req, timeout=10) as res:
-                data = json.loads(res.read().decode('utf-8'))
-                if data.get("success"):
-                    self.user_data = UserData(data.get("data", {}))
-                    return True
-                if show_msgbox: ctypes.windll.user32.MessageBoxW(0, data.get("message", "Error"), "Null-Auth Error", 16)
-        except Exception as e:
-            if show_msgbox: ctypes.windll.user32.MessageBoxW(0, str(e), "Null-Auth Network Error", 16)
-        return False
+                    if not self._verify_signature(key.strip(), status, exp, ts, nonce, sig):
+                        if show_msgbox and platform.system() == "Windows":
+                            ctypes.windll.user32.MessageBoxW(0, "HMAC signature mismatch! Response tampering detected.", "Security Violation", 16)
+                        return False
 
-    def user_login(self, username: str, password: str, show_msgbox: bool = True) -> bool:
-        hwid = self.get_hwid()
-        url = f"{self.server_url}/api/v1/client/user/authenticate"
-        payload = {"appId": self.app_id, "appSecret": self.secret, "username": username.strip(), "password": password.strip(), "hwid": hwid, "version": self.version}
-        
-        req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers={"Content-Type": "application/json", "User-Agent": "NullAuthClient/2.0"}, method="POST")
-        try:
-            with urllib.request.urlopen(req, timeout=10) as res:
-                data = json.loads(res.read().decode('utf-8'))
-                if data.get("success"):
-                    self.user_data = UserData(data.get("data", {}))
+                    self.user_data = UserData(d)
+                    self._start_heartbeat(token, hwid)
                     return True
-                if show_msgbox: ctypes.windll.user32.MessageBoxW(0, data.get("message", "Error"), "Null-Auth Error", 16)
+                if show_msgbox and platform.system() == "Windows":
+                    ctypes.windll.user32.MessageBoxW(0, data.get("message", "Error"), "Null-Auth Error", 16)
         except Exception as e:
-            if show_msgbox: ctypes.windll.user32.MessageBoxW(0, str(e), "Null-Auth Network Error", 16)
+            if show_msgbox and platform.system() == "Windows":
+                ctypes.windll.user32.MessageBoxW(0, str(e), "Null-Auth Network Error", 16)
         return False
 
 if __name__ == "__main__":
+    check_anti_debug()
     auth = NullAuth("13026130", "YOUR_RAW_SECRET", "1.0.0")
     key = input("Enter License Key: ").strip()
     if auth.license(key):
-        print(f"Access Granted to {auth.user_data.client_name}!")
-        print(f"Days Left: {auth.user_data.remaining_days}")
+        print(f"[+] Access Granted to {auth.user_data.client_name}!")
+        print(f"[+] Days Left: {auth.user_data.remaining_days}")
+        print("[+] HMAC-SHA256: VERIFIED")
+        print("[+] 45s Heartbeat Remote Kill: RUNNING")
     else:
         print("ACCESS DENIED!")`;
 

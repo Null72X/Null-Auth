@@ -1,12 +1,44 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { prisma } from '../db.js';
 import { sendSuccess, sendError } from '../utils/response.js';
 import { hashHwid } from '../services/hash.service.js';
 import { logActivity } from '../services/logger.service.js';
 import { notifyClientAuthSuccess, notifySecurityAlert } from '../services/discord.service.js';
 import { extractClientIp } from '../utils/ip.js';
+
+export function signClientPayload(
+  secret: string,
+  appId: string,
+  identifier: string,
+  status: string,
+  expiresAt: string,
+  recordId: string,
+  cleanHwid: string
+) {
+  const normSecret = secret.trim().replace(/^nas_/, '');
+  const normAppId = appId.trim().replace(/^NA-/, '');
+  const timestamp = Math.floor(Date.now() / 1000);
+  const nonce = crypto.randomBytes(16).toString('hex');
+  const payloadToSign = `${normAppId}:${identifier}:${timestamp}:${nonce}:${status}:${expiresAt}`;
+  const signature = crypto.createHmac('sha256', normSecret).update(payloadToSign).digest('hex');
+
+  const tokenHmac = crypto
+    .createHmac('sha256', normSecret)
+    .update(`${normAppId}:${recordId}:${cleanHwid}:${timestamp}:${nonce}`)
+    .digest('hex');
+
+  const sessionToken = `${recordId}:${timestamp}:${nonce}:${tokenHmac}`;
+
+  return {
+    timestamp,
+    nonce,
+    signature,
+    session_token: sessionToken,
+  };
+}
 
 export const licenseAuthSchema = z.object({
   appId: z.string().min(1, 'appId is required'),
@@ -203,11 +235,25 @@ export async function authenticateLicense(req: Request, res: Response) {
       const remainingMs = trialExpires.getTime() - now.getTime();
       const remainingDays = Math.max(0, Math.ceil(remainingMs / (1000 * 60 * 60 * 24)));
 
+      const proof = signClientPayload(
+        app.secret,
+        app.appId,
+        licenseKey,
+        'active',
+        trialExpires.toISOString(),
+        license?.id || 'TRIAL_LIC',
+        cleanHwid
+      );
+
       return sendSuccess(res, 'Authentication successful (Free Trial Active)', {
         status: 'active',
         expires_at: trialExpires.toISOString(),
         remaining_days: remainingDays,
         version: app.version,
+        timestamp: proof.timestamp,
+        nonce: proof.nonce,
+        signature: proof.signature,
+        session_token: proof.session_token,
       });
     }
 
@@ -393,16 +439,31 @@ export async function authenticateLicense(req: Request, res: Response) {
     const remainingMs = license.expiresAt.getTime() - now.getTime();
     const remainingDays = Math.max(0, Math.ceil(remainingMs / (1000 * 60 * 60 * 24)));
 
+    const expiresAtIso = license.expiresAt.toISOString();
+    const proof = signClientPayload(
+      app.secret,
+      app.appId,
+      license.key,
+      'active',
+      expiresAtIso,
+      license.id,
+      cleanHwid
+    );
+
     return sendSuccess(res, 'Authentication successful', {
       status: 'active',
       client_name: clientName,
       ip: ipAddress,
-      expires_at: license.expiresAt.toISOString(),
+      expires_at: expiresAtIso,
       remaining_days: remainingDays,
       first_activated_at: license.firstActivatedAt
         ? license.firstActivatedAt.toISOString()
         : now.toISOString(),
       version: app.version,
+      timestamp: proof.timestamp,
+      nonce: proof.nonce,
+      signature: proof.signature,
+      session_token: proof.session_token,
     });
   } catch (error: any) {
     console.error('[Authenticate License Error]:', error);
@@ -623,11 +684,25 @@ export async function authenticateHwid(req: Request, res: Response) {
         });
       } catch (discordErr) {}
 
+      const proof = signClientPayload(
+        app.secret,
+        app.appId,
+        cleanHwid,
+        'active',
+        expiresAtStr,
+        'TRIAL_HWID',
+        cleanHwid
+      );
+
       return sendSuccess(res, 'Authentication successful (Free Trial Active)', {
         status: 'active',
         expires_at: expiresAtStr,
         remaining_days: remainingDays >= 1000 ? 9999 : remainingDays,
         version: app.version,
+        timestamp: proof.timestamp,
+        nonce: proof.nonce,
+        signature: proof.signature,
+        session_token: proof.session_token,
       });
     }
 
@@ -755,13 +830,28 @@ export async function authenticateHwid(req: Request, res: Response) {
     const remainingMs = hwidRecord.expiresAt.getTime() - now.getTime();
     const remainingDays = Math.max(0, Math.ceil(remainingMs / (1000 * 60 * 60 * 24)));
 
+    const expiresAtIso = hwidRecord.expiresAt.toISOString();
+    const proof = signClientPayload(
+      app.secret,
+      app.appId,
+      cleanHwid,
+      'active',
+      expiresAtIso,
+      hwidRecord.id,
+      cleanHwid
+    );
+
     return sendSuccess(res, 'Authentication successful', {
       status: 'active',
       client_name: clientName,
       ip: ipAddress,
-      expires_at: hwidRecord.expiresAt.toISOString(),
+      expires_at: expiresAtIso,
       remaining_days: remainingDays,
       version: app.version,
+      timestamp: proof.timestamp,
+      nonce: proof.nonce,
+      signature: proof.signature,
+      session_token: proof.session_token,
     });
   } catch (error: any) {
     console.error('[Authenticate HWID Error]:', error);
@@ -977,12 +1067,27 @@ export async function authenticateUser(req: Request, res: Response) {
       const remainingMs = trialExpires.getTime() - now.getTime();
       const remainingDays = Math.max(0, Math.ceil(remainingMs / (1000 * 60 * 60 * 24)));
 
+      const trialExpiresIso = trialExpires.toISOString();
+      const proof = signClientPayload(
+        app.secret,
+        app.appId,
+        trimmedUsername,
+        'active',
+        trialExpiresIso,
+        trialUser.id || 'TRIAL_USER',
+        cleanHwid
+      );
+
       return sendSuccess(res, 'Authentication successful (Free Trial Active)', {
         status: 'active',
         username: trimmedUsername,
-        expires_at: trialExpires.toISOString(),
+        expires_at: trialExpiresIso,
         remaining_days: remainingDays,
         version: app.version,
+        timestamp: proof.timestamp,
+        nonce: proof.nonce,
+        signature: proof.signature,
+        session_token: proof.session_token,
       });
     }
 
@@ -1223,20 +1328,189 @@ export async function authenticateUser(req: Request, res: Response) {
     const remainingMs = user.expiresAt.getTime() - now.getTime();
     const remainingDays = Math.max(0, Math.ceil(remainingMs / (1000 * 60 * 60 * 24)));
 
+    const expiresAtIso = user.expiresAt.toISOString();
+    const proof = signClientPayload(
+      app.secret,
+      app.appId,
+      user.username,
+      'active',
+      expiresAtIso,
+      user.id,
+      cleanHwid
+    );
+
     return sendSuccess(res, 'Authentication successful', {
       status: 'active',
       username: user.username,
       client_name: clientName,
       ip: ipAddress,
-      expires_at: user.expiresAt.toISOString(),
+      expires_at: expiresAtIso,
       remaining_days: remainingDays,
       first_activated_at: user.firstActivatedAt
         ? user.firstActivatedAt.toISOString()
         : now.toISOString(),
       version: app.version,
+      timestamp: proof.timestamp,
+      nonce: proof.nonce,
+      signature: proof.signature,
+      session_token: proof.session_token,
     });
   } catch (error: any) {
     console.error('[Authenticate User Error]:', error);
     return sendError(res, 'Client authentication failed due to a server error.', 500);
+  }
+}
+
+export const heartbeatSchema = z.object({
+  appId: z.string().min(1, 'appId is required'),
+  appSecret: z.string().min(1, 'appSecret is required'),
+  sessionToken: z.string().min(1, 'sessionToken is required'),
+  hwid: z.string().min(1, 'hwid is required'),
+});
+
+export async function clientHeartbeat(req: Request, res: Response) {
+  const { appId, appSecret, sessionToken, hwid } = req.body;
+  const rawAppId = (appId || '').trim();
+  const cleanAppId = rawAppId.replace(/^NA-/, '');
+  const rawSecret = (appSecret || '').trim();
+  const cleanSecret = rawSecret.replace(/^nas_/, '');
+  const cleanHwid = hashHwid(hwid || '');
+
+  try {
+    // 1. Fetch App
+    const app = await prisma.application.findFirst({
+      where: { OR: [{ appId: rawAppId }, { appId: cleanAppId }, { id: rawAppId }] },
+    });
+
+    if (!app) {
+      return res.status(401).json({
+        success: false,
+        kill: true,
+        message: 'Invalid Application credentials.',
+      });
+    }
+
+    const isSecretValid =
+      app.secret === rawSecret ||
+      app.secret === cleanSecret ||
+      app.secret.replace(/^nas_/, '') === cleanSecret;
+
+    if (!isSecretValid || app.status !== 'ACTIVE') {
+      return res.status(403).json({
+        success: false,
+        kill: true,
+        message: 'Application has been paused or disabled by administrator.',
+      });
+    }
+
+    // 2. Parse sessionToken: "recordId:timestamp:nonce:tokenHmac"
+    const parts = (sessionToken || '').split(':');
+    if (parts.length < 4) {
+      return res.status(401).json({
+        success: false,
+        kill: true,
+        message: 'Invalid session token format.',
+      });
+    }
+
+    const [recordId, issueTimestampStr, issueNonce, clientTokenHmac] = parts;
+    const issueTimestamp = parseInt(issueTimestampStr, 10);
+
+    const normSecret = app.secret.trim().replace(/^nas_/, '');
+    const normAppId = app.appId.trim().replace(/^NA-/, '');
+
+    const expectedTokenHmac = crypto
+      .createHmac('sha256', normSecret)
+      .update(`${normAppId}:${recordId}:${cleanHwid}:${issueTimestamp}:${issueNonce}`)
+      .digest('hex');
+
+    const expectedTokenHmacRaw = crypto
+      .createHmac('sha256', app.secret)
+      .update(`${app.appId}:${recordId}:${cleanHwid}:${issueTimestamp}:${issueNonce}`)
+      .digest('hex');
+
+    if (clientTokenHmac !== expectedTokenHmac && clientTokenHmac !== expectedTokenHmacRaw) {
+      return res.status(403).json({
+        success: false,
+        kill: true,
+        message: 'Cryptographic session verification failed (Tampering detected).',
+      });
+    }
+
+    const now = new Date();
+
+    // 3. Verify record status in DB (Real-time Remote Kill)
+    let isRecordValid = false;
+    let identifier = recordId;
+
+    if (app.type === 'LICENSE') {
+      const lic = await prisma.license.findFirst({
+        where: { id: recordId, appId: app.id },
+      });
+      if (lic && lic.status === 'ACTIVE' && lic.expiresAt > now) {
+        if (!lic.boundHwid || lic.boundHwid.toLowerCase() === cleanHwid.toLowerCase()) {
+          isRecordValid = true;
+          identifier = lic.key;
+          await prisma.license.update({ where: { id: lic.id }, data: { lastLoginAt: now } }).catch(() => {});
+        }
+      }
+    } else if (app.type === 'USER_AUTH') {
+      const u: any = await (prisma as any).clientUser.findFirst({
+        where: { id: recordId, appId: app.id },
+      });
+      if (u && (u.status === 'ACTIVE' || !u.status) && u.expiresAt > now) {
+        if (!u.boundHwid || u.boundHwid.toLowerCase() === cleanHwid.toLowerCase()) {
+          isRecordValid = true;
+          identifier = u.username;
+          await (prisma as any).clientUser.update({ where: { id: u.id }, data: { lastLoginAt: now } }).catch(() => {});
+        }
+      }
+    } else {
+      const h = await prisma.hwidAccess.findFirst({
+        where: { id: recordId, appId: app.id },
+      });
+      if (h && h.status === 'ACTIVE' && h.expiresAt > now) {
+        isRecordValid = true;
+        identifier = h.hwidHash;
+        await prisma.hwidAccess.update({ where: { id: h.id }, data: { lastAuthAt: now } }).catch(() => {});
+      }
+    }
+
+    // Free trial bypass check
+    if (!isRecordValid && app.freeTrialEnabled) {
+      if (recordId === 'TRIAL_LIC' || recordId === 'TRIAL_HWID' || recordId === 'TRIAL_USER') {
+        isRecordValid = true;
+      }
+    }
+
+    if (!isRecordValid) {
+      return res.status(403).json({
+        success: false,
+        kill: true,
+        message: 'Account or Hardware ID revoked, paused, expired, or banned by administrator.',
+      });
+    }
+
+    // 4. Generate next signed heartbeat proof
+    const nextTimestamp = Math.floor(Date.now() / 1000);
+    const nextNonce = crypto.randomBytes(16).toString('hex');
+    const nextSignature = crypto
+      .createHmac('sha256', normSecret)
+      .update(`${normAppId}:${identifier}:${nextTimestamp}:${nextNonce}:heartbeat_ok`)
+      .digest('hex');
+
+    return sendSuccess(res, 'Heartbeat verified', {
+      kill: false,
+      timestamp: nextTimestamp,
+      nonce: nextNonce,
+      signature: nextSignature,
+      next_interval_sec: 45,
+    });
+  } catch {
+    return res.status(500).json({
+      success: false,
+      kill: false,
+      message: 'Heartbeat error.',
+    });
   }
 }
