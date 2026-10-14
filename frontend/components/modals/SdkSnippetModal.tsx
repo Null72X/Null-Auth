@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
-import { Copy, Check, Code, Terminal, FileCode2, ShieldAlert, Sparkles, Cpu } from 'lucide-react';
+import { Copy, Check, Code, FileCode2, ShieldAlert, Cpu } from 'lucide-react';
 
 interface SdkSnippetModalProps {
   isOpen: boolean;
@@ -11,7 +11,7 @@ interface SdkSnippetModalProps {
   app: any;
 }
 
-type LangTab = 'csharp' | 'cpp' | 'python' | 'nodejs' | 'curl';
+type LangTab = 'csharp' | 'cpp' | 'python';
 
 export function SdkSnippetModal({ isOpen, onClose, app }: SdkSnippetModalProps) {
   const [activeTab, setActiveTab] = useState<LangTab>('csharp');
@@ -27,7 +27,6 @@ export function SdkSnippetModal({ isOpen, onClose, app }: SdkSnippetModalProps) 
   const appId = (app.appId || app.id || 'YOUR_APP_ID').replace(/^NA-/, '');
   const appSecret = (app.secret || 'YOUR_APP_SECRET').replace(/^nas_/, '');
   
-  // Safe window origin fallback
   const apiBase = typeof window !== 'undefined' ? window.location.origin : 'https://your-domain.com';
   const endpoint = isLicenseMode 
     ? `${apiBase}/api/v1/client/auth/license` 
@@ -35,15 +34,7 @@ export function SdkSnippetModal({ isOpen, onClose, app }: SdkSnippetModalProps) 
     ? `${apiBase}/api/v1/client/auth/user` 
     : `${apiBase}/api/v1/client/auth/hwid`;
 
-  // C# Snippet (100% Standalone, Self-Contained, Zero NuGet Dependencies)
-  const csharpSnippet = `// -------------------------------------------------------------
-// Null-Auth C# (.NET) Integration (${app.name})
-// Mode: ${isLicenseMode ? 'License Key Mode' : isUserAuthMode ? 'User Account Mode' : 'HWID Whitelist Mode'}
-// 100% Standalone Single-File (NativeAOT Safe)
-// Features: Anti-Debug Guard, HMAC-SHA256 Response Signature Verification,
-//           Real-Time 45s Background Heartbeat Remote Killswitch
-// -------------------------------------------------------------
-using System;
+  const csharpSnippet = `using System;
 using System.Diagnostics;
 using System.Net.Http;
 using System.Security.Cryptography;
@@ -54,71 +45,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using NullAuthClient;
-
-class Program
-{
-    static async Task Main()
-    {
-        Console.Title = "${app.name} - Null-Auth Protected";
-        Console.WriteLine("=================================================");
-        Console.WriteLine("        🛡️ ${app.name} Protection Active          ");
-        Console.WriteLine("=================================================\\n");
-
-        // 1. Anti-Debug Hardware & Process Inspection
-        NullAuth.CheckAntiDebug();
-
-        var auth = new NullAuth(
-            appId: "${appId}",
-            secret: "${appSecret}",
-            version: "${app.version || '1.0.0'}",
-            serverUrl: "${apiBase}"
-        );
-
-        Console.WriteLine("[*] Authenticating with Null-Auth Guard...");
-
-        ${
-          isLicenseMode
-            ? `Console.Write("Enter your License Key: ");
-        string key = Console.ReadLine()?.Trim();
-
-        bool success = await auth.LicenseAsync(key);`
-            : isUserAuthMode
-            ? `Console.Write("Enter Username: ");
-        string user = Console.ReadLine()?.Trim();
-        Console.Write("Enter Password: ");
-        string pass = Console.ReadLine()?.Trim();
-
-        bool success = await auth.UserLoginAsync(user, pass);`
-            : `bool success = await auth.CheckHwidAsync();`
-        }
-
-        if (success)
-        {
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine($"\\n[+] Access Granted! Welcome, {auth.UserData.ClientName}");
-            Console.WriteLine($"[+] Days Remaining: {auth.UserData.RemainingDays} days");
-            Console.WriteLine($"[+] Assigned IP: {auth.UserData.Ip}");
-            Console.WriteLine("[+] HMAC-SHA256 Response Signature: VERIFIED");
-            Console.WriteLine("[+] Real-Time Heartbeat: RUNNING (45s Remote Kill Active)");
-            Console.ResetColor();
-
-            // ---------------------------------------------------------
-            // Your protected application logic starts here
-            // ---------------------------------------------------------
-            Console.WriteLine("\\n[*] Launching main application logic...");
-        }
-        else
-        {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("\\n[-] Authentication Failed!");
-            Console.ResetColor();
-            Environment.Exit(1);
-        }
-
-        Console.WriteLine("\\nPress Enter to exit...");
-        Console.ReadLine();
-    }
-}
 
 namespace NullAuthClient
 {
@@ -212,7 +138,7 @@ namespace NullAuthClient
                     using var key = Microsoft.Win32.RegistryKey.OpenBaseKey(
                         Microsoft.Win32.RegistryHive.LocalMachine,
                         Environment.Is64BitOperatingSystem ? Microsoft.Win32.RegistryView.Registry64 : Microsoft.Win32.RegistryView.Registry32);
-                    using var subKey = key.OpenSubKey(@"SOFTWARE\\Microsoft\\Cryptography");
+                    using var subKey = key.OpenSubKey(@"SOFTWARE\\\\Microsoft\\\\Cryptography");
                     if (subKey != null) machineGuid = subKey.GetValue("MachineGuid")?.ToString()?.Trim() ?? "";
                 }
                 catch { }
@@ -314,7 +240,7 @@ namespace NullAuthClient
         {
             if (string.IsNullOrEmpty(signature) || string.IsNullOrEmpty(nonce) || timestamp == 0) return false;
             long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            if (Math.Abs(now - timestamp) > 300) return false; // Replay attack protection (5 min window)
+            if (Math.Abs(now - timestamp) > 300) return false;
 
             string normAppId = AppId.Replace("NA-", "").Trim();
             string normSecret = Secret.Replace("nas_", "").Trim();
@@ -504,18 +430,69 @@ namespace NullAuthClient
         }
     }
 }
-`;
 
-  // C++ Snippet (100% Standalone Single-File WinINet HTTPS)
-  const cppSnippet = `// -------------------------------------------------------------
-// Null-Auth C++ Integration (${app.name})
-// 100% Standalone Single-File (WinINet HTTPS, WinCrypt HMAC-SHA256)
-// Features: Hardware HWID, Anti-Debug Guard (IsDebugger, HW Breakpoints),
-//           HMAC-SHA256 Response Signing, Real-Time Remote Kill Heartbeat (45s)
-// Compile with MSVC: cl /EHsc main.cpp /link wininet.lib advapi32.lib
-// Compile with MinGW: g++ -O2 main.cpp -lwininet -ladvapi32 -o app.exe
-// -------------------------------------------------------------
-#include <iostream>
+class Program
+{
+    static async Task Main()
+    {
+        Console.Title = "${app.name} - Null-Auth Protected";
+        Console.WriteLine("=================================================");
+        Console.WriteLine("        🛡️ ${app.name} Protection Active          ");
+        Console.WriteLine("=================================================\\n");
+
+        NullAuth.CheckAntiDebug();
+
+        var auth = new NullAuth(
+            appId: "${appId}",
+            secret: "${appSecret}",
+            version: "${app.version || '1.0.0'}",
+            serverUrl: "${apiBase}"
+        );
+
+        Console.WriteLine("[*] Authenticating with Null-Auth Guard...");
+
+        ${
+          isLicenseMode
+            ? `Console.Write("Enter your License Key: ");
+        string key = Console.ReadLine()?.Trim();
+
+        bool success = await auth.LicenseAsync(key);`
+            : isUserAuthMode
+            ? `Console.Write("Enter Username: ");
+        string user = Console.ReadLine()?.Trim();
+        Console.Write("Enter Password: ");
+        string pass = Console.ReadLine()?.Trim();
+
+        bool success = await auth.UserLoginAsync(user, pass);`
+            : `bool success = await auth.CheckHwidAsync();`
+        }
+
+        if (success)
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine($"\\n[+] Access Granted! Welcome, {auth.UserData.ClientName}");
+            Console.WriteLine($"[+] Days Remaining: {auth.UserData.RemainingDays} days");
+            Console.WriteLine($"[+] Assigned IP: {auth.UserData.Ip}");
+            Console.WriteLine("[+] HMAC-SHA256 Response Signature: VERIFIED");
+            Console.WriteLine("[+] Real-Time Heartbeat: RUNNING (45s Remote Kill Active)");
+            Console.ResetColor();
+
+            Console.WriteLine("\\n[*] Launching main application logic...");
+        }
+        else
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("\\n[-] Authentication Failed!");
+            Console.ResetColor();
+            Environment.Exit(1);
+        }
+
+        Console.WriteLine("\\nPress Enter to exit...");
+        Console.ReadLine();
+    }
+}`;
+
+  const cppSnippet = `#include <iostream>
 #include <string>
 #include <windows.h>
 #include <wininet.h>
@@ -526,7 +503,6 @@ namespace NullAuthClient
 #pragma comment(lib, "wininet.lib")
 #pragma comment(lib, "advapi32.lib")
 
-// --- Anti-Debugging & Anti-Tamper Security Guard ---
 bool CheckHardwareBreakpoints() {
     CONTEXT ctx;
     ZeroMemory(&ctx, sizeof(CONTEXT));
@@ -555,7 +531,6 @@ void CheckAntiDebug() {
     }
 }
 
-// --- Cryptographic Hash & HMAC-SHA256 Primitives ---
 bool Sha256Raw(const BYTE* data, DWORD len, BYTE* out32) {
     HCRYPTPROV hProv = 0;
     HCRYPTHASH hHash = 0;
@@ -626,7 +601,6 @@ std::string CleanPrefix(const std::string& str, const std::string& prefix) {
     return str;
 }
 
-// Real Hardware HWID (SHA-256 of MachineGuid + Volume Serial)
 std::string GetHwid() {
     std::string machineGuid = "";
     HKEY hKey;
@@ -656,7 +630,6 @@ std::string GetHwid() {
     return Sha256(raw);
 }
 
-// Lightweight JSON Parser Helper
 std::string ParseJsonField(const std::string& json, const std::string& key) {
     std::string search = "\\"" + key + "\\":\\"";
     size_t pos = json.find(search);
@@ -687,7 +660,6 @@ int ParseJsonInt(const std::string& json, const std::string& key) {
     return static_cast<int>(ParseJsonLong(json, key));
 }
 
-// Background Heartbeat Structure & Worker Thread
 struct HeartbeatContext {
     std::string host;
     std::string appId;
@@ -700,7 +672,7 @@ HeartbeatContext g_hb;
 
 DWORD WINAPI HeartbeatWorker(LPVOID lpParam) {
     while (true) {
-        Sleep(45000); // 45 seconds interval
+        Sleep(45000);
         CheckAntiDebug();
 
         HINTERNET hInternet = InternetOpenA("NullAuthGuard/2.0", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
@@ -773,7 +745,6 @@ bool AuthenticateNullAuth(${isLicenseMode ? 'const std::string& licenseKey' : is
     InternetCloseHandle(hInternet);
 
     if (response.find("\\"success\\":true") != std::string::npos) {
-        // Cryptographic HMAC-SHA256 Response Signature Verification
         std::string sig = ParseJsonField(response, "signature");
         std::string nonce = ParseJsonField(response, "nonce");
         long long timestamp = ParseJsonLong(response, "timestamp");
@@ -804,7 +775,6 @@ bool AuthenticateNullAuth(${isLicenseMode ? 'const std::string& licenseKey' : is
         std::cout << "[+] HMAC-SHA256 Signature: VERIFIED" << std::endl;
         std::cout << "[+] Real-Time Heartbeat: RUNNING (45s Remote Kill Active)" << std::endl;
 
-        // Initialize Background Heartbeat Guard
         g_hb.host = host;
         g_hb.appId = "${appId}";
         g_hb.appSecret = "${appSecret}";
@@ -851,24 +821,14 @@ int main() {
     }`
     }
 
-    // Main software logic
     std::cout << "\\n[*] Starting protected application...\\n";
     std::cout << "Press Enter to exit...";
     std::cin.ignore();
     std::cin.get();
     return 0;
-}
-`;
+}`;
 
-  // Python Snippet (100% Zero pip install, Pure Standard Library)
-  const pythonSnippet = `# -------------------------------------------------------------
-# Null-Auth Python Integration (${app.name})
-# Mode: ${isLicenseMode ? 'License Key Mode' : isUserAuthMode ? 'User Account Mode' : 'HWID Whitelist Mode'}
-# 100% Standalone (Zero 'pip install' needed - Standard Library Only)
-# Features: Anti-Debug Guard, HMAC-SHA256 Response Signature Verification,
-#           Real-Time 45s Background Heartbeat Remote Killswitch
-# -------------------------------------------------------------
-import urllib.request
+  const pythonSnippet = `import urllib.request
 import urllib.error
 import json
 import subprocess
@@ -908,7 +868,7 @@ def check_anti_debug():
 def verify_signature(identifier: str, status: str, expires_at: str, timestamp: int, nonce: str, signature: str) -> bool:
     if not signature or not nonce or not timestamp:
         return False
-    if abs(time.time() - timestamp) > 300: # 5 min replay protection
+    if abs(time.time() - timestamp) > 300:
         return False
     norm_app_id = APP_ID.replace("NA-", "").strip()
     norm_secret = APP_SECRET.replace("nas_", "").strip()
@@ -954,7 +914,6 @@ def start_heartbeat(session_token: str, hwid: str):
     t.start()
 
 def get_hwid() -> str:
-    """Retrieves hardware-bound machine HWID (MachineGuid + C: Volume Serial) hashed with SHA-256."""
     if platform.system() == "Windows":
         machine_guid = ""
         vol_serial = ""
@@ -1085,65 +1044,10 @@ if __name__ == "__main__":
     input("\\nPress Enter to exit...")
 `;
 
-  // Node.js Snippet (Native global fetch)
-  const nodeSnippet = `// -------------------------------------------------------------
-// Null-Auth Node.js / TypeScript Integration (${app.name})
-// Mode: ${isLicenseMode ? 'License Key Mode' : isUserAuthMode ? 'User Account Mode' : 'HWID Whitelist Mode'}
-// Built with native fetch (Node.js 18+)
-// -------------------------------------------------------------
-const os = require('os');
-
-async function authenticateNullAuth() {
-  const machineId = os.hostname() + "-" + os.userInfo().username;
-
-  const payload = {
-    appId: "${appId}",
-    appSecret: "${appSecret}",
-    hwid: machineId,
-    ${isLicenseMode ? 'licenseKey: "YOUR_USER_LICENSE_KEY",' : isUserAuthMode ? 'username: "USER_ACCOUNT_NAME", password: "USER_ACCOUNT_PASSWORD",' : ''}
-    clientVersion: "${app.version || '1.0.0'}",
-  };
-
-  console.log("[*] Authenticating with Null-Auth Guard...");
-
-  const response = await fetch("${endpoint}", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-
-  const result = await response.json();
-
-  if (response.ok && result.success) {
-    console.log("\\n[+] Access Granted! Welcome, " + (result.data.client_name || "Client"));
-    console.log("[+] Days Remaining: " + result.data.remaining_days + " days");
-    console.log("[+] Assigned IP: " + result.data.ip);
-    return result.data;
-  } else {
-    console.error("\\n[-] Access Denied:", result.message || "Failed to authenticate");
-    process.exit(1);
-  }
-}
-
-authenticateNullAuth().catch(console.error);`;
-
-  // cURL Snippet
-  const curlSnippet = `curl -X POST "${endpoint}" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "appId": "${appId}",
-    "appSecret": "${appSecret}",
-    ${isLicenseMode ? '"licenseKey": "PASTE_KEY_HERE",' : isUserAuthMode ? '"username": "PASTE_USERNAME_HERE", "password": "PASTE_PASSWORD_HERE",' : ''}
-    "hwid": "USER_MACHINE_HWID",
-    "clientVersion": "${app.version || '1.0.0'}"
-  }'`;
-
   const snippets: Record<LangTab, string> = {
     csharp: csharpSnippet,
     cpp: cppSnippet,
     python: pythonSnippet,
-    nodejs: nodeSnippet,
-    curl: curlSnippet,
   };
 
   const currentSnippet = snippets[activeTab];
@@ -1158,8 +1062,6 @@ authenticateNullAuth().catch(console.error);`;
     { id: 'csharp', label: 'C# (.NET)', icon: Cpu },
     { id: 'cpp', label: 'C++ (Windows)', icon: FileCode2 },
     { id: 'python', label: 'Python', icon: Code },
-    { id: 'nodejs', label: 'Node.js', icon: Sparkles },
-    { id: 'curl', label: 'cURL / REST', icon: Terminal },
   ];
 
   return (
