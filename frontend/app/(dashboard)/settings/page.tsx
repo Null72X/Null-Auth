@@ -423,6 +423,65 @@ namespace NullAuthClient
             }
         }
     }
+}
+
+class Program
+{
+    static async Task Main()
+    {
+        Console.Title = "Null-Auth Protected App";
+        NullAuthClient.NullAuth.CheckAntiDebug();
+        var auth = new NullAuthClient.NullAuth("13026130", "YOUR_RAW_SECRET", "1.0.0", "https://nullauthbackend.vercel.app");
+        Console.WriteLine("Select Authentication Mode:");
+        Console.WriteLine("1. License Key Authentication");
+        Console.WriteLine("2. User Account Login (Username & Password)");
+        Console.WriteLine("3. Hardware ID (HWID) Whitelist Check");
+        Console.Write("Select Mode (1-3): ");
+        string mode = Console.ReadLine()?.Trim();
+        bool success = false;
+        if (mode == "1")
+        {
+            Console.Write("Enter License Key: ");
+            string key = Console.ReadLine()?.Trim();
+            success = await auth.LicenseAsync(key);
+        }
+        else if (mode == "2")
+        {
+            Console.Write("Enter Username: ");
+            string user = Console.ReadLine()?.Trim();
+            Console.Write("Enter Password: ");
+            string pass = Console.ReadLine()?.Trim();
+            success = await auth.UserLoginAsync(user, pass);
+        }
+        else if (mode == "3")
+        {
+            success = await auth.CheckHwidAsync();
+        }
+        else
+        {
+            Console.WriteLine("Invalid mode selection!");
+            return;
+        }
+        if (success)
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("\\n[+] Access Granted! Welcome, " + auth.UserData.ClientName);
+            Console.WriteLine("[+] Days Remaining: " + auth.UserData.RemainingDays + " days");
+            Console.WriteLine("[+] Assigned IP: " + auth.UserData.Ip);
+            Console.WriteLine("[+] HMAC-SHA256 Response Signature: VERIFIED");
+            Console.WriteLine("[+] Real-Time Heartbeat: RUNNING (45s Remote Kill Active)");
+            Console.ResetColor();
+        }
+        else
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("\\n[-] Authentication Failed!");
+            Console.ResetColor();
+            Environment.Exit(1);
+        }
+        Console.WriteLine("\\nPress Enter to exit...");
+        Console.ReadLine();
+    }
 }`;
 
 const CPP_SDK = `#include <iostream>
@@ -557,17 +616,17 @@ namespace NullAuthClient {
                 if (hConnect) {
                     HINTERNET hRequest = HttpOpenRequestA(hConnect, "POST", "/api/v1/client/auth/heartbeat", NULL, NULL, NULL, INTERNET_FLAG_SECURE | INTERNET_FLAG_RELOAD | INTERNET_FLAG_NO_CACHE_WRITE, 0);
                     if (hRequest) {
-                        std::string hbBody = "{\\"appId\\":\\"" + g_hb.appId + "\\",\\"appSecret\\":\\"" + g_hb.appSecret + "\\",\\"sessionToken\\":\\"" + g_hb.sessionToken + "\\",\\"hwid\\":\\"" + g_hb.hwid + "\\"}";
-                        std::string headers = "Content-Type: application/json\\r\\n";
+                        std::string hbBody = "{\"appId\":\"" + g_hb.appId + "\",\"appSecret\":\"" + g_hb.appSecret + "\",\"sessionToken\":\"" + g_hb.sessionToken + "\",\"hwid\":\"" + g_hb.hwid + "\"}";
+                        std::string headers = "Content-Type: application/json\r\n";
                         if (HttpSendRequestA(hRequest, headers.c_str(), (DWORD)headers.length(), (LPVOID)hbBody.c_str(), (DWORD)hbBody.length())) {
                             char buf[1024];
                             DWORD bytesRead = 0;
                             std::string res = "";
                             while (InternetReadFile(hRequest, buf, sizeof(buf) - 1, &bytesRead) && bytesRead > 0) {
-                                buf[bytesRead] = '\\0';
+                                buf[bytesRead] = '\0';
                                 res += buf;
                             }
-                            if (res.find("\\"kill\\":true") != std::string::npos) {
+                            if (res.find("\"kill\":true") != std::string::npos) {
                                 MessageBoxA(0, "Session revoked, paused, or expired by administrator.", "Access Revoked", MB_ICONSTOP | MB_OK);
                                 ExitProcess(0xDEAD);
                             }
@@ -590,25 +649,25 @@ namespace NullAuthClient {
         std::string host;
 
         static std::string ExtractJsonString(const std::string& json, const std::string& key) {
-            std::string search = "\\"" + key + "\\":\\"";
+            std::string search = "\"" + key + "\":\"";
             size_t pos = json.find(search);
             if (pos == std::string::npos) {
-                search = "\\"" + key + "\\": \\"";
+                search = "\"" + key + "\": \"";
                 pos = json.find(search);
             }
             if (pos == std::string::npos) return "";
             size_t start = pos + search.length();
-            size_t end = json.find("\\"", start);
+            size_t end = json.find("\"", start);
             if (end == std::string::npos) return "";
             return json.substr(start, end - start);
         }
 
         static long long ExtractJsonLong(const std::string& json, const std::string& key) {
-            std::string search = "\\"" + key + "\\":";
+            std::string search = "\"" + key + "\":";
             size_t pos = json.find(search);
             if (pos == std::string::npos) return 0;
             size_t start = pos + search.length();
-            while (start < json.length() && (json[start] == ' ' || json[start] == '\\"')) start++;
+            while (start < json.length() && (json[start] == ' ' || json[start] == '\"')) start++;
             size_t end = start;
             while (end < json.length() && (isdigit(static_cast<unsigned char>(json[end])) || json[end] == '-')) end++;
             if (start == end) return 0;
@@ -633,7 +692,7 @@ namespace NullAuthClient {
         static std::string GetHwid() {
             std::string machineGuid = "";
             HKEY hKey;
-            if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, "SOFTWARE\\\\Microsoft\\\\Cryptography", 0, KEY_READ | KEY_WOW64_64KEY, &hKey) == ERROR_SUCCESS) {
+            if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Cryptography", 0, KEY_READ | KEY_WOW64_64KEY, &hKey) == ERROR_SUCCESS) {
                 char buf[256];
                 DWORD bufSize = sizeof(buf);
                 if (RegQueryValueExA(hKey, "MachineGuid", NULL, NULL, (LPBYTE)buf, &bufSize) == ERROR_SUCCESS) {
@@ -643,7 +702,7 @@ namespace NullAuthClient {
             }
 
             DWORD volumeSerial = 0;
-            GetVolumeInformationA("C:\\\\", NULL, 0, &volumeSerial, NULL, NULL, NULL, 0);
+            GetVolumeInformationA("C:\\", NULL, 0, &volumeSerial, NULL, NULL, NULL, 0);
 
             char volBuf[32];
             sprintf_s(volBuf, sizeof(volBuf), "%08X", volumeSerial);
@@ -659,23 +718,19 @@ namespace NullAuthClient {
             return Sha256(raw);
         }
 
-        bool License(const std::string& key, bool showMsgbox = true) {
-            CheckAntiDebug();
-            std::string hwid = GetHwid();
-            std::string body = "{\\"appId\\":\\"" + appId + "\\",\\"appSecret\\":\\"" + secret + "\\",\\"licenseKey\\":\\"" + key + "\\",\\"hwid\\":\\"" + hwid + "\\",\\"version\\":\\"" + version + "\\"}";
-            
+        bool SendAuthRequest(const std::string& endpoint, const std::string& body, const std::string& identifier, bool showMsgbox) {
             HINTERNET hInternet = InternetOpenA("NullAuthGuard/2.0", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
             HINTERNET hConnect = InternetConnectA(hInternet, host.c_str(), INTERNET_DEFAULT_HTTPS_PORT, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
-            HINTERNET hRequest = HttpOpenRequestA(hConnect, "POST", "/api/v1/client/auth/license", NULL, NULL, NULL, INTERNET_FLAG_SECURE | INTERNET_FLAG_RELOAD | INTERNET_FLAG_NO_CACHE_WRITE, 0);
+            HINTERNET hRequest = HttpOpenRequestA(hConnect, "POST", endpoint.c_str(), NULL, NULL, NULL, INTERNET_FLAG_SECURE | INTERNET_FLAG_RELOAD | INTERNET_FLAG_NO_CACHE_WRITE, 0);
 
-            std::string headers = "Content-Type: application/json\\r\\n";
+            std::string headers = "Content-Type: application/json\r\n";
             HttpSendRequestA(hRequest, headers.c_str(), (DWORD)headers.length(), (LPVOID)body.c_str(), (DWORD)body.length());
 
             char buffer[2048];
             DWORD bytesRead = 0;
             std::string response = "";
             while (InternetReadFile(hRequest, buffer, sizeof(buffer) - 1, &bytesRead) && bytesRead > 0) {
-                buffer[bytesRead] = '\\0';
+                buffer[bytesRead] = '\0';
                 response += buffer;
             }
 
@@ -683,7 +738,7 @@ namespace NullAuthClient {
             InternetCloseHandle(hConnect);
             InternetCloseHandle(hInternet);
 
-            if (response.find("\\"success\\":true") != std::string::npos) {
+            if (response.find("\"success\":true") != std::string::npos) {
                 std::string sig = ExtractJsonString(response, "signature");
                 std::string nonce = ExtractJsonString(response, "nonce");
                 long long timestamp = ExtractJsonLong(response, "timestamp");
@@ -693,7 +748,7 @@ namespace NullAuthClient {
 
                 std::string normAppId = CleanPrefix(appId, "NA-");
                 std::string normSecret = CleanPrefix(secret, "nas_");
-                std::string payload = normAppId + ":" + key + ":" + std::to_string(timestamp) + ":" + nonce + ":" + status + ":" + expiresAt;
+                std::string payload = normAppId + ":" + identifier + ":" + std::to_string(timestamp) + ":" + nonce + ":" + status + ":" + expiresAt;
                 std::string expectedSig = HmacSha256(normSecret, payload);
 
                 if (sig.empty() || sig != expectedSig) {
@@ -706,7 +761,7 @@ namespace NullAuthClient {
                 userData.ip = ExtractJsonString(response, "ip");
                 userData.expires = expiresAt;
                 userData.remainingDays = ExtractJsonInt(response, "remaining_days");
-                userData.hwid = hwid;
+                userData.hwid = GetHwid();
                 userData.version = version;
                 userData.sessionToken = ExtractJsonString(response, "session_token");
 
@@ -714,7 +769,7 @@ namespace NullAuthClient {
                 g_hb.appId = appId;
                 g_hb.appSecret = secret;
                 g_hb.sessionToken = userData.sessionToken;
-                g_hb.hwid = hwid;
+                g_hb.hwid = userData.hwid;
                 CreateThread(NULL, 0, HeartbeatWorker, NULL, 0, NULL);
 
                 return true;
@@ -722,7 +777,70 @@ namespace NullAuthClient {
             if (showMsgbox) MessageBoxA(0, "Authentication Failed!", "Null-Auth Error", MB_ICONERROR | MB_OK);
             return false;
         }
+
+        bool License(const std::string& key, bool showMsgbox = true) {
+            CheckAntiDebug();
+            std::string hwid = GetHwid();
+            std::string body = "{\"appId\":\"" + appId + "\",\"appSecret\":\"" + secret + "\",\"licenseKey\":\"" + key + "\",\"hwid\":\"" + hwid + "\",\"version\":\"" + version + "\"}";
+            return SendAuthRequest("/api/v1/client/auth/license", body, key, showMsgbox);
+        }
+
+        bool CheckHwid(bool showMsgbox = true) {
+            CheckAntiDebug();
+            std::string hwid = GetHwid();
+            std::string body = "{\"appId\":\"" + appId + "\",\"appSecret\":\"" + secret + "\",\"hwid\":\"" + hwid + "\",\"version\":\"" + version + "\"}";
+            return SendAuthRequest("/api/v1/client/auth/hwid", body, hwid, showMsgbox);
+        }
+
+        bool UserLogin(const std::string& username, const std::string& password, bool showMsgbox = true) {
+            CheckAntiDebug();
+            std::string hwid = GetHwid();
+            std::string body = "{\"appId\":\"" + appId + "\",\"appSecret\":\"" + secret + "\",\"username\":\"" + username + "\",\"password\":\"" + password + "\",\"hwid\":\"" + hwid + "\",\"version\":\"" + version + "\"}";
+            return SendAuthRequest("/api/v1/client/auth/user", body, username, showMsgbox);
+        }
     };
+}
+
+int main() {
+    NullAuthClient::CheckAntiDebug();
+    NullAuthClient::NullAuth auth("13026130", "YOUR_RAW_SECRET", "1.0.0", "nullauthbackend.vercel.app");
+    std::cout << "Select Authentication Mode:\n";
+    std::cout << "1. License Key Authentication\n";
+    std::cout << "2. User Account Login (Username & Password)\n";
+    std::cout << "3. Hardware ID (HWID) Whitelist Check\n";
+    std::cout << "Select Mode (1-3): ";
+    int mode = 1;
+    std::cin >> mode;
+    bool success = false;
+    if (mode == 1) {
+        std::cout << "Enter License Key: ";
+        std::string key;
+        std::cin >> key;
+        success = auth.License(key);
+    } else if (mode == 2) {
+        std::cout << "Enter Username: ";
+        std::string uStr, pStr;
+        std::cin >> uStr;
+        std::cout << "Enter Password: ";
+        std::cin >> pStr;
+        success = auth.UserLogin(uStr, pStr);
+    } else if (mode == 3) {
+        success = auth.CheckHwid();
+    } else {
+        std::cout << "Invalid mode selection!\n";
+        return 1;
+    }
+    if (!success) {
+        return 1;
+    }
+    std::cout << "\n[+] Access Granted to " << auth.userData.clientName << "!\n";
+    std::cout << "[+] Days Remaining: " << auth.userData.remainingDays << "\n";
+    std::cout << "[+] HMAC-SHA256: VERIFIED\n";
+    std::cout << "[+] 45s Heartbeat Remote Kill: RUNNING\n";
+    std::cout << "\nPress Enter to exit...";
+    std::cin.ignore();
+    std::cin.get();
+    return 0;
 }`;
 
 const PYTHON_SDK = `import urllib.request, urllib.error, json, subprocess, ctypes, platform, hashlib, hmac, time, threading, sys, os
@@ -772,7 +890,7 @@ class NullAuth:
             vol_serial = ""
             try:
                 import winreg
-                with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\\\\Microsoft\\\\Cryptography", 0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as key:
+                with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\\Microsoft\\Cryptography", 0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as key:
                     machine_guid = str(winreg.QueryValueEx(key, "MachineGuid")[0]).strip()
             except Exception:
                 pass
@@ -780,7 +898,7 @@ class NullAuth:
             try:
                 kernel32 = ctypes.windll.kernel32
                 vol_serial_val = ctypes.c_ulong()
-                if kernel32.GetVolumeInformationW("C:\\\\", None, 0, ctypes.byref(vol_serial_val), None, None, None, 0):
+                if kernel32.GetVolumeInformationW("C:\\", None, 0, ctypes.byref(vol_serial_val), None, None, None, 0):
                     vol_serial = f"{vol_serial_val.value:08X}"
             except Exception:
                 pass
@@ -829,13 +947,9 @@ class NullAuth:
         t = threading.Thread(target=worker, daemon=True)
         t.start()
 
-    def license(self, key: str, show_msgbox: bool = True) -> bool:
+    def _send_request(self, endpoint: str, payload: dict, identifier: str, show_msgbox: bool = True) -> bool:
         check_anti_debug()
-        hwid = self.get_hwid()
-        url = f"{self.server_url}/api/v1/client/auth/license"
-        payload = {"appId": self.app_id, "appSecret": self.secret, "licenseKey": key.strip(), "hwid": hwid, "version": self.version}
-        
-        req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers={"Content-Type": "application/json", "User-Agent": "NullAuthClient/2.0"}, method="POST")
+        req = urllib.request.Request(endpoint, data=json.dumps(payload).encode('utf-8'), headers={"Content-Type": "application/json", "User-Agent": "NullAuthClient/2.0"}, method="POST")
         try:
             with urllib.request.urlopen(req, timeout=10) as res:
                 data = json.loads(res.read().decode('utf-8'))
@@ -848,20 +962,66 @@ class NullAuth:
                     sig = d.get("signature", "")
                     token = d.get("session_token", "")
 
-                    if not self._verify_signature(key.strip(), status, exp, ts, nonce, sig):
+                    if not self._verify_signature(identifier, status, exp, ts, nonce, sig):
                         if show_msgbox and platform.system() == "Windows":
                             ctypes.windll.user32.MessageBoxW(0, "HMAC signature mismatch! Response tampering detected.", "Security Violation", 16)
                         return False
 
                     self.user_data = UserData(d)
-                    self._start_heartbeat(token, hwid)
+                    self._start_heartbeat(token, payload.get("hwid", ""))
                     return True
                 if show_msgbox and platform.system() == "Windows":
                     ctypes.windll.user32.MessageBoxW(0, data.get("message", "Error"), "Null-Auth Error", 16)
         except Exception as e:
             if show_msgbox and platform.system() == "Windows":
                 ctypes.windll.user32.MessageBoxW(0, str(e), "Null-Auth Network Error", 16)
-        return False`;
+        return False
+
+    def license(self, key: str, show_msgbox: bool = True) -> bool:
+        hwid = self.get_hwid()
+        payload = {"appId": self.app_id, "appSecret": self.secret, "licenseKey": key.strip(), "hwid": hwid, "version": self.version}
+        return self._send_request(f"{self.server_url}/api/v1/client/auth/license", payload, key.strip(), show_msgbox)
+
+    def check_hwid(self, show_msgbox: bool = True) -> bool:
+        hwid = self.get_hwid()
+        payload = {"appId": self.app_id, "appSecret": self.secret, "hwid": hwid, "version": self.version}
+        return self._send_request(f"{self.server_url}/api/v1/client/auth/hwid", payload, hwid, show_msgbox)
+
+    def user_login(self, username: str, password: str, show_msgbox: bool = True) -> bool:
+        hwid = self.get_hwid()
+        payload = {"appId": self.app_id, "appSecret": self.secret, "username": username.strip(), "password": password.strip(), "hwid": hwid, "version": self.version}
+        return self._send_request(f"{self.server_url}/api/v1/client/auth/user", payload, username.strip(), show_msgbox)
+
+if __name__ == "__main__":
+    check_anti_debug()
+    auth = NullAuth("13026130", "YOUR_RAW_SECRET", "1.0.0", "https://nullauthbackend.vercel.app")
+    print("Select Authentication Mode:")
+    print("1. License Key Authentication")
+    print("2. User Account Login (Username & Password)")
+    print("3. Hardware ID (HWID) Whitelist Check")
+    mode = input("Select Mode (1-3): ").strip()
+    success = False
+    if mode == "1":
+        key = input("Enter License Key: ").strip()
+        success = auth.license(key)
+    elif mode == "2":
+        u = input("Enter Username: ").strip()
+        p = input("Enter Password: ").strip()
+        success = auth.user_login(u, p)
+    elif mode == "3":
+        success = auth.check_hwid()
+    else:
+        print("Invalid mode selection!")
+        sys.exit(1)
+    if success:
+        print(f"\n[+] Access Granted to {auth.user_data.client_name}!")
+        print(f"[+] Days Remaining: {auth.user_data.remaining_days}")
+        print("[+] HMAC-SHA256: VERIFIED")
+        print("[+] 45s Heartbeat Remote Kill: RUNNING")
+    else:
+        print("\n[-] ACCESS DENIED!")
+        sys.exit(1)
+    input("\nPress Enter to exit...")`;
 
 const HWID_POWERSHELL_CLIPBOARD = `$g = (Get-ItemProperty 'HKLM:\\SOFTWARE\\Microsoft\\Cryptography').MachineGuid; $v = (Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'").VolumeSerialNumber; $id = [BitConverter]::ToString([Security.Cryptography.SHA256]::Create().ComputeHash([Text.Encoding]::UTF8.GetBytes($g + ':' + $v))).Replace('-','').ToLower(); Set-Clipboard $id; Write-Host "HWID (Copied to Clipboard): $id" -ForegroundColor Green`;
 

@@ -481,9 +481,9 @@ class Program
         if (success)
         {
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine($"\\n[+] Access Granted! Welcome, {auth.UserData.ClientName}");
-            Console.WriteLine($"[+] Days Remaining: {auth.UserData.RemainingDays} days");
-            Console.WriteLine($"[+] Assigned IP: {auth.UserData.Ip}");
+            Console.WriteLine("\\n[+] Access Granted! Welcome, " + auth.UserData.ClientName);
+            Console.WriteLine("[+] Days Remaining: " + auth.UserData.RemainingDays + " days");
+            Console.WriteLine("[+] Assigned IP: " + auth.UserData.Ip);
             Console.WriteLine("[+] HMAC-SHA256 Response Signature: VERIFIED");
             Console.WriteLine("[+] Real-Time Heartbeat: RUNNING (45s Remote Kill Active)");
             Console.ResetColor();
