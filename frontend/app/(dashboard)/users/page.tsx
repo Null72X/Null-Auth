@@ -10,6 +10,7 @@ import { EditUserModal } from '@/components/modals/EditUserModal';
 import { ConfirmModal } from '@/components/modals/ConfirmModal';
 import { fetchApi } from '@/lib/api';
 import { formatRelativeTime } from '@/lib/time';
+import { ExpirationCountdown } from '@/components/ui/ExpirationCountdown';
 import {
   Users,
   User,
@@ -538,18 +539,11 @@ export default function UserAccountsPage() {
                         <Badge status={user.effectiveStatus || user.status} />
                       </td>
                       <td className="p-4 text-xs">
-                        <div className="space-y-1">
-                          <span className="text-zinc-200 font-bold block">
-                            {user.remainingDays != null && user.remainingDays >= 9999
-                              ? 'Lifetime'
-                              : user.remainingDays > 0
-                              ? `${user.remainingDays} days left`
-                              : 'Expired'}
-                          </span>
-                          <span className="text-[11px] text-zinc-500 block">
-                            {user.remainingDays != null && user.remainingDays >= 9999 ? 'No Expiry' : new Date(user.expiresAt).toLocaleDateString()}
-                          </span>
-                        </div>
+                        <ExpirationCountdown
+                          expiresAt={user.expiresAt}
+                          remainingDays={user.remainingDays}
+                          showDateSubtext
+                        />
                       </td>
                       <td className="p-4 text-xs">
                         <div className="space-y-0.5">

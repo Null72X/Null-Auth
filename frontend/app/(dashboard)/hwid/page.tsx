@@ -11,6 +11,7 @@ import { EditHwidModal } from '@/components/modals/EditHwidModal';
 import { Modal } from '@/components/ui/Modal';
 import { fetchApi } from '@/lib/api';
 import { formatRelativeTime } from '@/lib/time';
+import { ExpirationCountdown } from '@/components/ui/ExpirationCountdown';
 import {
   ShieldCheck,
   Plus,
@@ -320,18 +321,11 @@ export default function HwidPage() {
                       <Badge status={item.effectiveStatus} />
                     </td>
                     <td className="p-4 font-mono text-xs">
-                      <div className="space-y-0.5">
-                        <div className="font-bold text-zinc-200">
-                          {item.remainingDays != null && item.remainingDays >= 9999
-                            ? 'Lifetime'
-                            : item.remainingDays > 0
-                            ? `${item.remainingDays} days left`
-                            : 'Expired'}
-                        </div>
-                        <div className="text-[11px] text-zinc-500">
-                          {item.remainingDays != null && item.remainingDays >= 9999 ? 'No Expiry' : new Date(item.expiresAt).toLocaleDateString()}
-                        </div>
-                      </div>
+                      <ExpirationCountdown
+                        expiresAt={item.expiresAt}
+                        remainingDays={item.remainingDays}
+                        showDateSubtext
+                      />
                     </td>
                     <td className="p-4 text-xs">
                       <div className="space-y-0.5">

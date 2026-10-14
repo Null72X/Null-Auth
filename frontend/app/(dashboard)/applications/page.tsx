@@ -15,6 +15,7 @@ import { EditAppModal } from '@/components/modals/EditAppModal';
 import { ConfigureTrialModal } from '@/components/modals/ConfigureTrialModal';
 import { SdkSnippetModal } from '@/components/modals/SdkSnippetModal';
 import { Modal } from '@/components/ui/Modal';
+import { ExpirationCountdown } from '@/components/ui/ExpirationCountdown';
 import { fetchApi } from '@/lib/api';
 import {
   Plus,
@@ -737,11 +738,12 @@ export default function ApplicationsPage() {
                           <div className="flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-emerald-400" />
                             <span className="text-xs font-bold text-emerald-300">Free Trial Active</span>
-                            <span className="px-1.5 py-0.5 rounded bg-emerald-900/50 text-[10px] font-mono text-emerald-300 font-bold border border-emerald-700/40">
-                              {app.freeTrialRemainingDays != null && app.freeTrialRemainingDays > 0 && app.freeTrialRemainingDays < 9999
-                                ? `${app.freeTrialRemainingDays}d left`
-                                : 'Lifetime'}
-                            </span>
+                            <ExpirationCountdown
+                              expiresAt={app.freeTrialExpiresAt}
+                              remainingDays={app.freeTrialRemainingDays}
+                              badge
+                              compact
+                            />
                           </div>
                           <button
                             type="button"
@@ -980,7 +982,16 @@ export default function ApplicationsPage() {
                                 title="Click to view or edit Free Trial configuration"
                               >
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                                <span>Trial Active ({app.freeTrialRemainingDays && app.freeTrialRemainingDays >= 9999 ? 'Lifetime' : `${app.freeTrialRemainingDays || 30}d`})</span>
+                                <span>
+                                  Trial Active (
+                                  <ExpirationCountdown
+                                    expiresAt={app.freeTrialExpiresAt}
+                                    remainingDays={app.freeTrialRemainingDays}
+                                    compact
+                                    inline
+                                  />
+                                  )
+                                </span>
                                 <Settings2 className="w-2.5 h-2.5 text-emerald-400/70" />
                               </button>
                             ) : (

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { fetchApi } from '@/lib/api';
 import { formatRelativeTime } from '@/lib/time';
+import { ExpirationCountdown } from '@/components/ui/ExpirationCountdown';
 import {
   Key,
   ShieldCheck,
@@ -431,7 +432,7 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[10px] text-zinc-400 border-t border-zinc-900 pt-2">
                     <div className="flex items-center gap-3">
                       <span>
-                        Expires: <strong className="text-zinc-200">{new Date(r.expiresAt).toLocaleDateString()}</strong>
+                        Expires: <strong className="text-zinc-200">{r.remainingDays != null && r.remainingDays >= 9999 ? 'No Expiry' : new Date(r.expiresAt).toLocaleDateString()}</strong>
                       </span>
                       <span>&bull;</span>
                       <span>
@@ -445,9 +446,11 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
                           Client: {r.clientName || r.notes}
                         </span>
                       )}
-                      <span className="text-emerald-400 font-mono font-bold">
-                        {r.remainingDays != null && r.remainingDays >= 9999 ? 'Lifetime' : `${r.remainingDays} Days Left`}
-                      </span>
+                      <ExpirationCountdown
+                        expiresAt={r.expiresAt}
+                        remainingDays={r.remainingDays}
+                        className="text-[11px]"
+                      />
                     </div>
                   </div>
                 </div>

@@ -11,6 +11,7 @@ import { EditLicenseModal } from '@/components/modals/EditLicenseModal';
 import { Modal } from '@/components/ui/Modal';
 import { fetchApi } from '@/lib/api';
 import { formatRelativeTime } from '@/lib/time';
+import { ExpirationCountdown } from '@/components/ui/ExpirationCountdown';
 import {
   Key,
   Plus,
@@ -451,18 +452,11 @@ export default function LicensesPage() {
                         <Badge status={lic.effectiveStatus} />
                       </td>
                       <td className="p-4 text-xs">
-                        <div className="space-y-1">
-                          <span className="text-zinc-200 font-bold block">
-                            {lic.remainingDays != null && lic.remainingDays >= 9999
-                              ? 'Lifetime'
-                              : lic.remainingDays > 0
-                              ? `${lic.remainingDays} days left`
-                              : 'Expired'}
-                          </span>
-                          <span className="text-[11px] text-zinc-500 block">
-                            {lic.remainingDays != null && lic.remainingDays >= 9999 ? 'No Expiry' : new Date(lic.expiresAt).toLocaleDateString()}
-                          </span>
-                        </div>
+                        <ExpirationCountdown
+                          expiresAt={lic.expiresAt}
+                          remainingDays={lic.remainingDays}
+                          showDateSubtext
+                        />
                       </td>
                       <td className="p-4 text-xs">
                         <div className="space-y-0.5">
