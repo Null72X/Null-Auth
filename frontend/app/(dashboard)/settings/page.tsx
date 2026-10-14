@@ -74,7 +74,7 @@ namespace NullAuthClient
         public bool Initialized { get; private set; } = false;
 
         private static readonly HttpClient _http = new HttpClient();
-        private Timer _heartbeatTimer;
+        private System.Threading.Timer _heartbeatTimer;
 
         public NullAuth(string appId, string secret, string version = "1.0.0", string serverUrl = "https://nullauthbackend.vercel.app")
         {
@@ -246,13 +246,13 @@ namespace NullAuthClient
         private void StartHeartbeat(string sessionToken)
         {
             _heartbeatTimer?.Dispose();
-            _heartbeatTimer = new Timer(async _ =>
+            _heartbeatTimer = new System.Threading.Timer(async _ =>
             {
                 try
                 {
                     CheckAntiDebug();
                     string hwid = GetHwid();
-                    string body = $"{{\"appId\":\"{EscapeJson(AppId)}\",\"appSecret\":\"{EscapeJson(Secret)}\",\"sessionToken\":\"{EscapeJson(sessionToken)}\",\"hwid\":\"{EscapeJson(hwid)}\"}}";
+                    string body = "{\\"appId\\":\\"" + EscapeJson(AppId) + "\\",\\"appSecret\\":\\"" + EscapeJson(Secret) + "\\",\\"sessionToken\\":\\"" + EscapeJson(sessionToken) + "\\",\\"hwid\\":\\"" + EscapeJson(hwid) + "\\"}";
                     var content = new StringContent(body, Encoding.UTF8, "application/json");
                     var response = await _http.PostAsync($"{ServerUrl}/api/v1/client/auth/heartbeat", content);
                     string resStr = await response.Content.ReadAsStringAsync();
@@ -277,7 +277,7 @@ namespace NullAuthClient
             string endpoint = $"{ServerUrl}/api/v1/client/license/authenticate";
             string cleanKey = key?.Trim() ?? "";
 
-            string jsonBody = $"{{\"appId\":\"{EscapeJson(AppId)}\",\"appSecret\":\"{EscapeJson(Secret)}\",\"licenseKey\":\"{EscapeJson(cleanKey)}\",\"hwid\":\"{EscapeJson(hwid)}\",\"version\":\"{EscapeJson(Version)}\"}}";
+            string jsonBody = "{\\"appId\\":\\"" + EscapeJson(AppId) + "\\",\\"appSecret\\":\\"" + EscapeJson(Secret) + "\\",\\"licenseKey\\":\\"" + EscapeJson(cleanKey) + "\\",\\"hwid\\":\\"" + EscapeJson(hwid) + "\\",\\"version\\":\\"" + EscapeJson(Version) + "\\"}";
 
             var res = await SendRequestAsync(endpoint, jsonBody);
             if (res.Success && res.Data != null)
@@ -305,7 +305,7 @@ namespace NullAuthClient
             string hwid = GetHwid();
             string endpoint = $"{ServerUrl}/api/v1/client/hwid/authenticate";
 
-            string jsonBody = $"{{\"appId\":\"{EscapeJson(AppId)}\",\"appSecret\":\"{EscapeJson(Secret)}\",\"hwid\":\"{EscapeJson(hwid)}\",\"version\":\"{EscapeJson(Version)}\"}}";
+            string jsonBody = "{\\"appId\\":\\"" + EscapeJson(AppId) + "\\",\\"appSecret\\":\\"" + EscapeJson(Secret) + "\\",\\"hwid\\":\\"" + EscapeJson(hwid) + "\\",\\"version\\":\\"" + EscapeJson(Version) + "\\"}";
 
             var res = await SendRequestAsync(endpoint, jsonBody);
             if (res.Success && res.Data != null)
@@ -334,7 +334,7 @@ namespace NullAuthClient
             string endpoint = $"{ServerUrl}/api/v1/client/user/authenticate";
             string cleanUser = username?.Trim() ?? "";
 
-            string jsonBody = $"{{\"appId\":\"{EscapeJson(AppId)}\",\"appSecret\":\"{EscapeJson(Secret)}\",\"username\":\"{EscapeJson(cleanUser)}\",\"password\":\"{EscapeJson(password?.Trim())}\",\"hwid\":\"{EscapeJson(hwid)}\",\"version\":\"{EscapeJson(Version)}\"}}";
+            string jsonBody = "{\\"appId\\":\\"" + EscapeJson(AppId) + "\\",\\"appSecret\\":\\"" + EscapeJson(Secret) + "\\",\\"username\\":\\"" + EscapeJson(cleanUser) + "\\",\\"password\\":\\"" + EscapeJson(password?.Trim()) + "\\",\\"hwid\\":\\"" + EscapeJson(hwid) + "\\",\\"version\\":\\"" + EscapeJson(Version) + "\\"}";
 
             var res = await SendRequestAsync(endpoint, jsonBody);
             if (res.Success && res.Data != null)

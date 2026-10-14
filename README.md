@@ -27,15 +27,19 @@
   - **License Key Mode**: Auto-binds on first activation, tracks exact expiration timestamp, supports manual HWID resets and status controls.
   - **Hardware ID (HWID) Whitelist Mode**: Instant keyless authentication bound strictly to verified physical hardware signatures.
   - **Username & Password Mode**: Standard user credentials backed by bcrypt hashing and single-machine hardware lock.
+- 🛡️ **Zero-Trust Anti-Tamper & Cryptographic Verification**:
+  - **HMAC-SHA256 Signed Responses**: Every authentication payload is cryptographically signed using the application secret, Unix timestamps, and nonces. Client SDKs verify signature before granting execution to block MITM proxying, Fiddler, Charles, and HTTP body mocking.
+  - **Active Anti-Debugging & Hook Detection**: Kernel32 `IsDebuggerPresent`, `CheckRemoteDebuggerPresent`, and hardware debug register inspection (`Dr0`-`Dr3`) instantly terminate debuggers and memory patchers (`0xDEB`).
+  - **Real-Time 45s Background Heartbeat & Remote Kill**: Authenticated sessions initiate an encrypted background timer that regularly checks session validity. Pausing or banning a user or app from the web panel instantly terminates the client process (`0xDEAD`).
 - 🎁 **Master Free Trial Access**:
   - Allows prospective customers to test your software with a master key or trial user account without locking out other concurrent trial users.
 - 💻 **Cryptographic Machine HWID Locking**:
   - Non-spoofable SHA-256 fingerprint generated from Windows Cryptography `MachineGuid` and root `C:\` Volume Serial Number.
   - **Zero Admin Privileges Required**: Fully readable by standard Windows user accounts without requiring UAC elevation.
 - 🚀 **Single-File Zero-Dependency Client SDKs**:
-  - **C# (.NET 8 / NativeAOT)**: Reflection-safe, trim-compatible, native MessageBox error dialogs.
-  - **C++ (Win32)**: Pure Windows API (`WinInet` + `WinCrypt`), zero third-party dependencies, single `.cpp`/`.h` drop-in.
-  - **Python 3**: Pure Python standard library (`ctypes` + `urllib`), zero pip packages needed.
+  - **C# (.NET 8 / NativeAOT / WinForms / WPF)**: Reflection-safe, trim-compatible, explicit `System.Threading.Timer` heartbeat, native MessageBox error dialogs.
+  - **C++ (Win32)**: Pure Windows API (`WinInet` + `WinCrypt`), zero third-party dependencies, anti-debug registers, single `.cpp`/`.h` drop-in.
+  - **Python 3**: Pure Python standard library (`ctypes` + `urllib` + `hmac`), zero pip packages needed, background daemon thread heartbeat.
 - 🚨 **Dynamic Native Win32 Error Dialogs**:
   - Client SDKs automatically render native Windows popups for version mismatches, expired keys, paused access, bans, and HWID mismatches.
 - 🔄 **Enforced Version Gatekeeping & Auto-Updates**:
@@ -103,9 +107,9 @@ Null-Auth/
 │   ├── lib/                        # Fetch API client, authentication tokens
 │   └── package.json
 └── client-examples/                # Ready-to-compile client SDKs
-    ├── cpp/NullAuth.cpp            # Single-file WinInet/WinCrypt C++ SDK
-    ├── csharp/NullAuth.cs          # Single-file NativeAOT C# (.NET 8) SDK
-    └── python/NullAuth.py          # Single-file zero-dependency Python SDK
+    ├── cpp/NullAuth.cpp            # Single-file WinInet/WinCrypt C++ SDK (AntiDebug + HMAC + Heartbeat)
+    ├── csharp/NullAuth.cs          # Single-file NativeAOT C# (.NET 8) SDK (AntiDebug + HMAC + Heartbeat)
+    └── python/NullAuth.py          # Single-file zero-dependency Python SDK (AntiDebug + HMAC + Heartbeat)
 ```
 
 ---
@@ -182,35 +186,48 @@ Navigate to `http://localhost:3000` and log in with your configured admin creden
 
 ## 🔌 Client SDK Integration
 
-All client SDKs are standalone, single-file implementations with zero mandatory third-party dependencies.
+All client SDKs are standalone, single-file implementations with zero mandatory third-party dependencies, complete with Anti-Debug checks, HMAC-SHA256 signature verification, and 45-second heartbeat remote kill background monitoring.
 
-### 🔷 C# (.NET 8 / NativeAOT)
+### 🔷 C# (.NET 8 / NativeAOT / WinForms / WPF)
 ```csharp
+using System;
+using System.Threading.Tasks;
 using NullAuthClient;
 
-var auth = new NullAuth(
-    appId: "13026130",
-    secret: "YOUR_APP_SECRET",
-    version: "1.0.0",
-    serverUrl: "https://your-api-domain.com"
-);
-
-// Method 1: License Key
-if (await auth.LicenseAsync("NULL-XXXX-YYYY-ZZZZ"))
+class Program
 {
-    Console.WriteLine($"Access Granted! Days Left: {auth.UserData.RemainingDays}");
-}
+    static async Task Main()
+    {
+        NullAuth.CheckAntiDebug();
 
-// Method 2: Username & Password
-if (await auth.UserLoginAsync("JohnDoe", "MyPassword123!"))
-{
-    Console.WriteLine($"Logged in as {auth.UserData.ClientName}");
-}
+        var auth = new NullAuth(
+            appId: "YOUR_APP_ID",
+            secret: "YOUR_APP_SECRET",
+            version: "1.0.0",
+            serverUrl: "https://your-api-domain.com"
+        );
 
-// Method 3: HWID Whitelist Only
-if (await auth.CheckHwidAsync())
-{
-    Console.WriteLine("Hardware Authorized!");
+        // Method 1: License Key
+        if (await auth.LicenseAsync("NULL-XXXX-YYYY-ZZZZ"))
+        {
+            Console.WriteLine($"Access Granted! Welcome, {auth.UserData.ClientName}");
+            Console.WriteLine($"Days Left: {auth.UserData.RemainingDays}");
+            Console.WriteLine("[+] HMAC-SHA256: VERIFIED");
+            Console.WriteLine("[+] 45s Heartbeat Remote Kill: RUNNING");
+        }
+
+        // Method 2: Username & Password
+        if (await auth.UserLoginAsync("JohnDoe", "MyPassword123!"))
+        {
+            Console.WriteLine($"Logged in as {auth.UserData.ClientName}");
+        }
+
+        // Method 3: HWID Whitelist Only
+        if (await auth.CheckHwidAsync())
+        {
+            Console.WriteLine("Hardware Authorized!");
+        }
+    }
 }
 ```
 
@@ -220,7 +237,7 @@ if (await auth.CheckHwidAsync())
 
 int main() {
     NullAuthClient::NullAuth auth(
-        "13026130",
+        "YOUR_APP_ID",
         "YOUR_APP_SECRET",
         "1.0.0",
         "your-api-domain.com"
@@ -228,17 +245,19 @@ int main() {
 
     // Method 1: License Key
     if (auth.License("NULL-XXXX-YYYY-ZZZZ")) {
-        std::cout << "Access Granted to " << auth.userData.clientName << "\n";
+        std::cout << "[+] Access Granted to " << auth.userData.clientName << "\n";
+        std::cout << "[+] HMAC-SHA256: VERIFIED\n";
+        std::cout << "[+] 45s Heartbeat Remote Kill: RUNNING\n";
     }
 
     // Method 2: Username & Password
     if (auth.UserLogin("JohnDoe", "MyPassword123!")) {
-        std::cout << "Logged in successfully!\n";
+        std::cout << "[+] Logged in successfully!\n";
     }
 
     // Method 3: HWID Whitelist Only
     if (auth.CheckHwid()) {
-        std::cout << "Hardware Whitelisted!\n";
+        std::cout << "[+] Hardware Whitelisted!\n";
     }
     return 0;
 }
@@ -248,25 +267,28 @@ int main() {
 ```python
 from NullAuth import NullAuth
 
-auth = NullAuth(
-    app_id="13026130",
-    secret="YOUR_APP_SECRET",
-    version="1.0.0",
-    server_url="https://your-api-domain.com"
-)
+if __name__ == "__main__":
+    auth = NullAuth(
+        app_id="YOUR_APP_ID",
+        secret="YOUR_APP_SECRET",
+        version="1.0.0",
+        server_url="https://your-api-domain.com"
+    )
 
-# Method 1: License Key
-if auth.license("NULL-XXXX-YYYY-ZZZZ"):
-    print(f"Access Granted to {auth.user_data.client_name}!")
-    print(f"Days Remaining: {auth.user_data.remaining_days}")
+    # Method 1: License Key
+    if auth.license("NULL-XXXX-YYYY-ZZZZ"):
+        print(f"[+] Access Granted to {auth.user_data.client_name}!")
+        print(f"[+] Days Remaining: {auth.user_data.remaining_days}")
+        print("[+] HMAC-SHA256: VERIFIED")
+        print("[+] 45s Heartbeat Remote Kill: RUNNING")
 
-# Method 2: Username & Password
-if auth.user_login("JohnDoe", "MyPassword123!"):
-    print(f"Authenticated as {auth.user_data.client_name}!")
+    # Method 2: Username & Password
+    if auth.user_login("JohnDoe", "MyPassword123!"):
+        print(f"[+] Authenticated as {auth.user_data.client_name}!")
 
-# Method 3: HWID Whitelist Only
-if auth.check_hwid():
-    print("Machine Whitelisted!")
+    # Method 3: HWID Whitelist Only
+    if auth.check_hwid():
+        print("[+] Machine Whitelisted!")
 ```
 
 ---
@@ -277,9 +299,10 @@ if auth.check_hwid():
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `POST` | `/api/v1/client/license/authenticate` | Authenticate license key with hardware HWID lock |
-| `POST` | `/api/v1/client/hwid/authenticate` | Authenticate machine via HWID whitelist |
-| `POST` | `/api/v1/client/user/authenticate` | Authenticate username and password with HWID lock |
+| `POST` | `/api/v1/client/license/authenticate` | Authenticate license key with hardware HWID lock & HMAC response |
+| `POST` | `/api/v1/client/hwid/authenticate` | Authenticate machine via HWID whitelist & HMAC response |
+| `POST` | `/api/v1/client/user/authenticate` | Authenticate username and password with HWID lock & HMAC response |
+| `POST` | `/api/v1/client/auth/heartbeat` | 45-second session heartbeat & remote kill signal |
 | `GET` | `/health` | Check API server health and status |
 
 #### Sample License Authentication Request (`POST /api/v1/client/license/authenticate`)
