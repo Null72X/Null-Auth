@@ -47,134 +47,213 @@ export async function listApps(req: Request, res: Response) {
       },
     });
 
+    if (apps.length === 0) {
+      return sendSuccess(res, 'Applications retrieved successfully', []);
+    }
+
     const now = new Date();
+    const appIds = apps.map((a) => a.id);
 
-    const formattedApps = await Promise.all(
-      apps.map(async (app) => {
-        let activeUsers = 0;
-        let expiredUsers = 0;
-        let lastActivity: Date | null = null;
-        let totalUsers = 0;
+    // High-performance batch aggregation across all applications
+    const [
+      activeLicGroups,
+      expiredLicGroups,
+      activeUserGroups,
+      expiredUserGroups,
+      activeHwidGroups,
+      expiredHwidGroups,
+      latestLogs,
+      trialLics,
+      trialUsers,
+    ] = await Promise.all([
+      // 1. Active licenses count per app
+      prisma.license.groupBy({
+        by: ['appId'],
+        where: { appId: { in: appIds }, status: 'ACTIVE', expiresAt: { gt: now } },
+        _count: { id: true },
+      }).catch(() => []),
 
-        if (app.type === 'LICENSE') {
-          activeUsers = await prisma.license.count({
-            where: { appId: app.id, status: 'ACTIVE', expiresAt: { gt: now } },
-          });
-          expiredUsers = await prisma.license.count({
-            where: {
-              appId: app.id,
-              OR: [{ status: 'EXPIRED' }, { expiresAt: { lte: now } }],
-            },
-          });
-          totalUsers = app._count.licenses;
-        } else if (app.type === 'USER_AUTH') {
-          activeUsers = await (prisma as any).clientUser.count({
-            where: { appId: app.id, status: 'ACTIVE', expiresAt: { gt: now } },
-          });
-          expiredUsers = await (prisma as any).clientUser.count({
-            where: {
-              appId: app.id,
-              OR: [{ status: 'EXPIRED' }, { expiresAt: { lte: now } }],
-            },
-          });
-          totalUsers = (app as any)._count.users || 0;
-        } else {
-          activeUsers = await prisma.hwidAccess.count({
-            where: { appId: app.id, status: 'ACTIVE', expiresAt: { gt: now } },
-          });
-          expiredUsers = await prisma.hwidAccess.count({
-            where: {
-              appId: app.id,
-              OR: [{ status: 'EXPIRED' }, { expiresAt: { lte: now } }],
-            },
-          });
-          totalUsers = app._count.hwidAccesses;
-        }
+      // 2. Expired licenses count per app
+      prisma.license.groupBy({
+        by: ['appId'],
+        where: {
+          appId: { in: appIds },
+          OR: [{ status: 'EXPIRED' }, { expiresAt: { lte: now } }],
+        },
+        _count: { id: true },
+      }).catch(() => []),
 
-        const latestLog = await prisma.activityLog.findFirst({
-          where: { appId: app.id },
-          orderBy: { createdAt: 'desc' },
-          select: { createdAt: true },
-        });
-        lastActivity = latestLog?.createdAt || null;
+      // 3. Active users count per app
+      (prisma as any).clientUser.groupBy({
+        by: ['appId'],
+        where: { appId: { in: appIds }, status: 'ACTIVE', expiresAt: { gt: now } },
+        _count: { id: true },
+      }).catch(() => []),
 
-        const trialSuffix = app.type === 'LICENSE' && app.freeTrialKey
-          ? app.freeTrialKey.replace(/^(FREE-TRIAL-|TRIAL-)/i, '')
-          : null;
+      // 4. Expired users count per app
+      (prisma as any).clientUser.groupBy({
+        by: ['appId'],
+        where: {
+          appId: { in: appIds },
+          OR: [{ status: 'EXPIRED' }, { expiresAt: { lte: now } }],
+        },
+        _count: { id: true },
+      }).catch(() => []),
 
-        let freeTrialPassword = (app as any).freeTrialPassword || null;
-        let freeTrialExpiresAt: string | null = null;
-        let freeTrialRemainingDays: number | null = null;
+      // 5. Active HWIDs count per app
+      prisma.hwidAccess.groupBy({
+        by: ['appId'],
+        where: { appId: { in: appIds }, status: 'ACTIVE', expiresAt: { gt: now } },
+        _count: { id: true },
+      }).catch(() => []),
 
-        if (app.freeTrialEnabled) {
-          if (app.type === 'LICENSE' && app.freeTrialKey) {
-            const lic = await prisma.license.findFirst({
-              where: { key: app.freeTrialKey, appId: app.id },
-              select: { expiresAt: true },
-            }).catch(() => null);
-            if (lic) {
-              freeTrialExpiresAt = lic.expiresAt.toISOString();
-              const diffTime = lic.expiresAt.getTime() - now.getTime();
+      // 6. Expired HWIDs count per app
+      prisma.hwidAccess.groupBy({
+        by: ['appId'],
+        where: {
+          appId: { in: appIds },
+          OR: [{ status: 'EXPIRED' }, { expiresAt: { lte: now } }],
+        },
+        _count: { id: true },
+      }).catch(() => []),
+
+      // 7. Latest activity log per app
+      prisma.activityLog.findMany({
+        where: { appId: { in: appIds } },
+        orderBy: { createdAt: 'desc' },
+        distinct: ['appId'],
+        select: { appId: true, createdAt: true },
+      }).catch(() => []),
+
+      // 8. Trial licenses
+      prisma.license.findMany({
+        where: {
+          appId: { in: appIds },
+          key: {
+            in: apps
+              .filter((a) => a.type === 'LICENSE' && a.freeTrialEnabled && a.freeTrialKey)
+              .map((a) => a.freeTrialKey!),
+          },
+        },
+        select: { key: true, appId: true, expiresAt: true },
+      }).catch(() => []),
+
+      // 9. Trial client users
+      (prisma as any).clientUser.findMany({
+        where: {
+          appId: { in: appIds },
+          username: {
+            in: apps
+              .filter((a) => a.type === 'USER_AUTH' && a.freeTrialEnabled && a.freeTrialKey)
+              .map((a) => a.freeTrialKey!),
+          },
+        },
+        select: { username: true, appId: true, plainPassword: true, expiresAt: true },
+      }).catch(() => []),
+    ]);
+
+    // O(1) in-memory lookup maps
+    const activeLicMap = new Map<string, number>(activeLicGroups.map((g: any) => [g.appId, g._count?.id || 0]));
+    const expiredLicMap = new Map<string, number>(expiredLicGroups.map((g: any) => [g.appId, g._count?.id || 0]));
+    const activeUserMap = new Map<string, number>(activeUserGroups.map((g: any) => [g.appId, g._count?.id || 0]));
+    const expiredUserMap = new Map<string, number>(expiredUserGroups.map((g: any) => [g.appId, g._count?.id || 0]));
+    const activeHwidMap = new Map<string, number>(activeHwidGroups.map((g: any) => [g.appId, g._count?.id || 0]));
+    const expiredHwidMap = new Map<string, number>(expiredHwidGroups.map((g: any) => [g.appId, g._count?.id || 0]));
+    const latestLogMap = new Map<string, Date>(latestLogs.map((l: any) => [l.appId, l.createdAt]));
+    const trialLicMap = new Map<string, Date>(trialLics.map((l: any) => [`${l.appId}:${l.key}`, l.expiresAt]));
+    const trialUserMap = new Map<string, any>(trialUsers.map((u: any) => [`${u.appId}:${u.username}`, u]));
+
+    const formattedApps = apps.map((app) => {
+      let activeUsers = 0;
+      let expiredUsers = 0;
+      let totalUsers = 0;
+
+      if (app.type === 'LICENSE') {
+        activeUsers = activeLicMap.get(app.id) || 0;
+        expiredUsers = expiredLicMap.get(app.id) || 0;
+        totalUsers = app._count.licenses;
+      } else if (app.type === 'USER_AUTH') {
+        activeUsers = activeUserMap.get(app.id) || 0;
+        expiredUsers = expiredUserMap.get(app.id) || 0;
+        totalUsers = (app as any)._count.users || 0;
+      } else {
+        activeUsers = activeHwidMap.get(app.id) || 0;
+        expiredUsers = expiredHwidMap.get(app.id) || 0;
+        totalUsers = app._count.hwidAccesses;
+      }
+
+      const lastActivity = latestLogMap.get(app.id) || null;
+
+      const trialSuffix = app.type === 'LICENSE' && app.freeTrialKey
+        ? app.freeTrialKey.replace(/^(FREE-TRIAL-|TRIAL-)/i, '')
+        : null;
+
+      let freeTrialPassword = (app as any).freeTrialPassword || null;
+      let freeTrialExpiresAt: string | null = null;
+      let freeTrialRemainingDays: number | null = null;
+
+      if (app.freeTrialEnabled) {
+        if (app.type === 'LICENSE' && app.freeTrialKey) {
+          const licExp = trialLicMap.get(`${app.id}:${app.freeTrialKey}`);
+          if (licExp) {
+            freeTrialExpiresAt = licExp.toISOString();
+            const diffTime = licExp.getTime() - now.getTime();
+            freeTrialRemainingDays = diffTime > 0 ? Math.ceil(diffTime / (1000 * 60 * 60 * 24)) : 0;
+          }
+        } else if (app.type === 'USER_AUTH' && app.freeTrialKey) {
+          const trialUser = trialUserMap.get(`${app.id}:${app.freeTrialKey}`);
+          if (trialUser) {
+            freeTrialPassword = trialUser.plainPassword || 'trial123';
+            if (trialUser.expiresAt) {
+              freeTrialExpiresAt = trialUser.expiresAt.toISOString();
+              const diffTime = trialUser.expiresAt.getTime() - now.getTime();
               freeTrialRemainingDays = diffTime > 0 ? Math.ceil(diffTime / (1000 * 60 * 60 * 24)) : 0;
             }
-          } else if (app.type === 'USER_AUTH' && app.freeTrialKey) {
-            const trialUser = await (prisma as any).clientUser.findFirst({
-              where: { appId: app.id, username: app.freeTrialKey },
-              select: { plainPassword: true, expiresAt: true },
-            }).catch(() => null);
-            if (trialUser) {
-              freeTrialPassword = trialUser.plainPassword || 'trial123';
-              if (trialUser.expiresAt) {
-                freeTrialExpiresAt = trialUser.expiresAt.toISOString();
-                const diffTime = trialUser.expiresAt.getTime() - now.getTime();
-                freeTrialRemainingDays = diffTime > 0 ? Math.ceil(diffTime / (1000 * 60 * 60 * 24)) : 0;
-              }
-            }
-          } else if (app.type === 'HWID') {
-            if (!app.freeTrialKey || app.freeTrialKey === 'LIFETIME') {
+          }
+        } else if (app.type === 'HWID') {
+          if (!app.freeTrialKey || app.freeTrialKey === 'LIFETIME') {
+            freeTrialExpiresAt = '2099-01-01T00:00:00.000Z';
+            freeTrialRemainingDays = 9999;
+          } else {
+            const parsedDate = new Date(app.freeTrialKey);
+            if (!isNaN(parsedDate.getTime())) {
+              freeTrialExpiresAt = parsedDate.toISOString();
+              const diffTime = parsedDate.getTime() - now.getTime();
+              freeTrialRemainingDays = diffTime > 0 ? Math.ceil(diffTime / (1000 * 60 * 60 * 24)) : 0;
+            } else {
               freeTrialExpiresAt = '2099-01-01T00:00:00.000Z';
               freeTrialRemainingDays = 9999;
-            } else {
-              const parsedDate = new Date(app.freeTrialKey);
-              if (!isNaN(parsedDate.getTime())) {
-                freeTrialExpiresAt = parsedDate.toISOString();
-                const diffTime = parsedDate.getTime() - now.getTime();
-                freeTrialRemainingDays = diffTime > 0 ? Math.ceil(diffTime / (1000 * 60 * 60 * 24)) : 0;
-              } else {
-                freeTrialExpiresAt = '2099-01-01T00:00:00.000Z';
-                freeTrialRemainingDays = 9999;
-              }
             }
           }
         }
+      }
 
-        return {
-          id: app.id,
-          appId: app.appId,
-          name: app.name,
-          secret: app.secret,
-          type: app.type,
-          status: app.status,
-          version: app.version || '1.0.0',
-          downloadUrl: app.downloadUrl || null,
-          freeTrialEnabled: app.freeTrialEnabled || false,
-          freeTrialKey: app.freeTrialKey || null,
-          freeTrialPassword: freeTrialPassword || (app.type === 'USER_AUTH' && app.freeTrialKey ? 'trial123' : null),
-          freeTrialSuffix: trialSuffix,
-          trialUsername: app.type === 'USER_AUTH' ? app.freeTrialKey : null,
-          hasTrialPassword: app.type === 'USER_AUTH' && Boolean(app.freeTrialKey),
-          freeTrialExpiresAt,
-          freeTrialRemainingDays,
-          discordWebhookUrl: (app as any).discordWebhookUrl || null,
-          createdAt: app.createdAt,
-          updatedAt: app.updatedAt,
-          activeUsers,
-          expiredUsers,
-          totalUsers,
-          lastActivity,
-        };
-      })
-    );
+      return {
+        id: app.id,
+        appId: app.appId,
+        name: app.name,
+        secret: app.secret,
+        type: app.type,
+        status: app.status,
+        version: app.version || '1.0.0',
+        downloadUrl: app.downloadUrl || null,
+        freeTrialEnabled: app.freeTrialEnabled || false,
+        freeTrialKey: app.freeTrialKey || null,
+        freeTrialPassword: freeTrialPassword || (app.type === 'USER_AUTH' && app.freeTrialKey ? 'trial123' : null),
+        freeTrialSuffix: trialSuffix,
+        trialUsername: app.type === 'USER_AUTH' ? app.freeTrialKey : null,
+        hasTrialPassword: app.type === 'USER_AUTH' && Boolean(app.freeTrialKey),
+        freeTrialExpiresAt,
+        freeTrialRemainingDays,
+        discordWebhookUrl: (app as any).discordWebhookUrl || null,
+        createdAt: app.createdAt,
+        updatedAt: app.updatedAt,
+        activeUsers,
+        expiredUsers,
+        totalUsers,
+        lastActivity,
+      };
+    });
 
     return sendSuccess(res, 'Applications retrieved successfully', formattedApps);
   } catch (error: any) {

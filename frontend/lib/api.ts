@@ -18,11 +18,41 @@ export function removeAuthToken() {
   }
 }
 
+// In-memory client cache for lightning-fast tab navigation
+interface CacheEntry {
+  timestamp: number;
+  data: any;
+}
+
+const apiCache = new Map<string, CacheEntry>();
+const CACHE_TTL_MS = 10000; // 10 seconds cache for rapid tab switching
+
+export function clearApiCache() {
+  apiCache.clear();
+}
+
+export interface FetchApiOptions extends RequestInit {
+  skipCache?: boolean;
+}
+
 export async function fetchApi<T = any>(
   endpoint: string,
-  options: RequestInit = {}
+  options: FetchApiOptions = {}
 ): Promise<{ success: boolean; message: string; data?: T; error?: string; meta?: any }> {
   const token = getAuthToken();
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const method = (options.method || 'GET').toUpperCase();
+  const cacheKey = `${token || 'anon'}:${cleanEndpoint}`;
+
+  // If writing or mutating data, invalidate cache so all tables stay fresh
+  if (method !== 'GET') {
+    clearApiCache();
+  } else if (!options.skipCache) {
+    const cached = apiCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      return cached.data;
+    }
+  }
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -32,8 +62,6 @@ export async function fetchApi<T = any>(
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
-
-  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 
   try {
     const response = await fetch(`${API_URL}${cleanEndpoint}`, {
@@ -45,9 +73,15 @@ export async function fetchApi<T = any>(
 
     if (response.status === 401) {
       removeAuthToken();
+      clearApiCache();
       if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
         window.location.href = '/login';
       }
+    }
+
+    // Cache successful GET responses
+    if (method === 'GET' && data.success) {
+      apiCache.set(cacheKey, { timestamp: Date.now(), data });
     }
 
     return data;

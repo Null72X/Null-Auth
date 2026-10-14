@@ -61,6 +61,7 @@ model ClientUser {
   @@index([appId])
   @@index([status])
   @@index([expiresAt])
+  @@index([appId, status, expiresAt])
 }
 
 model License {
@@ -81,6 +82,7 @@ model License {
   @@index([appId])
   @@index([status])
   @@index([expiresAt])
+  @@index([appId, status, expiresAt])
 }
 
 model HwidAccess {
@@ -100,6 +102,7 @@ model HwidAccess {
   @@index([hwidHash])
   @@index([status])
   @@index([expiresAt])
+  @@index([appId, status, expiresAt])
 }
 
 model Setting {
@@ -125,4 +128,5 @@ model ActivityLog {
   @@index([action])
   @@index([actorType])
   @@index([createdAt])
+  @@index([appId, createdAt])
 }

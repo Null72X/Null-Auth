@@ -38,6 +38,27 @@ export interface ExpirationCountdownProps {
   subtextClassName?: string;
 }
 
+// Shared singleton ticker subscriber to eliminate multiple timers
+type TickListener = () => void;
+const tickerListeners = new Set<TickListener>();
+let globalTicker: ReturnType<typeof setInterval> | null = null;
+
+function subscribeToTicker(listener: TickListener): () => void {
+  tickerListeners.add(listener);
+  if (!globalTicker && typeof window !== 'undefined') {
+    globalTicker = setInterval(() => {
+      tickerListeners.forEach((fn) => fn());
+    }, 1000);
+  }
+  return () => {
+    tickerListeners.delete(listener);
+    if (tickerListeners.size === 0 && globalTicker) {
+      clearInterval(globalTicker);
+      globalTicker = null;
+    }
+  };
+}
+
 export function ExpirationCountdown({
   expiresAt,
   remainingDays,
@@ -54,25 +75,17 @@ export function ExpirationCountdown({
   );
 
   useEffect(() => {
-    // Recompute immediately on mount / prop changes
     const initial = getExpirationInfo(expiresAt, remainingDays);
     setInfo(initial);
 
-    // If lifetime or already expired, no countdown loop needed
     if (initial.isLifetime || initial.isExpired) return;
 
-    // If <= 25 hours, tick every second (1000ms); otherwise tick every 30 seconds
-    const intervalMs = initial.totalSeconds <= 90000 ? 1000 : 30000;
+    // Subscribe to the shared 1-second global heartbeat
+    const unsubscribe = subscribeToTicker(() => {
+      setInfo(getExpirationInfo(expiresAt, remainingDays));
+    });
 
-    const interval = setInterval(() => {
-      const next = getExpirationInfo(expiresAt, remainingDays);
-      setInfo(next);
-      if (next.isExpired) {
-        clearInterval(interval);
-      }
-    }, intervalMs);
-
-    return () => clearInterval(interval);
+    return unsubscribe;
   }, [expiresAt, remainingDays]);
 
   const displayText = compact ? info.compactText : info.formattedText;

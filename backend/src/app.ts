@@ -1,9 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import compression from 'compression';
 import { config } from './config/index.js';
 import routes from './routes/index.js';
-import { ensureDbSchema } from './db.js';
 import { errorHandler } from './middleware/errorHandler.middleware.js';
 import { apiRateLimiter } from './middleware/rateLimiter.middleware.js';
 import { extractClientIp } from './utils/ip.js';
@@ -23,11 +23,8 @@ app.use((req, _res, next) => {
   next();
 });
 
-// Ensure DB schema migrations (adds plainPassword & freeTrialPassword if missing)
-app.use((_req, _res, next) => {
-  ensureDbSchema().catch(() => {});
-  next();
-});
+// Enable Gzip / Brotli payload compression for fast network transfers
+app.use(compression());
 
 // Security headers
 app.use(
