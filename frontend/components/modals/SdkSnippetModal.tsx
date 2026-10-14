@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
-import { Copy, Check, Code, FileCode2, ShieldAlert, Cpu } from 'lucide-react';
+import { Copy, Check, Code, FileCode2, ShieldAlert, Cpu, Download } from 'lucide-react';
 
 interface SdkSnippetModalProps {
   isOpen: boolean;
@@ -503,7 +503,8 @@ class Program
     }
 }`;
 
-  const cppSnippet = `#include <iostream>
+  const cppSnippet = `#pragma once
+#include <iostream>
 #include <string>
 #include <windows.h>
 #include <wininet.h>
@@ -513,6 +514,7 @@ class Program
 
 #pragma comment(lib, "wininet.lib")
 #pragma comment(lib, "advapi32.lib")
+#pragma comment(lib, "user32.lib")
 
 bool CheckHardwareBreakpoints() {
     CONTEXT ctx;
@@ -815,6 +817,7 @@ bool AuthenticateHwid() {
     return SendAuthRequest("/api/v1/client/auth/hwid", jsonPayload, hwid);
 }
 
+#ifndef NULL_AUTH_NO_MAIN
 int main() {
     CheckAntiDebug();
     SetConsoleTitleA("${app.name} - Null-Auth Protected");
@@ -859,7 +862,8 @@ int main() {
     std::cin.ignore();
     std::cin.get();
     return 0;
-}`;
+}
+#endif`;
 
   const pythonSnippet = `import urllib.request
 import urllib.error
@@ -1110,10 +1114,59 @@ if __name__ == "__main__":
 
   const currentSnippet = snippets[activeTab];
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(currentSnippet);
+  const handleCopy = async () => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(currentSnippet);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = currentSnippet;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = currentSnippet;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => setCopied(false), 2500);
+  };
+
+  const handleSelectAll = () => {
+    const el = document.getElementById('modal-sdk-code');
+    if (el) {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const sel = window.getSelection();
+      if (sel) {
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    }
+  };
+
+  const handleDownload = () => {
+    const ext = activeTab === 'csharp' ? 'cs' : activeTab === 'cpp' ? 'cpp' : 'py';
+    const filename = `NullAuth.${ext}`;
+    const element = document.createElement('a');
+    const file = new Blob([currentSnippet], { type: 'text/plain' });
+    element.href = URL.createObjectURL(file);
+    element.download = filename;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
   };
 
   const tabs: { id: LangTab; label: string; icon: any }[] = [
@@ -1202,27 +1255,46 @@ if __name__ == "__main__":
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               Ready-to-Paste Boilerplate
             </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleCopy}
-              className="h-7 px-2.5 text-xs gap-1.5 bg-zinc-900 border-zinc-700 hover:bg-zinc-800 text-zinc-200"
-            >
-              {copied ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-emerald-400 font-medium">Copied!</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3.5 h-3.5" />
-                  <span>Copy Code</span>
-                </>
-              )}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSelectAll}
+                className="h-7 px-2.5 text-xs gap-1.5 bg-zinc-900 border-zinc-700 hover:bg-zinc-800 text-zinc-300"
+              >
+                Select All
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownload}
+                className="h-7 px-2.5 text-xs gap-1.5 bg-zinc-900 border-zinc-700 hover:bg-zinc-800 text-zinc-300"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Download
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopy}
+                className="h-7 px-2.5 text-xs gap-1.5 bg-zinc-900 border-zinc-700 hover:bg-zinc-800 text-zinc-200"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="text-emerald-400 font-medium">Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copy Code</span>
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
 
-          <pre className="p-4 text-xs font-mono text-zinc-300 overflow-x-auto max-h-[380px] leading-relaxed scrollbar-thin scrollbar-thumb-zinc-800">
+          <pre id="modal-sdk-code" onClick={handleSelectAll} title="Click to select all" className="p-4 text-xs font-mono text-zinc-300 overflow-x-auto max-h-[480px] leading-relaxed scrollbar-thin scrollbar-thumb-zinc-800 cursor-pointer">
             <code>{currentSnippet}</code>
           </pre>
         </div>

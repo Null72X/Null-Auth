@@ -36,7 +36,6 @@ using System.Security.Cryptography;
 using System.Security.Principal;
 using System.Text;
 using System.Text.Json;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -98,11 +97,11 @@ namespace NullAuthClient
                 Environment.Exit(0xDEB);
             }
 
-            bool isRemote = false;
+            bool isRemoteDebugger = false;
             try
             {
-                CheckRemoteDebuggerPresent(Process.GetCurrentProcess().Handle, ref isRemote);
-                if (isRemote)
+                CheckRemoteDebuggerPresent(Process.GetCurrentProcess().Handle, ref isRemoteDebugger);
+                if (isRemoteDebugger)
                 {
                     ShowPopup("Security Violation", "Remote debugger detected! Execution terminated for safety.", MessageBoxIcon.Stop);
                     Environment.Exit(0xDEB);
@@ -182,7 +181,7 @@ namespace NullAuthClient
             else if (errCode == "LICENSE_BANNED" || errCode == "IDENTIFIER_BANNED" || errCode == "USER_BANNED") title = "Account Banned";
             else if (errCode == "LICENSE_PAUSED" || errCode == "IDENTIFIER_PAUSED" || errCode == "USER_PAUSED") title = "Access Paused";
             else if (errCode == "HWID_MISMATCH") title = "HWID Mismatch";
-            else if (errCode == "LICENSE_NOT_FOUND" || errCode == "IDENTIFIER_NOT_FOUND" || errCode == "USER_NOT_FOUND") title = "Invalid Credentials";
+            else if (errCode == "LICENSE_NOT_FOUND" || errCode == "IDENTIFIER_NOT_FOUND" || errCode == "USER_NOT_FOUND") title = "Invalid Key / HWID";
             else if (errCode == "APPLICATION_DISABLED") title = "Application Paused";
             else if (errCode == "TAMPERING_DETECTED") title = "Security Violation: Tampered Response";
 
@@ -430,14 +429,28 @@ class Program
     static async Task Main()
     {
         Console.Title = "Null-Auth Protected App";
+        Console.WriteLine("=================================================");
+        Console.WriteLine("        Protection Active                        ");
+        Console.WriteLine("=================================================\\n");
+
         NullAuthClient.NullAuth.CheckAntiDebug();
-        var auth = new NullAuthClient.NullAuth("13026130", "YOUR_RAW_SECRET", "1.0.0", "https://nullauthbackend.vercel.app");
+
+        var auth = new NullAuthClient.NullAuth(
+            appId: "YOUR_APP_ID",
+            secret: "YOUR_APP_SECRET",
+            version: "1.0.0",
+            serverUrl: "https://nullauthbackend.vercel.app"
+        );
+
+        Console.WriteLine("[*] Authenticating with Null-Auth Guard...");
+
         Console.WriteLine("Select Authentication Mode:");
         Console.WriteLine("1. License Key Authentication");
         Console.WriteLine("2. User Account Login (Username & Password)");
         Console.WriteLine("3. Hardware ID (HWID) Whitelist Check");
         Console.Write("Select Mode (1-3): ");
         string mode = Console.ReadLine()?.Trim();
+
         bool success = false;
         if (mode == "1")
         {
@@ -462,15 +475,18 @@ class Program
             Console.WriteLine("Invalid mode selection!");
             return;
         }
+
         if (success)
         {
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("\\n[+] Access Granted! Welcome, " + auth.UserData.ClientName);
-            Console.WriteLine("[+] Days Remaining: " + auth.UserData.RemainingDays + " days");
-            Console.WriteLine("[+] Assigned IP: " + auth.UserData.Ip);
+            Console.WriteLine($"\\n[+] Access Granted! Welcome, {auth.UserData.ClientName}");
+            Console.WriteLine($"[+] Days Remaining: {auth.UserData.RemainingDays} days");
+            Console.WriteLine($"[+] Assigned IP: {auth.UserData.Ip}");
             Console.WriteLine("[+] HMAC-SHA256 Response Signature: VERIFIED");
             Console.WriteLine("[+] Real-Time Heartbeat: RUNNING (45s Remote Kill Active)");
             Console.ResetColor();
+
+            Console.WriteLine("\\n[*] Launching main application logic...");
         }
         else
         {
@@ -479,12 +495,15 @@ class Program
             Console.ResetColor();
             Environment.Exit(1);
         }
+
         Console.WriteLine("\\nPress Enter to exit...");
         Console.ReadLine();
     }
-}`;
+}
+`;
 
-const CPP_SDK = `#include <iostream>
+const CPP_SDK = `#pragma once
+#include <iostream>
 #include <string>
 #include <windows.h>
 #include <wininet.h>
@@ -494,6 +513,7 @@ const CPP_SDK = `#include <iostream>
 
 #pragma comment(lib, "wininet.lib")
 #pragma comment(lib, "advapi32.lib")
+#pragma comment(lib, "user32.lib")
 
 namespace NullAuthClient {
     inline bool CheckHardwareBreakpoints() {
@@ -616,17 +636,17 @@ namespace NullAuthClient {
                 if (hConnect) {
                     HINTERNET hRequest = HttpOpenRequestA(hConnect, "POST", "/api/v1/client/auth/heartbeat", NULL, NULL, NULL, INTERNET_FLAG_SECURE | INTERNET_FLAG_RELOAD | INTERNET_FLAG_NO_CACHE_WRITE, 0);
                     if (hRequest) {
-                        std::string hbBody = "{\"appId\":\"" + g_hb.appId + "\",\"appSecret\":\"" + g_hb.appSecret + "\",\"sessionToken\":\"" + g_hb.sessionToken + "\",\"hwid\":\"" + g_hb.hwid + "\"}";
-                        std::string headers = "Content-Type: application/json\r\n";
+                        std::string hbBody = "{\\"appId\\":\\"" + g_hb.appId + "\\",\\"appSecret\\":\\"" + g_hb.appSecret + "\\",\\"sessionToken\\":\\"" + g_hb.sessionToken + "\\",\\"hwid\\":\\"" + g_hb.hwid + "\\"}";
+                        std::string headers = "Content-Type: application/json\\r\\n";
                         if (HttpSendRequestA(hRequest, headers.c_str(), (DWORD)headers.length(), (LPVOID)hbBody.c_str(), (DWORD)hbBody.length())) {
                             char buf[1024];
                             DWORD bytesRead = 0;
                             std::string res = "";
                             while (InternetReadFile(hRequest, buf, sizeof(buf) - 1, &bytesRead) && bytesRead > 0) {
-                                buf[bytesRead] = '\0';
+                                buf[bytesRead] = '\\0';
                                 res += buf;
                             }
-                            if (res.find("\"kill\":true") != std::string::npos) {
+                            if (res.find("\\"kill\\":true") != std::string::npos) {
                                 MessageBoxA(0, "Session revoked, paused, or expired by administrator.", "Access Revoked", MB_ICONSTOP | MB_OK);
                                 ExitProcess(0xDEAD);
                             }
@@ -649,25 +669,25 @@ namespace NullAuthClient {
         std::string host;
 
         static std::string ExtractJsonString(const std::string& json, const std::string& key) {
-            std::string search = "\"" + key + "\":\"";
+            std::string search = "\\"" + key + "\\":\\"";
             size_t pos = json.find(search);
             if (pos == std::string::npos) {
-                search = "\"" + key + "\": \"";
+                search = "\\"" + key + "\\": \\"";
                 pos = json.find(search);
             }
             if (pos == std::string::npos) return "";
             size_t start = pos + search.length();
-            size_t end = json.find("\"", start);
+            size_t end = json.find("\\"", start);
             if (end == std::string::npos) return "";
             return json.substr(start, end - start);
         }
 
         static long long ExtractJsonLong(const std::string& json, const std::string& key) {
-            std::string search = "\"" + key + "\":";
+            std::string search = "\\"" + key + "\\":";
             size_t pos = json.find(search);
             if (pos == std::string::npos) return 0;
             size_t start = pos + search.length();
-            while (start < json.length() && (json[start] == ' ' || json[start] == '\"')) start++;
+            while (start < json.length() && (json[start] == ' ' || json[start] == '\\"')) start++;
             size_t end = start;
             while (end < json.length() && (isdigit(static_cast<unsigned char>(json[end])) || json[end] == '-')) end++;
             if (start == end) return 0;
@@ -692,7 +712,7 @@ namespace NullAuthClient {
         static std::string GetHwid() {
             std::string machineGuid = "";
             HKEY hKey;
-            if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Cryptography", 0, KEY_READ | KEY_WOW64_64KEY, &hKey) == ERROR_SUCCESS) {
+            if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, "SOFTWARE\\\\Microsoft\\\\Cryptography", 0, KEY_READ | KEY_WOW64_64KEY, &hKey) == ERROR_SUCCESS) {
                 char buf[256];
                 DWORD bufSize = sizeof(buf);
                 if (RegQueryValueExA(hKey, "MachineGuid", NULL, NULL, (LPBYTE)buf, &bufSize) == ERROR_SUCCESS) {
@@ -702,7 +722,7 @@ namespace NullAuthClient {
             }
 
             DWORD volumeSerial = 0;
-            GetVolumeInformationA("C:\\", NULL, 0, &volumeSerial, NULL, NULL, NULL, 0);
+            GetVolumeInformationA("C:\\\\", NULL, 0, &volumeSerial, NULL, NULL, NULL, 0);
 
             char volBuf[32];
             sprintf_s(volBuf, sizeof(volBuf), "%08X", volumeSerial);
@@ -723,14 +743,14 @@ namespace NullAuthClient {
             HINTERNET hConnect = InternetConnectA(hInternet, host.c_str(), INTERNET_DEFAULT_HTTPS_PORT, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
             HINTERNET hRequest = HttpOpenRequestA(hConnect, "POST", endpoint.c_str(), NULL, NULL, NULL, INTERNET_FLAG_SECURE | INTERNET_FLAG_RELOAD | INTERNET_FLAG_NO_CACHE_WRITE, 0);
 
-            std::string headers = "Content-Type: application/json\r\n";
+            std::string headers = "Content-Type: application/json\\r\\n";
             HttpSendRequestA(hRequest, headers.c_str(), (DWORD)headers.length(), (LPVOID)body.c_str(), (DWORD)body.length());
 
             char buffer[2048];
             DWORD bytesRead = 0;
             std::string response = "";
             while (InternetReadFile(hRequest, buffer, sizeof(buffer) - 1, &bytesRead) && bytesRead > 0) {
-                buffer[bytesRead] = '\0';
+                buffer[bytesRead] = '\\0';
                 response += buffer;
             }
 
@@ -738,7 +758,7 @@ namespace NullAuthClient {
             InternetCloseHandle(hConnect);
             InternetCloseHandle(hInternet);
 
-            if (response.find("\"success\":true") != std::string::npos) {
+            if (response.find("\\"success\\":true") != std::string::npos) {
                 std::string sig = ExtractJsonString(response, "signature");
                 std::string nonce = ExtractJsonString(response, "nonce");
                 long long timestamp = ExtractJsonLong(response, "timestamp");
@@ -781,33 +801,34 @@ namespace NullAuthClient {
         bool License(const std::string& key, bool showMsgbox = true) {
             CheckAntiDebug();
             std::string hwid = GetHwid();
-            std::string body = "{\"appId\":\"" + appId + "\",\"appSecret\":\"" + secret + "\",\"licenseKey\":\"" + key + "\",\"hwid\":\"" + hwid + "\",\"version\":\"" + version + "\"}";
+            std::string body = "{\\"appId\\":\\"" + appId + "\\",\\"appSecret\\":\\"" + secret + "\\",\\"licenseKey\\":\\"" + key + "\\",\\"hwid\\":\\"" + hwid + "\\",\\"version\\":\\"" + version + "\\"}";
             return SendAuthRequest("/api/v1/client/auth/license", body, key, showMsgbox);
         }
 
         bool CheckHwid(bool showMsgbox = true) {
             CheckAntiDebug();
             std::string hwid = GetHwid();
-            std::string body = "{\"appId\":\"" + appId + "\",\"appSecret\":\"" + secret + "\",\"hwid\":\"" + hwid + "\",\"version\":\"" + version + "\"}";
+            std::string body = "{\\"appId\\":\\"" + appId + "\\",\\"appSecret\\":\\"" + secret + "\\",\\"hwid\\":\\"" + hwid + "\\",\\"version\\":\\"" + version + "\\"}";
             return SendAuthRequest("/api/v1/client/auth/hwid", body, hwid, showMsgbox);
         }
 
         bool UserLogin(const std::string& username, const std::string& password, bool showMsgbox = true) {
             CheckAntiDebug();
             std::string hwid = GetHwid();
-            std::string body = "{\"appId\":\"" + appId + "\",\"appSecret\":\"" + secret + "\",\"username\":\"" + username + "\",\"password\":\"" + password + "\",\"hwid\":\"" + hwid + "\",\"version\":\"" + version + "\"}";
+            std::string body = "{\\"appId\\":\\"" + appId + "\\",\\"appSecret\\":\\"" + secret + "\\",\\"username\\":\\"" + username + "\\",\\"password\\":\\"" + password + "\\",\\"hwid\\":\\"" + hwid + "\\",\\"version\\":\\"" + version + "\\"}";
             return SendAuthRequest("/api/v1/client/auth/user", body, username, showMsgbox);
         }
     };
 }
 
+#ifndef NULL_AUTH_NO_MAIN
 int main() {
     NullAuthClient::CheckAntiDebug();
     NullAuthClient::NullAuth auth("13026130", "YOUR_RAW_SECRET", "1.0.0", "nullauthbackend.vercel.app");
-    std::cout << "Select Authentication Mode:\n";
-    std::cout << "1. License Key Authentication\n";
-    std::cout << "2. User Account Login (Username & Password)\n";
-    std::cout << "3. Hardware ID (HWID) Whitelist Check\n";
+    std::cout << "Select Authentication Mode:\\n";
+    std::cout << "1. License Key Authentication\\n";
+    std::cout << "2. User Account Login (Username & Password)\\n";
+    std::cout << "3. Hardware ID (HWID) Whitelist Check\\n";
     std::cout << "Select Mode (1-3): ";
     int mode = 1;
     std::cin >> mode;
@@ -827,23 +848,36 @@ int main() {
     } else if (mode == 3) {
         success = auth.CheckHwid();
     } else {
-        std::cout << "Invalid mode selection!\n";
+        std::cout << "Invalid mode selection!\\n";
         return 1;
     }
     if (!success) {
         return 1;
     }
-    std::cout << "\n[+] Access Granted to " << auth.userData.clientName << "!\n";
-    std::cout << "[+] Days Remaining: " << auth.userData.remainingDays << "\n";
-    std::cout << "[+] HMAC-SHA256: VERIFIED\n";
-    std::cout << "[+] 45s Heartbeat Remote Kill: RUNNING\n";
-    std::cout << "\nPress Enter to exit...";
+    std::cout << "\\n[+] Access Granted to " << auth.userData.clientName << "!\\n";
+    std::cout << "[+] Days Remaining: " << auth.userData.remainingDays << "\\n";
+    std::cout << "[+] HMAC-SHA256: VERIFIED\\n";
+    std::cout << "[+] 45s Heartbeat Remote Kill: RUNNING\\n";
+    std::cout << "\\nPress Enter to exit...";
     std::cin.ignore();
     std::cin.get();
     return 0;
-}`;
+}
+#endif
+`;
 
-const PYTHON_SDK = `import urllib.request, urllib.error, json, subprocess, ctypes, platform, hashlib, hmac, time, threading, sys, os
+const PYTHON_SDK = `import sys
+import os
+import platform
+import subprocess
+import ctypes
+import json
+import urllib.request
+import urllib.error
+import hashlib
+import hmac
+import time
+import threading
 
 def check_anti_debug():
     if sys.gettrace() is not None:
@@ -872,6 +906,7 @@ class UserData:
         self.expires = str(data.get("expires_at", "") or "")
         self.remaining_days = int(data.get("remaining_days", 0)) if str(data.get("remaining_days", 0)).isdigit() else 0
         self.first_activated = str(data.get("first_activated_at", "") or "")
+        self.hwid = str(data.get("hwid", "") or "")
         self.version = str(data.get("version", "") or "")
         self.session_token = str(data.get("session_token", "") or "")
 
@@ -890,23 +925,20 @@ class NullAuth:
             vol_serial = ""
             try:
                 import winreg
-                with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\\Microsoft\\Cryptography", 0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as key:
+                with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\\\\Microsoft\\\\Cryptography", 0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as key:
                     machine_guid = str(winreg.QueryValueEx(key, "MachineGuid")[0]).strip()
             except Exception:
                 pass
-
             try:
                 kernel32 = ctypes.windll.kernel32
                 vol_serial_val = ctypes.c_ulong()
-                if kernel32.GetVolumeInformationW("C:\\", None, 0, ctypes.byref(vol_serial_val), None, None, None, 0):
+                if kernel32.GetVolumeInformationW("C:\\\\", None, 0, ctypes.byref(vol_serial_val), None, None, None, 0):
                     vol_serial = f"{vol_serial_val.value:08X}"
             except Exception:
                 pass
-
             raw_str = f"{machine_guid}:{vol_serial}"
             if not machine_guid and not vol_serial:
                 raw_str = platform.node()
-
             return hashlib.sha256(raw_str.encode('utf-8')).hexdigest()
         else:
             return hashlib.sha256(platform.node().encode('utf-8')).hexdigest()
@@ -961,12 +993,10 @@ class NullAuth:
                     nonce = d.get("nonce", "")
                     sig = d.get("signature", "")
                     token = d.get("session_token", "")
-
                     if not self._verify_signature(identifier, status, exp, ts, nonce, sig):
                         if show_msgbox and platform.system() == "Windows":
                             ctypes.windll.user32.MessageBoxW(0, "HMAC signature mismatch! Response tampering detected.", "Security Violation", 16)
                         return False
-
                     self.user_data = UserData(d)
                     self._start_heartbeat(token, payload.get("hwid", ""))
                     return True
@@ -1014,14 +1044,15 @@ if __name__ == "__main__":
         print("Invalid mode selection!")
         sys.exit(1)
     if success:
-        print(f"\n[+] Access Granted to {auth.user_data.client_name}!")
+        print(f"\\n[+] Access Granted to {auth.user_data.client_name}!")
         print(f"[+] Days Remaining: {auth.user_data.remaining_days}")
         print("[+] HMAC-SHA256: VERIFIED")
         print("[+] 45s Heartbeat Remote Kill: RUNNING")
     else:
-        print("\n[-] ACCESS DENIED!")
+        print("\\n[-] ACCESS DENIED!")
         sys.exit(1)
-    input("\nPress Enter to exit...")`;
+    input("\\nPress Enter to exit...")
+`;
 
 const HWID_POWERSHELL_CLIPBOARD = `$g = (Get-ItemProperty 'HKLM:\\SOFTWARE\\Microsoft\\Cryptography').MachineGuid; $v = (Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'").VolumeSerialNumber; $id = [BitConverter]::ToString([Security.Cryptography.SHA256]::Create().ComputeHash([Text.Encoding]::UTF8.GetBytes($g + ':' + $v))).Replace('-','').ToLower(); Set-Clipboard $id; Write-Host "HWID (Copied to Clipboard): $id" -ForegroundColor Green`;
 

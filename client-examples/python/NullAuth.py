@@ -1,18 +1,3 @@
-#!/usr/bin/env python3
-"""
-Null-Auth Ultra-Advanced Single-File Python SDK (KeyAuth-Style API)
-100% Error-Free & Native Production Build (Zero 3rd-Party Dependencies)
-
-Initialization:
-    auth = NullAuth(app_id="13026130", secret="334106af8244ffc4284df3f2c31709011681d10cfa37e67a", version="1.0.0")
-
-Features:
-    - License Key Authentication: auth.license("NULL-XXXX-YYYY-ZZZZ")
-    - HWID Whitelist Mode: auth.check_hwid()
-    - Dynamic Backend Error Message Popups on Failure (Version Mismatch, Expired, Banned, Paused, HWID Mismatch, Disabled)
-    - Full Access to raw & parsed User Data fields (auth.user_data.client_name, auth.user_data.ip, auth.user_data.remaining_days)
-"""
-
 import sys
 import os
 import platform
@@ -22,64 +7,60 @@ import json
 import urllib.request
 import urllib.error
 import hashlib
+import hmac
+import time
+import threading
 
+def check_anti_debug():
+    if sys.gettrace() is not None:
+        if platform.system() == "Windows":
+            ctypes.windll.user32.MessageBoxW(0, "Debugger detected! Execution terminated.", "Security Violation", 16)
+        os._exit(0xDEB)
+    if platform.system() == "Windows":
+        try:
+            if ctypes.windll.kernel32.IsDebuggerPresent():
+                ctypes.windll.user32.MessageBoxW(0, "Debugger detected! Execution terminated.", "Security Violation", 16)
+                os._exit(0xDEB)
+            is_remote = ctypes.c_bool(False)
+            ctypes.windll.kernel32.CheckRemoteDebuggerPresent(ctypes.windll.kernel32.GetCurrentProcess(), ctypes.byref(is_remote))
+            if is_remote.value:
+                ctypes.windll.user32.MessageBoxW(0, "Remote debugger detected! Execution terminated.", "Security Violation", 16)
+                os._exit(0xDEB)
+        except Exception:
+            pass
 
 class UserData:
-    """Stores all raw and parsed data fields returned from the Null-Auth cloud backend."""
-    def __init__(self, data: dict = None, raw_response: dict = None):
-        if not data:
-            data = {}
-        if not raw_response:
-            raw_response = {}
-
-        self.raw_data = data
-        self.raw_response = raw_response
-
-        # Common parsed properties
+    def __init__(self, data: dict = None):
+        if not data: data = {}
         self.status = str(data.get("status", "unknown"))
         self.client_name = str(data.get("client_name", "") or "")
+        self.ip = str(data.get("ip", "") or "")
         self.expires = str(data.get("expires_at", "") or "")
         self.remaining_days = int(data.get("remaining_days", 0)) if str(data.get("remaining_days", 0)).isdigit() else 0
         self.first_activated = str(data.get("first_activated_at", "") or "")
         self.hwid = str(data.get("hwid", "") or "")
         self.version = str(data.get("version", "") or "")
-        self.download_url = str(data.get("downloadUrl", "") or "") if data.get("downloadUrl") else None
-        self.ip = str(data.get("ip", "") or "")
-
-    def get(self, key: str, default=None):
-        """Allows dynamic access to any field returned in response data."""
-        return self.raw_data.get(key, self.raw_response.get(key, default))
-
+        self.session_token = str(data.get("session_token", "") or "")
 
 class NullAuth:
-    def __init__(
-        self,
-        app_id: str = "13026130",
-        secret: str = "334106af8244ffc4284df3f2c31709011681d10cfa37e67a",
-        version: str = "1.0.0",
-        server_url: str = "https://null-auth-backend.vercel.app"
-    ):
+    def __init__(self, app_id: str, secret: str, version: str = "1.0.0", server_url: str = "https://nullauthbackend.vercel.app"):
         self.app_id = str(app_id).strip()
         self.secret = str(secret).strip()
         self.version = str(version).strip()
         self.server_url = server_url.rstrip("/")
         self.user_data = UserData()
-        self.last_response = {}
-        self.initialized = False
 
     @staticmethod
     def get_hwid() -> str:
-        """Retrieves hardware-bound machine HWID (MachineGuid + C: Volume Serial) hashed with SHA-256."""
         if platform.system() == "Windows":
             machine_guid = ""
             vol_serial = ""
             try:
                 import winreg
-                with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Cryptography", 0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as key:
+                with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\\Microsoft\\Cryptography", 0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as key:
                     machine_guid = str(winreg.QueryValueEx(key, "MachineGuid")[0]).strip()
             except Exception:
                 pass
-
             try:
                 kernel32 = ctypes.windll.kernel32
                 vol_serial_val = ctypes.c_ulong()
@@ -87,229 +68,119 @@ class NullAuth:
                     vol_serial = f"{vol_serial_val.value:08X}"
             except Exception:
                 pass
-
             raw_str = f"{machine_guid}:{vol_serial}"
             if not machine_guid and not vol_serial:
                 raw_str = platform.node()
-
             return hashlib.sha256(raw_str.encode('utf-8')).hexdigest()
         else:
             return hashlib.sha256(platform.node().encode('utf-8')).hexdigest()
 
-    @staticmethod
-    def get_windows_user_sid() -> str:
-        """Backwards-compatibility alias for get_hwid()."""
-        return NullAuth.get_hwid()
+    def _verify_signature(self, identifier: str, status: str, expires_at: str, timestamp: int, nonce: str, signature: str) -> bool:
+        if not signature or not nonce or not timestamp: return False
+        if abs(time.time() - timestamp) > 300: return False
+        norm_app_id = self.app_id.replace("NA-", "").strip()
+        norm_secret = self.secret.replace("nas_", "").strip()
+        payload = f"{norm_app_id}:{identifier}:{timestamp}:{nonce}:{status}:{expires_at}"
+        expected = hmac.new(norm_secret.encode('utf-8'), payload.encode('utf-8'), hashlib.sha256).hexdigest()
+        return hmac.compare_digest(expected.lower(), signature.lower())
 
-    @staticmethod
-    def show_popup(title: str, message: str, icon_type: int = 16):
-        """Native Windows MessageBox popup window alert (icon_type 16 = MB_ICONERROR, 48 = MB_ICONWARNING)."""
-        if platform.system() == "Windows":
-            try:
-                ctypes.windll.user32.MessageBoxW(0, str(message), str(title), icon_type | 0x00000000)
-            except Exception:
-                print(f"[{title}] {message}")
-        else:
-            print(f"[{title}] {message}")
+    def _start_heartbeat(self, session_token: str, hwid: str):
+        def worker():
+            while True:
+                time.sleep(45)
+                check_anti_debug()
+                try:
+                    hb_url = f"{self.server_url}/api/v1/client/auth/heartbeat"
+                    hb_body = json.dumps({"appId": self.app_id, "appSecret": self.secret, "sessionToken": session_token, "hwid": hwid}).encode('utf-8')
+                    req = urllib.request.Request(hb_url, data=hb_body, headers={"Content-Type": "application/json", "User-Agent": "NullAuthClient/2.0"}, method="POST")
+                    with urllib.request.urlopen(req, timeout=10) as resp:
+                        res = json.loads(resp.read().decode('utf-8'))
+                        if res.get("kill", False):
+                            if platform.system() == "Windows":
+                                ctypes.windll.user32.MessageBoxW(0, "Session revoked, paused, or expired by administrator.", "Access Terminated", 16)
+                            os._exit(0xDEAD)
+                except urllib.error.HTTPError as e:
+                    try:
+                        err_res = json.loads(e.read().decode('utf-8'))
+                        if err_res.get("kill", False):
+                            if platform.system() == "Windows":
+                                ctypes.windll.user32.MessageBoxW(0, err_res.get("message", "Session revoked."), "Access Terminated", 16)
+                            os._exit(0xDEAD)
+                    except Exception: pass
+                except Exception: pass
+        t = threading.Thread(target=worker, daemon=True)
+        t.start()
 
-    def handle_server_error(self, response_dict: dict, show_msgbox: bool = True):
-        """Dynamically extracts error code and server message from backend response to display in popup."""
-        if not show_msgbox:
-            return
-
-        err_code = str(response_dict.get("error", "AUTH_FAILED"))
-        server_msg = str(response_dict.get("message", "Authentication request failed."))
-
-        titles = {
-            "VERSION_MISMATCH": "Update Required",
-            "LICENSE_EXPIRED": "License Expired",
-            "IDENTIFIER_EXPIRED": "License Expired",
-            "LICENSE_BANNED": "Account Banned",
-            "IDENTIFIER_BANNED": "Account Banned",
-            "LICENSE_PAUSED": "Access Paused",
-            "IDENTIFIER_PAUSED": "Access Paused",
-            "HWID_MISMATCH": "HWID Mismatch",
-            "LICENSE_NOT_FOUND": "Invalid Key / HWID",
-            "IDENTIFIER_NOT_FOUND": "Invalid Key / HWID",
-            "APPLICATION_DISABLED": "Application Paused",
-            "INVALID_APP_CREDENTIALS": "App Credential Error",
-        }
-
-        title = titles.get(err_code, "Null-Auth Security Alert")
-        popup_msg = server_msg
-
-        data = response_dict.get("data")
-        download_url = data.get("downloadUrl") if isinstance(data, dict) else None
-
-        if err_code == "VERSION_MISMATCH" and download_url:
-            popup_msg += f"\n\nDownload Update: {download_url}"
-
-        icon = 48 if err_code in ["VERSION_MISMATCH", "LICENSE_PAUSED", "IDENTIFIER_PAUSED", "APPLICATION_DISABLED"] else 16
-        self.show_popup(title, popup_msg, icon)
-
-    def init(self) -> bool:
-        """Connects to Null-Auth server health endpoint."""
-        url = f"{self.server_url}/health"
+    def _send_request(self, endpoint: str, payload: dict, identifier: str, show_msgbox: bool = True) -> bool:
+        check_anti_debug()
+        req = urllib.request.Request(endpoint, data=json.dumps(payload).encode('utf-8'), headers={"Content-Type": "application/json", "User-Agent": "NullAuthClient/2.0"}, method="POST")
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": "NullAuthClient/2.0"})
-            with urllib.request.urlopen(req, timeout=8) as response:
-                data = json.loads(response.read().decode('utf-8'))
-                if response.status == 200 and data.get("status") == "ok":
-                    self.initialized = True
+            with urllib.request.urlopen(req, timeout=10) as res:
+                data = json.loads(res.read().decode('utf-8'))
+                if data.get("success"):
+                    d = data.get("data", {})
+                    status = d.get("status", "active")
+                    exp = d.get("expires_at", "")
+                    ts = d.get("timestamp", 0)
+                    nonce = d.get("nonce", "")
+                    sig = d.get("signature", "")
+                    token = d.get("session_token", "")
+                    if not self._verify_signature(identifier, status, exp, ts, nonce, sig):
+                        if show_msgbox and platform.system() == "Windows":
+                            ctypes.windll.user32.MessageBoxW(0, "HMAC signature mismatch! Response tampering detected.", "Security Violation", 16)
+                        return False
+                    self.user_data = UserData(d)
+                    self._start_heartbeat(token, payload.get("hwid", ""))
                     return True
-        except Exception:
-            pass
-        self.initialized = False
+                if show_msgbox and platform.system() == "Windows":
+                    ctypes.windll.user32.MessageBoxW(0, data.get("message", "Error"), "Null-Auth Error", 16)
+        except Exception as e:
+            if show_msgbox and platform.system() == "Windows":
+                ctypes.windll.user32.MessageBoxW(0, str(e), "Null-Auth Network Error", 16)
         return False
 
     def license(self, key: str, show_msgbox: bool = True) -> bool:
-        """METHOD 1: License Key Authentication + Bound Hardware HWID + Version Check."""
         hwid = self.get_hwid()
-        url = f"{self.server_url}/api/v1/client/license/authenticate"
-        payload = {
-            "appId": self.app_id,
-            "appSecret": self.secret,
-            "licenseKey": key.strip(),
-            "hwid": hwid,
-            "version": self.version
-        }
-
-        res_dict = self._send_request(url, payload)
-        self.last_response = res_dict
-
-        if res_dict.get("success"):
-            data = res_dict.get("data") if isinstance(res_dict.get("data"), dict) else {}
-            data["hwid"] = hwid
-            data["version"] = self.version
-            self.user_data = UserData(data, res_dict)
-            return True
-
-        self.handle_server_error(res_dict, show_msgbox)
-        return False
+        payload = {"appId": self.app_id, "appSecret": self.secret, "licenseKey": key.strip(), "hwid": hwid, "version": self.version}
+        return self._send_request(f"{self.server_url}/api/v1/client/auth/license", payload, key.strip(), show_msgbox)
 
     def check_hwid(self, show_msgbox: bool = True) -> bool:
-        """METHOD 2: HWID Direct Whitelist Authentication + Version Check."""
         hwid = self.get_hwid()
-        url = f"{self.server_url}/api/v1/client/hwid/authenticate"
-        payload = {
-            "appId": self.app_id,
-            "appSecret": self.secret,
-            "hwid": hwid,
-            "version": self.version
-        }
-
-        res_dict = self._send_request(url, payload)
-        self.last_response = res_dict
-
-        if res_dict.get("success"):
-            data = res_dict.get("data") if isinstance(res_dict.get("data"), dict) else {}
-            data["hwid"] = hwid
-            data["version"] = self.version
-            self.user_data = UserData(data, res_dict)
-            return True
-
-        self.handle_server_error(res_dict, show_msgbox)
-        return False
+        payload = {"appId": self.app_id, "appSecret": self.secret, "hwid": hwid, "version": self.version}
+        return self._send_request(f"{self.server_url}/api/v1/client/auth/hwid", payload, hwid, show_msgbox)
 
     def user_login(self, username: str, password: str, show_msgbox: bool = True) -> bool:
-        """METHOD 3: Username + Password Authentication + Bound Hardware HWID + Version Check."""
         hwid = self.get_hwid()
-        url = f"{self.server_url}/api/v1/client/user/authenticate"
-        payload = {
-            "appId": self.app_id,
-            "appSecret": self.secret,
-            "username": username.strip(),
-            "password": password.strip(),
-            "hwid": hwid,
-            "version": self.version
-        }
+        payload = {"appId": self.app_id, "appSecret": self.secret, "username": username.strip(), "password": password.strip(), "hwid": hwid, "version": self.version}
+        return self._send_request(f"{self.server_url}/api/v1/client/auth/user", payload, username.strip(), show_msgbox)
 
-        res_dict = self._send_request(url, payload)
-        self.last_response = res_dict
-
-        if res_dict.get("success"):
-            data = res_dict.get("data") if isinstance(res_dict.get("data"), dict) else {}
-            data["hwid"] = hwid
-            data["version"] = self.version
-            self.user_data = UserData(data, res_dict)
-            return True
-
-        self.handle_server_error(res_dict, show_msgbox)
-        return False
-
-    def _send_request(self, url: str, payload: dict) -> dict:
-        """Sends HTTP POST request safely and returns parsed JSON response dict."""
-        data_bytes = json.dumps(payload).encode('utf-8')
-        req = urllib.request.Request(
-            url,
-            data=data_bytes,
-            headers={"Content-Type": "application/json", "User-Agent": "NullAuthClient/2.0"},
-            method="POST"
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=10) as response:
-                return json.loads(response.read().decode('utf-8'))
-        except urllib.error.HTTPError as e:
-            try:
-                return json.loads(e.read().decode('utf-8'))
-            except Exception:
-                return {"success": False, "message": f"Server HTTP Error {e.code}", "error": "HTTP_ERROR"}
-        except Exception as e:
-            return {"success": False, "message": f"Failed to connect to Null-Auth cloud server: {str(e)}", "error": "NETWORK_ERROR"}
-
-
-# =============================================================================
-# RUNNABLE USAGE SAMPLE
-# =============================================================================
 if __name__ == "__main__":
-    print("=================================================")
-    print("      🛡️ Null-Auth Single-File Python Client      ")
-    print("=================================================")
-
-    # Initialize Null-Auth Client (app_id, secret, version)
-    auth = NullAuth(
-        app_id="13026130",
-        secret="334106af8244ffc4284df3f2c31709011681d10cfa37e67a",
-        version="1.0.0"
-    )
-
-    print("\n[*] Initializing connection to Null-Auth server...")
-    if not auth.init():
-        auth.show_popup("Connection Error", "Failed to connect to Null-Auth server.", 16)
-        sys.exit(1)
-
-    print(f"[+] Server Connected! Local Version: {auth.version}")
-    print(f"[+] Detected Hardware ID (HWID): {auth.get_hwid()}")
-
-    print("\nSelect Authentication Method:")
-    print("  1. Method 1: License Key + Bound Hardware ID (HWID)")
-    print("  2. Method 2: HWID Whitelist Only (No License Key)")
-    print("  3. Method 3: Username + Password (Bound Hardware ID)")
-
-    choice = input("\nEnter Choice (1, 2, or 3): ").strip()
-
-    if choice == "1":
-        key = input("\nEnter License Key (e.g. NULL-ABCD-1234-EFGH): ").strip()
-        success = auth.license(key, show_msgbox=True)
-    elif choice == "2":
-        success = auth.check_hwid(show_msgbox=True)
+    check_anti_debug()
+    auth = NullAuth("13026130", "YOUR_RAW_SECRET", "1.0.0", "https://nullauthbackend.vercel.app")
+    print("Select Authentication Mode:")
+    print("1. License Key Authentication")
+    print("2. User Account Login (Username & Password)")
+    print("3. Hardware ID (HWID) Whitelist Check")
+    mode = input("Select Mode (1-3): ").strip()
+    success = False
+    if mode == "1":
+        key = input("Enter License Key: ").strip()
+        success = auth.license(key)
+    elif mode == "2":
+        u = input("Enter Username: ").strip()
+        p = input("Enter Password: ").strip()
+        success = auth.user_login(u, p)
+    elif mode == "3":
+        success = auth.check_hwid()
     else:
-        user_input = input("\nEnter Username: ").strip()
-        pass_input = input("Enter Password: ").strip()
-        success = auth.user_login(user_input, pass_input, show_msgbox=True)
-
+        print("Invalid mode selection!")
+        sys.exit(1)
     if success:
-        print("\n[+] ACCESS GRANTED! Software Unlocked.")
-        print(f"    Status:          {auth.user_data.status}")
-        if auth.user_data.client_name:
-            print(f"    Client Name:     {auth.user_data.client_name}")
-        print(f"    Days Remaining:  {auth.user_data.remaining_days}")
-        print(f"    Expires At:      {auth.user_data.expires}")
-        if auth.user_data.ip:
-            print(f"    Client IP:       {auth.user_data.ip}")
-        print(f"    HWID Bound:      {auth.user_data.hwid}")
+        print(f"\n[+] Access Granted to {auth.user_data.client_name}!")
+        print(f"[+] Days Remaining: {auth.user_data.remaining_days}")
+        print("[+] HMAC-SHA256: VERIFIED")
+        print("[+] 45s Heartbeat Remote Kill: RUNNING")
     else:
         print("\n[-] ACCESS DENIED!")
         sys.exit(1)
-
     input("\nPress Enter to exit...")

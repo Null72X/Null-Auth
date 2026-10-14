@@ -1,3 +1,4 @@
+#pragma once
 #include <iostream>
 #include <string>
 #include <windows.h>
@@ -8,8 +9,95 @@
 
 #pragma comment(lib, "wininet.lib")
 #pragma comment(lib, "advapi32.lib")
+#pragma comment(lib, "user32.lib")
 
 namespace NullAuthClient {
+    inline bool CheckHardwareBreakpoints() {
+        CONTEXT ctx;
+        ZeroMemory(&ctx, sizeof(CONTEXT));
+        ctx.ContextFlags = CONTEXT_DEBUG_REGISTERS;
+        HANDLE hThread = GetCurrentThread();
+        if (GetThreadContext(hThread, &ctx)) {
+            if (ctx.Dr0 || ctx.Dr1 || ctx.Dr2 || ctx.Dr3) return true;
+        }
+        return false;
+    }
+
+    inline void CheckAntiDebug() {
+        if (IsDebuggerPresent()) {
+            MessageBoxA(0, "Debugger detected! Execution terminated for safety.", "Security Violation", MB_ICONSTOP | MB_OK);
+            ExitProcess(0xDEB);
+        }
+        BOOL isRemote = FALSE;
+        CheckRemoteDebuggerPresent(GetCurrentProcess(), &isRemote);
+        if (isRemote) {
+            MessageBoxA(0, "Remote debugger detected! Execution terminated for safety.", "Security Violation", MB_ICONSTOP | MB_OK);
+            ExitProcess(0xDEB);
+        }
+        if (CheckHardwareBreakpoints()) {
+            MessageBoxA(0, "Hardware breakpoint detected! Execution terminated.", "Security Violation", MB_ICONSTOP | MB_OK);
+            ExitProcess(0xDEB);
+        }
+    }
+
+    inline bool Sha256Raw(const BYTE* data, DWORD len, BYTE* out32) {
+        HCRYPTPROV hProv = 0;
+        HCRYPTHASH hHash = 0;
+        DWORD cbHash = 32;
+        bool ok = false;
+        if (CryptAcquireContextA(&hProv, NULL, NULL, PROV_RSA_AES, CRYPT_VERIFYCONTEXT)) {
+            if (CryptCreateHash(hProv, CALG_SHA_256, 0, 0, &hHash)) {
+                if (CryptHashData(hHash, data, len, 0)) {
+                    if (CryptGetHashParam(hHash, HP_HASHVAL, out32, &cbHash, 0)) ok = true;
+                }
+                CryptDestroyHash(hHash);
+            }
+            CryptReleaseContext(hProv, 0);
+        }
+        return ok;
+    }
+
+    inline std::string Sha256(const std::string& input) {
+        BYTE hash[32];
+        if (!Sha256Raw((const BYTE*)input.c_str(), (DWORD)input.length(), hash)) return "";
+        char hexDigits[] = "0123456789abcdef";
+        std::string res = "";
+        for (int i = 0; i < 32; i++) {
+            res += hexDigits[(hash[i] >> 4) & 0x0F];
+            res += hexDigits[hash[i] & 0x0F];
+        }
+        return res;
+    }
+
+    inline std::string HmacSha256(const std::string& key, const std::string& data) {
+        BYTE k[64] = {0};
+        if (key.length() > 64) Sha256Raw((const BYTE*)key.c_str(), (DWORD)key.length(), k);
+        else memcpy(k, key.c_str(), key.length());
+
+        BYTE k_ipad[64], k_opad[64];
+        for (int i = 0; i < 64; i++) {
+            k_ipad[i] = k[i] ^ 0x36;
+            k_opad[i] = k[i] ^ 0x5c;
+        }
+
+        std::string innerInput((char*)k_ipad, 64);
+        innerInput += data;
+        BYTE innerHash[32];
+        Sha256Raw((const BYTE*)innerInput.c_str(), (DWORD)innerInput.length(), innerHash);
+
+        std::string outerInput((char*)k_opad, 64);
+        outerInput.append((char*)innerHash, 32);
+        BYTE outerHash[32];
+        Sha256Raw((const BYTE*)outerInput.c_str(), (DWORD)outerInput.length(), outerHash);
+
+        char hexDigits[] = "0123456789abcdef";
+        std::string res = "";
+        for (int i = 0; i < 32; i++) {
+            res += hexDigits[(outerHash[i] >> 4) & 0x0F];
+            res += hexDigits[outerHash[i] & 0x0F];
+        }
+        return res;
+    }
 
     struct UserData {
         std::string status = "unknown";
@@ -20,7 +108,54 @@ namespace NullAuthClient {
         std::string firstActivated = "";
         std::string hwid = "";
         std::string version = "";
+        std::string sessionToken = "";
     };
+
+    struct HeartbeatConfig {
+        std::string host;
+        std::string appId;
+        std::string appSecret;
+        std::string sessionToken;
+        std::string hwid;
+    };
+
+    inline HeartbeatConfig g_hb;
+
+    inline DWORD WINAPI HeartbeatWorker(LPVOID lpParam) {
+        while (true) {
+            Sleep(45000);
+            CheckAntiDebug();
+
+            HINTERNET hInternet = InternetOpenA("NullAuthGuard/2.0", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
+            if (hInternet) {
+                HINTERNET hConnect = InternetConnectA(hInternet, g_hb.host.c_str(), INTERNET_DEFAULT_HTTPS_PORT, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
+                if (hConnect) {
+                    HINTERNET hRequest = HttpOpenRequestA(hConnect, "POST", "/api/v1/client/auth/heartbeat", NULL, NULL, NULL, INTERNET_FLAG_SECURE | INTERNET_FLAG_RELOAD | INTERNET_FLAG_NO_CACHE_WRITE, 0);
+                    if (hRequest) {
+                        std::string hbBody = "{\"appId\":\"" + g_hb.appId + "\",\"appSecret\":\"" + g_hb.appSecret + "\",\"sessionToken\":\"" + g_hb.sessionToken + "\",\"hwid\":\"" + g_hb.hwid + "\"}";
+                        std::string headers = "Content-Type: application/json\r\n";
+                        if (HttpSendRequestA(hRequest, headers.c_str(), (DWORD)headers.length(), (LPVOID)hbBody.c_str(), (DWORD)hbBody.length())) {
+                            char buf[1024];
+                            DWORD bytesRead = 0;
+                            std::string res = "";
+                            while (InternetReadFile(hRequest, buf, sizeof(buf) - 1, &bytesRead) && bytesRead > 0) {
+                                buf[bytesRead] = '\0';
+                                res += buf;
+                            }
+                            if (res.find("\"kill\":true") != std::string::npos) {
+                                MessageBoxA(0, "Session revoked, paused, or expired by administrator.", "Access Revoked", MB_ICONSTOP | MB_OK);
+                                ExitProcess(0xDEAD);
+                            }
+                        }
+                        InternetCloseHandle(hRequest);
+                    }
+                    InternetCloseHandle(hConnect);
+                }
+                InternetCloseHandle(hInternet);
+            }
+        }
+        return 0;
+    }
 
     class NullAuth {
     private:
@@ -28,19 +163,6 @@ namespace NullAuthClient {
         std::string secret;
         std::string version;
         std::string host;
-
-        static std::string EscapeJson(const std::string& input) {
-            std::string output = "";
-            for (char c : input) {
-                if (c == '"') output += "\\\"";
-                else if (c == '\\') output += "\\\\";
-                else if (c == '\n') output += "\\n";
-                else if (c == '\r') output += "\\r";
-                else if (c == '\t') output += "\\t";
-                else output += c;
-            }
-            return output;
-        }
 
         static std::string ExtractJsonString(const std::string& json, const std::string& key) {
             std::string search = "\"" + key + "\":\"";
@@ -56,7 +178,7 @@ namespace NullAuthClient {
             return json.substr(start, end - start);
         }
 
-        static int ExtractJsonInt(const std::string& json, const std::string& key) {
+        static long long ExtractJsonLong(const std::string& json, const std::string& key) {
             std::string search = "\"" + key + "\":";
             size_t pos = json.find(search);
             if (pos == std::string::npos) return 0;
@@ -65,48 +187,23 @@ namespace NullAuthClient {
             size_t end = start;
             while (end < json.length() && (isdigit(static_cast<unsigned char>(json[end])) || json[end] == '-')) end++;
             if (start == end) return 0;
-            try {
-                return std::stoi(json.substr(start, end - start));
-            } catch (...) {
-                return 0;
-            }
+            try { return std::stoll(json.substr(start, end - start)); } catch (...) { return 0; }
+        }
+
+        static int ExtractJsonInt(const std::string& json, const std::string& key) {
+            return static_cast<int>(ExtractJsonLong(json, key));
+        }
+
+        static std::string CleanPrefix(const std::string& str, const std::string& prefix) {
+            if (str.rfind(prefix, 0) == 0) return str.substr(prefix.length());
+            return str;
         }
 
     public:
         UserData userData;
-        bool initialized = false;
 
-        NullAuth(
-            const std::string& appId = "13026130",
-            const std::string& secret = "334106af8244ffc4284df3f2c31709011681d10cfa37e67a",
-            const std::string& version = "1.0.0",
-            const std::string& host = "null-auth-backend.vercel.app"
-        ) : appId(appId), secret(secret), version(version), host(host) {}
-
-        static std::string Sha256(const std::string& input) {
-            HCRYPTPROV hProv = 0;
-            HCRYPTHASH hHash = 0;
-            BYTE rgbHash[32];
-            DWORD cbHash = 32;
-            std::string result = "";
-
-            if (CryptAcquireContextA(&hProv, NULL, NULL, PROV_RSA_AES, CRYPT_VERIFYCONTEXT)) {
-                if (CryptCreateHash(hProv, CALG_SHA_256, 0, 0, &hHash)) {
-                    if (CryptHashData(hHash, (const BYTE*)input.c_str(), (DWORD)input.length(), 0)) {
-                        if (CryptGetHashParam(hHash, HP_HASHVAL, rgbHash, &cbHash, 0)) {
-                            char hexDigits[] = "0123456789abcdef";
-                            for (DWORD i = 0; i < cbHash; i++) {
-                                result += hexDigits[(rgbHash[i] >> 4) & 0x0F];
-                                result += hexDigits[rgbHash[i] & 0x0F];
-                            }
-                        }
-                    }
-                    CryptDestroyHash(hHash);
-                }
-                CryptReleaseContext(hProv, 0);
-            }
-            return result.empty() ? input : result;
-        }
+        NullAuth(const std::string& appId, const std::string& secret, const std::string& version = "1.0.0", const std::string& host = "nullauthbackend.vercel.app")
+            : appId(appId), secret(secret), version(version), host(host) {}
 
         static std::string GetHwid() {
             std::string machineGuid = "";
@@ -137,238 +234,129 @@ namespace NullAuthClient {
             return Sha256(raw);
         }
 
-        static std::string GetWindowsUserSid() {
-            return GetHwid();
-        }
-
-        static void ShowPopup(const std::wstring& title, const std::wstring& message, UINT iconType = MB_ICONERROR) {
-            MessageBoxW(0, message.c_str(), title.c_str(), iconType | MB_OK);
-        }
-
-        void HandleError(const std::string& response, bool showMsgbox) {
-            if (!showMsgbox) return;
-
-            std::wstring title = L"Null-Auth Security Alert";
-            UINT icon = MB_ICONERROR;
-
-            if (response.find("VERSION_MISMATCH") != std::string::npos) {
-                title = L"Update Required";
-                icon = MB_ICONWARNING;
-            } else if (response.find("LICENSE_EXPIRED") != std::string::npos || response.find("IDENTIFIER_EXPIRED") != std::string::npos) {
-                title = L"License Expired";
-            } else if (response.find("LICENSE_BANNED") != std::string::npos || response.find("IDENTIFIER_BANNED") != std::string::npos) {
-                title = L"Account Banned";
-            } else if (response.find("LICENSE_PAUSED") != std::string::npos || response.find("IDENTIFIER_PAUSED") != std::string::npos) {
-                title = L"Access Paused";
-                icon = MB_ICONWARNING;
-            } else if (response.find("HWID_MISMATCH") != std::string::npos) {
-                title = L"HWID Mismatch";
-            } else if (response.find("APPLICATION_DISABLED") != std::string::npos) {
-                title = L"Application Paused";
-                icon = MB_ICONWARNING;
-            } else if (response.find("INVALID_APP_CREDENTIALS") != std::string::npos) {
-                title = L"App Credential Error";
-            }
-
-            // Extract message string from server response or fallback to title
-            std::string serverMsg = ExtractJsonString(response, "message");
-            if (serverMsg.empty()) {
-                serverMsg = "Authentication request failed.";
-            }
-
-            std::wstring wMsg(serverMsg.begin(), serverMsg.end());
-            ShowPopup(title, wMsg, icon);
-        }
-
-        bool SendHttpsPost(const std::string& path, const std::string& jsonBody, std::string& responseOut) {
-            HINTERNET hInternet = InternetOpenA("NullAuthCpp/2.0", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
-            if (!hInternet) return false;
-
+        bool SendAuthRequest(const std::string& endpoint, const std::string& body, const std::string& identifier, bool showMsgbox) {
+            HINTERNET hInternet = InternetOpenA("NullAuthGuard/2.0", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
             HINTERNET hConnect = InternetConnectA(hInternet, host.c_str(), INTERNET_DEFAULT_HTTPS_PORT, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
-            if (!hConnect) { InternetCloseHandle(hInternet); return false; }
-
-            DWORD flags = INTERNET_FLAG_SECURE | INTERNET_FLAG_RELOAD | INTERNET_FLAG_NO_CACHE_WRITE;
-            HINTERNET hRequest = HttpOpenRequestA(hConnect, "POST", path.c_str(), NULL, NULL, NULL, flags, 0);
-            if (!hRequest) { InternetCloseHandle(hConnect); InternetCloseHandle(hInternet); return false; }
+            HINTERNET hRequest = HttpOpenRequestA(hConnect, "POST", endpoint.c_str(), NULL, NULL, NULL, INTERNET_FLAG_SECURE | INTERNET_FLAG_RELOAD | INTERNET_FLAG_NO_CACHE_WRITE, 0);
 
             std::string headers = "Content-Type: application/json\r\n";
-            bool sent = HttpSendRequestA(hRequest, headers.c_str(), static_cast<DWORD>(headers.length()), (LPVOID)jsonBody.c_str(), static_cast<DWORD>(jsonBody.length()));
+            HttpSendRequestA(hRequest, headers.c_str(), (DWORD)headers.length(), (LPVOID)body.c_str(), (DWORD)body.length());
 
-            if (sent) {
-                char buffer[2048];
-                DWORD bytesRead = 0;
-                while (InternetReadFile(hRequest, buffer, sizeof(buffer) - 1, &bytesRead) && bytesRead > 0) {
-                    buffer[bytesRead] = '\0';
-                    responseOut += buffer;
-                }
-            }
-
-            InternetCloseHandle(hRequest);
-            InternetCloseHandle(hConnect);
-            InternetCloseHandle(hInternet);
-            return sent;
-        }
-
-        bool Init() {
-            HINTERNET hInternet = InternetOpenA("NullAuthCpp/2.0", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
-            if (!hInternet) return false;
-
-            HINTERNET hConnect = InternetConnectA(hInternet, host.c_str(), INTERNET_DEFAULT_HTTPS_PORT, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
-            if (!hConnect) { InternetCloseHandle(hInternet); return false; }
-
-            DWORD flags = INTERNET_FLAG_SECURE | INTERNET_FLAG_RELOAD | INTERNET_FLAG_NO_CACHE_WRITE;
-            HINTERNET hRequest = HttpOpenRequestA(hConnect, "GET", "/health", NULL, NULL, NULL, flags, 0);
-            if (!hRequest) { InternetCloseHandle(hConnect); InternetCloseHandle(hInternet); return false; }
-
-            bool sent = HttpSendRequestA(hRequest, NULL, 0, NULL, 0);
+            char buffer[2048];
+            DWORD bytesRead = 0;
             std::string response = "";
-            if (sent) {
-                char buffer[512];
-                DWORD bytesRead = 0;
-                while (InternetReadFile(hRequest, buffer, sizeof(buffer) - 1, &bytesRead) && bytesRead > 0) {
-                    buffer[bytesRead] = '\0';
-                    response += buffer;
-                }
+            while (InternetReadFile(hRequest, buffer, sizeof(buffer) - 1, &bytesRead) && bytesRead > 0) {
+                buffer[bytesRead] = '\0';
+                response += buffer;
             }
 
             InternetCloseHandle(hRequest);
             InternetCloseHandle(hConnect);
             InternetCloseHandle(hInternet);
 
-            initialized = (response.find("\"status\":\"ok\"") != std::string::npos);
-            return initialized;
+            if (response.find("\"success\":true") != std::string::npos) {
+                std::string sig = ExtractJsonString(response, "signature");
+                std::string nonce = ExtractJsonString(response, "nonce");
+                long long timestamp = ExtractJsonLong(response, "timestamp");
+                std::string status = ExtractJsonString(response, "status");
+                if (status.empty()) status = "active";
+                std::string expiresAt = ExtractJsonString(response, "expires_at");
+
+                std::string normAppId = CleanPrefix(appId, "NA-");
+                std::string normSecret = CleanPrefix(secret, "nas_");
+                std::string payload = normAppId + ":" + identifier + ":" + std::to_string(timestamp) + ":" + nonce + ":" + status + ":" + expiresAt;
+                std::string expectedSig = HmacSha256(normSecret, payload);
+
+                if (sig.empty() || sig != expectedSig) {
+                    if (showMsgbox) MessageBoxA(0, "Cryptographic signature verification failed! Response tampering detected.", "Security Violation", MB_ICONSTOP | MB_OK);
+                    ExitProcess(0xBAD);
+                }
+
+                userData.status = "active";
+                userData.clientName = ExtractJsonString(response, "client_name");
+                userData.ip = ExtractJsonString(response, "ip");
+                userData.expires = expiresAt;
+                userData.remainingDays = ExtractJsonInt(response, "remaining_days");
+                userData.hwid = GetHwid();
+                userData.version = version;
+                userData.sessionToken = ExtractJsonString(response, "session_token");
+
+                g_hb.host = host;
+                g_hb.appId = appId;
+                g_hb.appSecret = secret;
+                g_hb.sessionToken = userData.sessionToken;
+                g_hb.hwid = userData.hwid;
+                CreateThread(NULL, 0, HeartbeatWorker, NULL, 0, NULL);
+
+                return true;
+            }
+            if (showMsgbox) MessageBoxA(0, "Authentication Failed!", "Null-Auth Error", MB_ICONERROR | MB_OK);
+            return false;
         }
 
         bool License(const std::string& key, bool showMsgbox = true) {
+            CheckAntiDebug();
             std::string hwid = GetHwid();
-            std::string body = "{\"appId\":\"" + EscapeJson(appId) + "\",\"appSecret\":\"" + EscapeJson(secret) + "\",\"licenseKey\":\"" + EscapeJson(key) + "\",\"hwid\":\"" + EscapeJson(hwid) + "\",\"version\":\"" + EscapeJson(version) + "\"}";
-            std::string response;
-            if (SendHttpsPost("/api/v1/client/license/authenticate", body, response)) {
-                if (response.find("\"success\":true") != std::string::npos) {
-                    userData.status = "active";
-                    userData.clientName = ExtractJsonString(response, "client_name");
-                    userData.ip = ExtractJsonString(response, "ip");
-                    userData.expires = ExtractJsonString(response, "expires_at");
-                    userData.remainingDays = ExtractJsonInt(response, "remaining_days");
-                    userData.firstActivated = ExtractJsonString(response, "first_activated_at");
-                    userData.hwid = hwid;
-                    userData.version = version;
-                    return true;
-                }
-            }
-            HandleError(response, showMsgbox);
-            return false;
+            std::string body = "{\"appId\":\"" + appId + "\",\"appSecret\":\"" + secret + "\",\"licenseKey\":\"" + key + "\",\"hwid\":\"" + hwid + "\",\"version\":\"" + version + "\"}";
+            return SendAuthRequest("/api/v1/client/auth/license", body, key, showMsgbox);
         }
 
         bool CheckHwid(bool showMsgbox = true) {
+            CheckAntiDebug();
             std::string hwid = GetHwid();
-            std::string body = "{\"appId\":\"" + EscapeJson(appId) + "\",\"appSecret\":\"" + EscapeJson(secret) + "\",\"hwid\":\"" + EscapeJson(hwid) + "\",\"version\":\"" + EscapeJson(version) + "\"}";
-            std::string response;
-            if (SendHttpsPost("/api/v1/client/hwid/authenticate", body, response)) {
-                if (response.find("\"success\":true") != std::string::npos) {
-                    userData.status = "active";
-                    userData.clientName = ExtractJsonString(response, "client_name");
-                    userData.ip = ExtractJsonString(response, "ip");
-                    userData.expires = ExtractJsonString(response, "expires_at");
-                    userData.remainingDays = ExtractJsonInt(response, "remaining_days");
-                    userData.hwid = hwid;
-                    userData.version = version;
-                    return true;
-                }
-            }
-            HandleError(response, showMsgbox);
-            return false;
+            std::string body = "{\"appId\":\"" + appId + "\",\"appSecret\":\"" + secret + "\",\"hwid\":\"" + hwid + "\",\"version\":\"" + version + "\"}";
+            return SendAuthRequest("/api/v1/client/auth/hwid", body, hwid, showMsgbox);
         }
 
-        bool UserLogin(const std::string& username, const std::string& userPassword, bool showMsgbox = true) {
+        bool UserLogin(const std::string& username, const std::string& password, bool showMsgbox = true) {
+            CheckAntiDebug();
             std::string hwid = GetHwid();
-            std::string body = "{\"appId\":\"" + EscapeJson(appId) + "\",\"appSecret\":\"" + EscapeJson(secret) + "\",\"username\":\"" + EscapeJson(username) + "\",\"password\":\"" + EscapeJson(userPassword) + "\",\"hwid\":\"" + EscapeJson(hwid) + "\",\"version\":\"" + EscapeJson(version) + "\"}";
-            std::string response;
-            if (SendHttpsPost("/api/v1/client/user/authenticate", body, response)) {
-                if (response.find("\"success\":true") != std::string::npos) {
-                    userData.status = "active";
-                    userData.clientName = ExtractJsonString(response, "client_name");
-                    userData.ip = ExtractJsonString(response, "ip");
-                    userData.expires = ExtractJsonString(response, "expires_at");
-                    userData.remainingDays = ExtractJsonInt(response, "remaining_days");
-                    userData.firstActivated = ExtractJsonString(response, "first_activated_at");
-                    userData.hwid = hwid;
-                    userData.version = version;
-                    return true;
-                }
-            }
-            HandleError(response, showMsgbox);
-            return false;
+            std::string body = "{\"appId\":\"" + appId + "\",\"appSecret\":\"" + secret + "\",\"username\":\"" + username + "\",\"password\":\"" + password + "\",\"hwid\":\"" + hwid + "\",\"version\":\"" + version + "\"}";
+            return SendAuthRequest("/api/v1/client/auth/user", body, username, showMsgbox);
         }
     };
 }
 
+#ifndef NULL_AUTH_NO_MAIN
 int main() {
-    SetConsoleTitleA("Null-Auth Single File C++ Client");
-
-    std::cout << "=================================================\n";
-    std::cout << "     🛡️ Null-Auth Single-File C++ Application    \n";
-    std::cout << "=================================================\n\n";
-
-    NullAuthClient::NullAuth auth("13026130", "334106af8244ffc4284df3f2c31709011681d10cfa37e67a", "1.0.0");
-
-    std::cout << "[*] Connecting to Null-Auth cloud server...\n";
-    if (!auth.Init()) {
-        NullAuthClient::NullAuth::ShowPopup(L"Connection Error", L"Failed to connect to Null-Auth server.", MB_ICONERROR);
-        return 1;
-    }
-
-    std::string hwid = NullAuthClient::NullAuth::GetHwid();
-    std::cout << "[+] Connected! Server Online.\n";
-    std::cout << "[+] Hardware HWID: " << hwid << "\n\n";
-
-    std::cout << "Select Authentication Method:\n";
-    std::cout << "  1. Method 1: License Key + Bound Hardware ID (HWID)\n";
-    std::cout << "  2. Method 2: HWID Whitelist Only (No License Key)\n";
-    std::cout << "  3. Method 3: Username + Password (Bound Hardware ID)\n";
-    std::cout << "\nEnter Choice (1, 2, or 3): ";
-
-    int choice = 1;
-    std::cin >> choice;
-
+    NullAuthClient::CheckAntiDebug();
+    NullAuthClient::NullAuth auth("13026130", "YOUR_RAW_SECRET", "1.0.0", "nullauthbackend.vercel.app");
+    std::cout << "Select Authentication Mode:\n";
+    std::cout << "1. License Key Authentication\n";
+    std::cout << "2. User Account Login (Username & Password)\n";
+    std::cout << "3. Hardware ID (HWID) Whitelist Check\n";
+    std::cout << "Select Mode (1-3): ";
+    int mode = 1;
+    std::cin >> mode;
     bool success = false;
-    if (choice == 1) {
-        std::cout << "\nEnter License Key (e.g. NULL-ABCD-1234-EFGH): ";
+    if (mode == 1) {
+        std::cout << "Enter License Key: ";
         std::string key;
         std::cin >> key;
-        std::cout << "\n[*] Authenticating License Key...\n";
-        success = auth.License(key, true);
-    } else if (choice == 2) {
-        std::cout << "\n[*] Authenticating HWID Whitelist...\n";
-        success = auth.CheckHwid(true);
-    } else {
-        std::cout << "\nEnter Username: ";
-        std::string userStr, passStr;
-        std::cin >> userStr;
+        success = auth.License(key);
+    } else if (mode == 2) {
+        std::cout << "Enter Username: ";
+        std::string uStr, pStr;
+        std::cin >> uStr;
         std::cout << "Enter Password: ";
-        std::cin >> passStr;
-        std::cout << "\n[*] Authenticating User Credentials...\n";
-        success = auth.UserLogin(userStr, passStr, true);
-    }
-
-    if (success) {
-        std::cout << "\n[+] ACCESS GRANTED! Application Unlocked.\n";
-        std::cout << "    Status:          " << auth.userData.status << "\n";
-        if (!auth.userData.clientName.empty()) {
-            std::cout << "    Client Name:     " << auth.userData.clientName << "\n";
-        }
-        std::cout << "    Days Remaining:  " << auth.userData.remainingDays << " days\n";
-        std::cout << "    Expires At:      " << auth.userData.expires << "\n";
-        if (!auth.userData.ip.empty()) {
-            std::cout << "    Assigned IP:     " << auth.userData.ip << "\n";
-        }
-        std::cout << "    HWID Bound:      " << auth.userData.hwid << "\n";
+        std::cin >> pStr;
+        success = auth.UserLogin(uStr, pStr);
+    } else if (mode == 3) {
+        success = auth.CheckHwid();
     } else {
-        std::cout << "\n[-] ACCESS DENIED!\n";
+        std::cout << "Invalid mode selection!\n";
+        return 1;
     }
-
+    if (!success) {
+        return 1;
+    }
+    std::cout << "\n[+] Access Granted to " << auth.userData.clientName << "!\n";
+    std::cout << "[+] Days Remaining: " << auth.userData.remainingDays << "\n";
+    std::cout << "[+] HMAC-SHA256: VERIFIED\n";
+    std::cout << "[+] 45s Heartbeat Remote Kill: RUNNING\n";
     std::cout << "\nPress Enter to exit...";
     std::cin.ignore();
     std::cin.get();
     return 0;
 }
+#endif
