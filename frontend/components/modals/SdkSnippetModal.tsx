@@ -28,11 +28,6 @@ export function SdkSnippetModal({ isOpen, onClose, app }: SdkSnippetModalProps) 
   const appSecret = (app.secret || 'YOUR_APP_SECRET').replace(/^nas_/, '');
   
   const apiBase = typeof window !== 'undefined' ? window.location.origin : 'https://your-domain.com';
-  const endpoint = isLicenseMode 
-    ? `${apiBase}/api/v1/client/auth/license` 
-    : isUserAuthMode 
-    ? `${apiBase}/api/v1/client/auth/user` 
-    : `${apiBase}/api/v1/client/auth/hwid`;
 
   const csharpSnippet = `using System;
 using System.Diagnostics;
@@ -451,20 +446,36 @@ class Program
 
         Console.WriteLine("[*] Authenticating with Null-Auth Guard...");
 
-        ${
-          isLicenseMode
-            ? `Console.Write("Enter your License Key: ");
-        string key = Console.ReadLine()?.Trim();
+        Console.WriteLine("Select Authentication Mode:");
+        Console.WriteLine("1. License Key Authentication");
+        Console.WriteLine("2. User Account Login (Username & Password)");
+        Console.WriteLine("3. Hardware ID (HWID) Whitelist Check");
+        Console.Write("Select Mode (1-3): ");
+        string mode = Console.ReadLine()?.Trim();
 
-        bool success = await auth.LicenseAsync(key);`
-            : isUserAuthMode
-            ? `Console.Write("Enter Username: ");
-        string user = Console.ReadLine()?.Trim();
-        Console.Write("Enter Password: ");
-        string pass = Console.ReadLine()?.Trim();
-
-        bool success = await auth.UserLoginAsync(user, pass);`
-            : `bool success = await auth.CheckHwidAsync();`
+        bool success = false;
+        if (mode == "1")
+        {
+            Console.Write("Enter License Key: ");
+            string key = Console.ReadLine()?.Trim();
+            success = await auth.LicenseAsync(key);
+        }
+        else if (mode == "2")
+        {
+            Console.Write("Enter Username: ");
+            string user = Console.ReadLine()?.Trim();
+            Console.Write("Enter Password: ");
+            string pass = Console.ReadLine()?.Trim();
+            success = await auth.UserLoginAsync(user, pass);
+        }
+        else if (mode == "3")
+        {
+            success = await auth.CheckHwidAsync();
+        }
+        else
+        {
+            Console.WriteLine("Invalid mode selection!");
+            return;
         }
 
         if (success)
@@ -706,16 +717,11 @@ DWORD WINAPI HeartbeatWorker(LPVOID lpParam) {
     return 0;
 }
 
-bool AuthenticateNullAuth(${isLicenseMode ? 'const std::string& licenseKey' : isUserAuthMode ? 'const std::string& username, const std::string& userPassword' : ''}) {
+bool SendAuthRequest(const std::string& path, const std::string& jsonPayload, const std::string& identifier) {
     CheckAntiDebug();
 
-    const std::string host = "${typeof window !== 'undefined' ? window.location.hostname : 'null-auth-backend.vercel.app'}";
-    const std::string path = "${isLicenseMode ? '/api/v1/client/auth/license' : isUserAuthMode ? '/api/v1/client/auth/user' : '/api/v1/client/auth/hwid'}";
+    const std::string host = "${typeof window !== 'undefined' ? (window.location.hostname === 'localhost' ? 'nullauthbackend.vercel.app' : window.location.hostname) : 'nullauthbackend.vercel.app'}";
     const std::string hwid = GetHwid();
-
-    std::string jsonPayload = "{\\"appId\\":\\"${appId}\\",\\"appSecret\\":\\"${appSecret}\","
-        ${isLicenseMode ? '"\\"licenseKey\\":\\"" + licenseKey + "\\","' : isUserAuthMode ? '"\\"username\\":\\"" + username + "\\",\\"password\\":\\"" + userPassword + "\\","' : '""'}
-        "\\"hwid\\":\\"" + hwid + "\\",\\"version\\":\\"${app.version || '1.0.0'}\\"}";
 
     HINTERNET hInternet = InternetOpenA("NullAuthGuard/2.0", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
     if (!hInternet) return false;
@@ -753,7 +759,6 @@ bool AuthenticateNullAuth(${isLicenseMode ? 'const std::string& licenseKey' : is
         std::string expiresAt = ParseJsonField(response, "expires_at");
         std::string sessionToken = ParseJsonField(response, "session_token");
 
-        std::string identifier = ${isLicenseMode ? 'licenseKey' : isUserAuthMode ? 'username' : 'hwid'};
         std::string normAppId = CleanPrefix("${appId}", "NA-");
         std::string normSecret = CleanPrefix("${appSecret}", "nas_");
         std::string payloadToSign = normAppId + ":" + identifier + ":" + std::to_string(timestamp) + ":" + nonce + ":" + status + ":" + expiresAt;
@@ -792,6 +797,24 @@ bool AuthenticateNullAuth(${isLicenseMode ? 'const std::string& licenseKey' : is
     return false;
 }
 
+bool AuthenticateLicense(const std::string& licenseKey) {
+    std::string hwid = GetHwid();
+    std::string jsonPayload = "{\\"appId\\":\\"${appId}\\",\\"appSecret\\":\\"${appSecret}\\",\\"licenseKey\\":\\"" + licenseKey + "\\",\\"hwid\\":\\"" + hwid + "\\",\\"version\\":\\"${app.version || '1.0.0'}\\"}";
+    return SendAuthRequest("/api/v1/client/auth/license", jsonPayload, licenseKey);
+}
+
+bool AuthenticateUser(const std::string& username, const std::string& password) {
+    std::string hwid = GetHwid();
+    std::string jsonPayload = "{\\"appId\\":\\"${appId}\\",\\"appSecret\\":\\"${appSecret}\\",\\"username\\":\\"" + username + "\\",\\"password\\":\\"" + password + "\\",\\"hwid\\":\\"" + hwid + "\\",\\"version\\":\\"${app.version || '1.0.0'}\\"}";
+    return SendAuthRequest("/api/v1/client/auth/user", jsonPayload, username);
+}
+
+bool AuthenticateHwid() {
+    std::string hwid = GetHwid();
+    std::string jsonPayload = "{\\"appId\\":\\"${appId}\\",\\"appSecret\\":\\"${appSecret}\\",\\"hwid\\":\\"" + hwid + "\\",\\"version\\":\\"${app.version || '1.0.0'}\\"}";
+    return SendAuthRequest("/api/v1/client/auth/hwid", jsonPayload, hwid);
+}
+
 int main() {
     CheckAntiDebug();
     SetConsoleTitleA("${app.name} - Null-Auth Protected");
@@ -799,26 +822,36 @@ int main() {
     std::cout << "        🛡️ ${app.name} Protection Active         \\n";
     std::cout << "=================================================\\n\\n";
 
-    ${
-      isLicenseMode
-        ? `std::cout << "Enter License Key: ";
-    std::string key;
-    std::cin >> key;
-    if (!AuthenticateNullAuth(key)) {
+    std::cout << "Select Authentication Mode:\\n";
+    std::cout << "1. License Key Authentication\\n";
+    std::cout << "2. User Account Login (Username & Password)\\n";
+    std::cout << "3. Hardware ID (HWID) Whitelist Check\\n";
+    std::cout << "Select Mode (1-3): ";
+    int mode = 1;
+    std::cin >> mode;
+
+    bool success = false;
+    if (mode == 1) {
+        std::cout << "Enter License Key: ";
+        std::string key;
+        std::cin >> key;
+        success = AuthenticateLicense(key);
+    } else if (mode == 2) {
+        std::cout << "Enter Username: ";
+        std::string uStr, pStr;
+        std::cin >> uStr;
+        std::cout << "Enter Password: ";
+        std::cin >> pStr;
+        success = AuthenticateUser(uStr, pStr);
+    } else if (mode == 3) {
+        success = AuthenticateHwid();
+    } else {
+        std::cout << "Invalid mode selection!\\n";
         return 1;
-    }`
-        : isUserAuthMode
-        ? `std::cout << "Enter Username: ";
-    std::string uStr, pStr;
-    std::cin >> uStr;
-    std::cout << "Enter Password: ";
-    std::cin >> pStr;
-    if (!AuthenticateNullAuth(uStr, pStr)) {
+    }
+
+    if (!success) {
         return 1;
-    }`
-        : `if (!AuthenticateNullAuth()) {
-        return 1;
-    }`
     }
 
     std::cout << "\\n[*] Starting protected application...\\n";
@@ -842,7 +875,6 @@ import sys
 import os
 
 API_BASE = "${apiBase}"
-API_URL = "${endpoint}"
 HEARTBEAT_URL = f"{API_BASE}/api/v1/client/auth/heartbeat"
 APP_ID = "${appId}"
 APP_SECRET = "${appSecret}"
@@ -952,20 +984,11 @@ def show_alert(title: str, message: str, is_error: bool = True):
             pass
     print(f"[{title}] {message}")
 
-def authenticate(${isLicenseMode ? 'license_key: str' : isUserAuthMode ? 'username: str, password: str' : ''}):
+def send_auth_request(endpoint: str, payload: dict, identifier: str) -> bool:
     check_anti_debug()
-    hwid = get_hwid()
-    payload = {
-        "appId": APP_ID,
-        "appSecret": APP_SECRET,
-        "hwid": hwid,
-        ${isLicenseMode ? '"licenseKey": license_key.strip(),' : isUserAuthMode ? '"username": username.strip(), "password": password.strip(),' : ''}
-        "clientVersion": APP_VERSION
-    }
-
     data_bytes = json.dumps(payload).encode('utf-8')
     req = urllib.request.Request(
-        API_URL,
+        endpoint,
         data=data_bytes,
         headers={"Content-Type": "application/json", "User-Agent": "NullAuthClient/2.0"},
         method="POST"
@@ -983,12 +1006,11 @@ def authenticate(${isLicenseMode ? 'license_key: str' : isUserAuthMode ? 'userna
                 sig = user.get("signature", "")
                 session_token = user.get("session_token", "")
 
-                identifier = ${isLicenseMode ? 'license_key.strip()' : isUserAuthMode ? 'username.strip()' : 'hwid'}
                 if not verify_signature(identifier, status, expires_at, ts, nonce, sig):
                     show_alert("Security Violation", "HMAC-SHA256 signature verification failed! Response tampering detected.", is_error=True)
                     return False
 
-                start_heartbeat(session_token, hwid)
+                start_heartbeat(session_token, payload.get("hwid", ""))
 
                 print(f"\\n[+] Access Granted! Welcome, {user.get('client_name') or 'Client'}")
                 print(f"[+] Days Left: {user.get('remaining_days', 0)} days")
@@ -1012,34 +1034,70 @@ def authenticate(${isLicenseMode ? 'license_key: str' : isUserAuthMode ? 'userna
         show_alert("Null-Auth Network Error", f"Connection failed: {str(e)}", is_error=True)
         return False
 
+def authenticate_license(license_key: str) -> bool:
+    hwid = get_hwid()
+    payload = {
+        "appId": APP_ID,
+        "appSecret": APP_SECRET,
+        "hwid": hwid,
+        "licenseKey": license_key.strip(),
+        "clientVersion": APP_VERSION
+    }
+    return send_auth_request(f"{API_BASE}/api/v1/client/auth/license", payload, license_key.strip())
+
+def authenticate_user(username: str, password: str) -> bool:
+    hwid = get_hwid()
+    payload = {
+        "appId": APP_ID,
+        "appSecret": APP_SECRET,
+        "hwid": hwid,
+        "username": username.strip(),
+        "password": password.strip(),
+        "clientVersion": APP_VERSION
+    }
+    return send_auth_request(f"{API_BASE}/api/v1/client/auth/user", payload, username.strip())
+
+def authenticate_hwid() -> bool:
+    hwid = get_hwid()
+    payload = {
+        "appId": APP_ID,
+        "appSecret": APP_SECRET,
+        "hwid": hwid,
+        "clientVersion": APP_VERSION
+    }
+    return send_auth_request(f"{API_BASE}/api/v1/client/auth/hwid", payload, hwid)
+
 if __name__ == "__main__":
     check_anti_debug()
     print("=================================================")
     print("       🛡️ ${app.name} Protection Active          ")
     print("=================================================\\n")
 
-    ${
-      isLicenseMode
-        ? `key = input("Enter License Key: ").strip()
-    if authenticate(key):
+    print("Select Authentication Mode:")
+    print("1. License Key Authentication")
+    print("2. User Account Login (Username & Password)")
+    print("3. Hardware ID (HWID) Whitelist Check")
+    mode = input("Select Mode (1-3): ").strip()
+
+    success = False
+    if mode == "1":
+        key = input("Enter License Key: ").strip()
+        success = authenticate_license(key)
+    elif mode == "2":
+        u_val = input("Enter Username: ").strip()
+        p_val = input("Enter Password: ").strip()
+        success = authenticate_user(u_val, p_val)
+    elif mode == "3":
+        success = authenticate_hwid()
+    else:
+        print("Invalid mode selection!")
+        exit(1)
+
+    if success:
         print("\\n[*] Software unlocked. Running protected application...")
     else:
         print("\\n[-] ACCESS DENIED!")
-        exit(1)`
-        : isUserAuthMode
-        ? `u_val = input("Enter Username: ").strip()
-    p_val = input("Enter Password: ").strip()
-    if authenticate(u_val, p_val):
-        print("\\n[*] User Authenticated. Running protected application...")
-    else:
-        print("\\n[-] ACCESS DENIED!")
-        exit(1)`
-        : `if authenticate():
-        print("\\n[*] Machine Authorized. Running protected application...")
-    else:
-        print("\\n[-] ACCESS DENIED!")
-        exit(1)`
-    }
+        exit(1)
 
     input("\\nPress Enter to exit...")
 `;
