@@ -64,11 +64,6 @@ namespace NullAuthClient
         public UserData Data { get; set; }
     }
 
-    /// <summary>
-    /// Ultra-Advanced Single-File C# SDK (NativeAOT & Trimming Safe)
-    /// Features: Anti-Debug Guard, HMAC-SHA256 Response Signing, 45s Heartbeat Remote Kill
-    /// Initialization: new NullAuth(appId, secret, version)
-    /// </summary>
     public class NullAuth
     {
         public string AppId { get; }
@@ -430,15 +425,7 @@ namespace NullAuthClient
     }
 }`;
 
-const CPP_SDK = `// -------------------------------------------------------------
-// Null-Auth C++ Integration
-// 100% Standalone Single-File (WinINet HTTPS, WinCrypt HMAC-SHA256)
-// Features: Hardware HWID, Anti-Debug Guard (IsDebugger, HW Breakpoints),
-//           HMAC-SHA256 Response Signing, Real-Time Remote Kill Heartbeat (45s)
-// Compile with MSVC: cl /EHsc main.cpp /link wininet.lib advapi32.lib
-// Compile with MinGW: g++ -O2 main.cpp -lwininet -ladvapi32 -o app.exe
-// -------------------------------------------------------------
-#include <iostream>
+const CPP_SDK = `#include <iostream>
 #include <string>
 #include <windows.h>
 #include <wininet.h>
@@ -450,7 +437,6 @@ const CPP_SDK = `// ------------------------------------------------------------
 #pragma comment(lib, "advapi32.lib")
 
 namespace NullAuthClient {
-    // --- Anti-Debugging Guard ---
     inline bool CheckHardwareBreakpoints() {
         CONTEXT ctx;
         ZeroMemory(&ctx, sizeof(CONTEXT));
@@ -479,7 +465,6 @@ namespace NullAuthClient {
         }
     }
 
-    // --- WinCrypt SHA-256 and HMAC-SHA256 ---
     inline bool Sha256Raw(const BYTE* data, DWORD len, BYTE* out32) {
         HCRYPTPROV hProv = 0;
         HCRYPTHASH hHash = 0;
@@ -699,7 +684,6 @@ namespace NullAuthClient {
             InternetCloseHandle(hInternet);
 
             if (response.find("\\"success\\":true") != std::string::npos) {
-                // Verify HMAC Signature
                 std::string sig = ExtractJsonString(response, "signature");
                 std::string nonce = ExtractJsonString(response, "nonce");
                 long long timestamp = ExtractJsonLong(response, "timestamp");
@@ -726,7 +710,6 @@ namespace NullAuthClient {
                 userData.version = version;
                 userData.sessionToken = ExtractJsonString(response, "session_token");
 
-                // Launch heartbeat thread
                 g_hb.host = host;
                 g_hb.appId = appId;
                 g_hb.appSecret = secret;
@@ -740,21 +723,6 @@ namespace NullAuthClient {
             return false;
         }
     };
-}
-
-int main() {
-    NullAuthClient::CheckAntiDebug();
-    NullAuthClient::NullAuth auth("13026130", "YOUR_RAW_SECRET", "1.0.0");
-    std::cout << "Enter License Key: ";
-    std::string key;
-    std::cin >> key;
-    if (auth.License(key)) {
-        std::cout << "[+] Access Granted to " << auth.userData.clientName << "!" << std::endl;
-        std::cout << "[+] Days Remaining: " << auth.userData.remainingDays << std::endl;
-        std::cout << "[+] HMAC-SHA256: VERIFIED" << std::endl;
-        std::cout << "[+] 45s Heartbeat Remote Kill: RUNNING" << std::endl;
-    }
-    return 0;
 }`;
 
 const PYTHON_SDK = `import urllib.request, urllib.error, json, subprocess, ctypes, platform, hashlib, hmac, time, threading, sys, os
@@ -790,7 +758,6 @@ class UserData:
         self.session_token = str(data.get("session_token", "") or "")
 
 class NullAuth:
-    # Usage: auth = NullAuth(app_id="13026130", secret="YOUR_RAW_SECRET", version="1.0.0")
     def __init__(self, app_id: str, secret: str, version: str = "1.0.0", server_url: str = "https://nullauthbackend.vercel.app"):
         self.app_id = str(app_id).strip()
         self.secret = str(secret).strip()
@@ -800,7 +767,6 @@ class NullAuth:
 
     @staticmethod
     def get_hwid() -> str:
-        """Retrieves hardware-bound machine HWID (MachineGuid + C: Volume Serial) hashed with SHA-256."""
         if platform.system() == "Windows":
             machine_guid = ""
             vol_serial = ""
@@ -895,19 +861,7 @@ class NullAuth:
         except Exception as e:
             if show_msgbox and platform.system() == "Windows":
                 ctypes.windll.user32.MessageBoxW(0, str(e), "Null-Auth Network Error", 16)
-        return False
-
-if __name__ == "__main__":
-    check_anti_debug()
-    auth = NullAuth("13026130", "YOUR_RAW_SECRET", "1.0.0")
-    key = input("Enter License Key: ").strip()
-    if auth.license(key):
-        print(f"[+] Access Granted to {auth.user_data.client_name}!")
-        print(f"[+] Days Left: {auth.user_data.remaining_days}")
-        print("[+] HMAC-SHA256: VERIFIED")
-        print("[+] 45s Heartbeat Remote Kill: RUNNING")
-    else:
-        print("ACCESS DENIED!")`;
+        return False`;
 
 const HWID_POWERSHELL_CLIPBOARD = `$g = (Get-ItemProperty 'HKLM:\\SOFTWARE\\Microsoft\\Cryptography').MachineGuid; $v = (Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'").VolumeSerialNumber; $id = [BitConverter]::ToString([Security.Cryptography.SHA256]::Create().ComputeHash([Text.Encoding]::UTF8.GetBytes($g + ':' + $v))).Replace('-','').ToLower(); Set-Clipboard $id; Write-Host "HWID (Copied to Clipboard): $id" -ForegroundColor Green`;
 
