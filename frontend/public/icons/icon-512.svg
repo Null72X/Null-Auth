@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#14141d"/>
+      <stop offset="100%" stop-color="#070709"/>
+    </linearGradient>
+    <linearGradient id="redGlow" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ef4444"/>
+      <stop offset="100%" stop-color="#b91c1c"/>
+    </linearGradient>
+    <linearGradient id="shackleGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#cbd5e1"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="14" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+    <filter id="redPulse" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="10" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect width="504" height="504" x="4" y="4" rx="108" fill="none" stroke="rgba(239, 68, 68, 0.25)" stroke-width="4"/>
+
+  <!-- Glowing Accent Ring -->
+  <circle cx="256" cy="256" r="160" fill="none" stroke="rgba(239, 68, 68, 0.12)" stroke-width="32" filter="url(#glow)"/>
+
+  <!-- Centered Security Lock Icon -->
+  <g id="lock-icon">
+    <!-- Shackle (Arch) -->
+    <path d="M 198 245 V 180 A 58 58 0 0 1 314 180 V 245" 
+          fill="none" 
+          stroke="url(#shackleGrad)" 
+          stroke-width="26" 
+          stroke-linecap="round"/>
+
+    <!-- Lock Body Outer Shell (Glowing Red) -->
+    <rect x="146" y="235" width="220" height="165" rx="30" fill="url(#redGlow)" filter="url(#glow)"/>
+
+    <!-- Lock Body Inner Plate (Dark Cyber Surface) -->
+    <rect x="156" y="245" width="200" height="145" rx="22" fill="#121218" stroke="rgba(255, 255, 255, 0.12)" stroke-width="2"/>
+
+    <!-- Keyhole -->
+    <path d="M 256 288 A 15 15 0 0 1 268 310 L 264 332 A 4 4 0 0 1 260 336 L 252 336 A 4 4 0 0 1 248 332 L 244 310 A 15 15 0 0 1 256 288 Z" 
+          fill="#ef4444" 
+          filter="url(#redPulse)"/>
+    <circle cx="256" cy="303" r="6" fill="#f8fafc"/>
+  </g>
+
+  <!-- Verified Security Badge Dot -->
+  <circle cx="410" cy="102" r="18" fill="#22c55e"/>
+</svg>
