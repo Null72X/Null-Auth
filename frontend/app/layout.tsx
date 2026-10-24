@@ -3,8 +3,8 @@ import type { Metadata } from 'next';
 import { ParticlesBackground } from '@/components/ui/ParticlesBackground';
 
 export const metadata: Metadata = {
-  title: 'Null-Auth — Private Licensing Platform',
-  description: 'Private Admin Licensing & Authentication Dashboard',
+  title: 'Null Authentication',
+  description: 'Null Authentication',
   manifest: '/manifest.json',
   icons: {
     icon: '/icons/icon-192.svg',

@@ -1,7 +1,7 @@
 {
-  "name": "Null-Auth · Private Licensing Platform",
-  "short_name": "Null-Auth",
-  "description": "Private Admin Licensing & Authentication Dashboard",
+  "name": "Null Authentication",
+  "short_name": "Null Authentication",
+  "description": "Null Authentication",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#070709",

@@ -52,11 +52,8 @@ export default function LoginPage() {
             <span className="absolute inset-0 rounded-[7px] bg-red-500/20 blur-md opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
           <h1 className="text-2xl font-black text-white tracking-wide flex items-center gap-2">
-            Null-Auth <Sparkles className="w-4 h-4 text-red-500" />
+            Null Authentication <Sparkles className="w-4 h-4 text-red-500" />
           </h1>
-          <p className="text-xs text-zinc-400 mt-1 uppercase tracking-wider font-bold">
-            Private Admin Dashboard
-          </p>
         </div>
 
         {error && (
@@ -106,13 +103,13 @@ export default function LoginPage() {
           </div>
 
           <Button type="submit" isLoading={isLoading} className="w-full py-3.5 text-sm font-bold tracking-wide mt-2 shadow-xl shadow-red-950/60">
-            Log In to Null-Auth
+            Log In to Null Authentication
           </Button>
         </form>
 
         <div className="mt-8 pt-6 border-t border-zinc-800/80 text-center">
           <p className="text-[11px] text-zinc-500">
-            Protected Private Licensing & Authentication System &bull; Authorized Access Only
+            Authorized Access Only
           </p>
         </div>
       </div>

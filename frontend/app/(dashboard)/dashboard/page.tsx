@@ -233,7 +233,7 @@ export default function DashboardOverviewPage() {
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-400" />
-              <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Null-Auth Platform Active</span>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Null Authentication Active</span>
             </div>
             <h2 className="text-xl font-bold text-white tracking-tight">
               Welcome back, Administrator

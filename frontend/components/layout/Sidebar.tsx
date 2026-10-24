@@ -107,12 +107,9 @@ export function Sidebar() {
           <Shield className="w-4 h-4 transition-transform duration-300 group-hover:scale-110" />
         </div>
         <div className="min-w-0">
-          <span className="font-extrabold text-[15px] text-white tracking-wide flex items-center gap-1.5 font-sans leading-tight">
-            Null-Auth <Sparkles className="w-3.5 h-3.5 text-red-500 shrink-0" />
+          <span className="font-extrabold text-[13.5px] text-white tracking-wide flex items-center gap-1.5 font-sans leading-tight">
+            Null Authentication <Sparkles className="w-3.5 h-3.5 text-red-500 shrink-0" />
           </span>
-          <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-[8.5px] font-bold uppercase tracking-wider mt-0.5">
-            <span className="logo-badge-dot" /> Private Admin
-          </div>
         </div>
       </div>
 
