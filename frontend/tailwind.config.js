@@ -50,9 +50,13 @@ module.exports = {
           '0%': { opacity: '0', transform: 'scale(0.97)' },
           '100%': { opacity: '1', transform: 'scale(1)' },
         },
+        orbPulse: {
+          '0%, 100%': { opacity: '0.5', transform: 'scale(1)' },
+          '50%': { opacity: '0.85', transform: 'scale(1.08)' },
+        },
         pulseGlow: {
-          '0%, 100%': { opacity: '0.4', filter: 'drop-shadow(0 0 10px rgba(239, 68, 68, 0.5))' },
-          '50%': { opacity: '0.8', filter: 'drop-shadow(0 0 20px rgba(239, 68, 68, 0.8))' },
+          '0%, 100%': { opacity: '0.35', transform: 'scale(1)' },
+          '50%': { opacity: '0.85', transform: 'scale(1.15)' },
         },
         floatSlow: {
           '0%, 100%': { transform: 'translateY(0px) translateX(0px)', opacity: '0.3' },
@@ -68,6 +72,7 @@ module.exports = {
         'slide-up': 'slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards',
         'scale-in': 'scaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards',
         'pulse-glow': 'pulseGlow 3s ease-in-out infinite',
+        'orb-pulse': 'orbPulse 6s ease-in-out infinite',
         'float-slow': 'floatSlow 6s ease-in-out infinite',
         'float-medium': 'floatMedium 4s ease-in-out infinite',
       },

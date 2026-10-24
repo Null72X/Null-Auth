@@ -127,9 +127,14 @@ body::before {
 
 
 /* Atmospheric Floating Particles & Keyframes */
+@keyframes orbPulse {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.08); }
+}
+
 @keyframes pulseGlow {
-  0%, 100% { opacity: 0.4; filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.5)); }
-  50% { opacity: 0.8; filter: drop-shadow(0 0 20px rgba(239, 68, 68, 0.8)); }
+  0%, 100% { opacity: 0.35; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.15); }
 }
 
 @keyframes floatSlow {
