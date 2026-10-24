@@ -38,7 +38,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4 relative overflow-hidden select-none">
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden select-none">
       {/* Background Animated Glowing Mesh */}
       <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-red-600/15 rounded-full blur-[120px] pointer-events-none animate-pulse-glow" />
       <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] bg-red-950/30 rounded-full blur-[140px] pointer-events-none" />
