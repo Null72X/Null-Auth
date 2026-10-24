@@ -49,10 +49,10 @@ export function ParticlesBackground() {
 
   return (
     <div className="particles-container fixed inset-0 pointer-events-none z-0 overflow-hidden">
-      {/* Background Ambient Glow Orbs */}
-      <div className="absolute top-1/4 left-1/6 w-[450px] h-[450px] bg-red-600/10 rounded-full blur-[140px] pointer-events-none animate-pulse-glow" />
-      <div className="absolute bottom-1/4 right-1/6 w-[550px] h-[550px] bg-red-950/20 rounded-full blur-[160px] pointer-events-none" />
-      <div className="absolute top-2/3 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-purple-900/10 rounded-full blur-[150px] pointer-events-none" />
+      {/* Background Ambient Glow Orbs Matching Null-Gym & Null-Tools */}
+      <div className="glow-orb orb-1" />
+      <div className="glow-orb orb-2" />
+      <div className="glow-orb orb-3" />
 
       {/* 50 Floating Particles */}
       {particles.map((p) => (

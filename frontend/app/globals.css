@@ -158,3 +158,72 @@ body::before {
 .animate-pulse-glow {
   animation: pulseGlow 3s ease-in-out infinite;
 }
+
+
+/* Ambient Glow Orbs (Exact Null-Gym & Null-Tools Matching) */
+.particles-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.glow-orb {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  transform: translate3d(0, 0, 0);
+  will-change: opacity, transform;
+}
+
+.glow-orb.orb-1 {
+  top: 25%;
+  left: 16%;
+  width: 450px;
+  height: 450px;
+  background: rgba(220, 38, 38, 0.12);
+  filter: blur(140px);
+  -webkit-filter: blur(140px);
+  animation: orbPulse 6s ease-in-out infinite;
+}
+
+.glow-orb.orb-2 {
+  bottom: 25%;
+  right: 16%;
+  width: 550px;
+  height: 550px;
+  background: rgba(69, 10, 10, 0.20);
+  filter: blur(160px);
+  -webkit-filter: blur(160px);
+}
+
+.glow-orb.orb-3 {
+  top: 66%;
+  left: 50%;
+  transform: translateX(-50%) translate3d(0, 0, 0);
+  width: 600px;
+  height: 300px;
+  background: rgba(88, 28, 135, 0.10);
+  filter: blur(150px);
+  -webkit-filter: blur(150px);
+}
+
+/* Tool & Dashboard Panel Slide Animation (matching Null-Tools) */
+@keyframes panelSlide {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-panel-slide {
+  animation: panelSlide 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
