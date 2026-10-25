@@ -1415,7 +1415,7 @@ if (result) {
               onChange={(e) => setEditVersion(e.target.value)}
               required
               placeholder="e.g. 1.0.0"
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-[7px] px-3.5 py-2.5 text-sm font-mono text-amber-400 focus:outline-none focus:border-red-500"
+              className="w-full modal-input rounded-[8px] px-3.5 py-2.5 text-sm font-mono text-amber-400"
             />
           </div>
 
@@ -1428,7 +1428,7 @@ if (result) {
               value={editDownloadUrl}
               onChange={(e) => setEditDownloadUrl(e.target.value)}
               placeholder="https://example.com/downloads/v1.2.0.exe"
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-[7px] px-3.5 py-2.5 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-red-500"
+              className="w-full modal-input rounded-[8px] px-3.5 py-2.5 text-xs text-zinc-100 placeholder-zinc-500"
             />
             <p className="text-[11px] text-zinc-500 mt-1">
               Returned in error response when an outdated client attempts to log in.

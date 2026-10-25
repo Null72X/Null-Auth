@@ -454,7 +454,7 @@ export default function HwidPage() {
               onChange={(e) => setNewHwidString(e.target.value)}
               required
               placeholder="e.g. 43f3ef9ce386ba5ca3a97714c92346a2a4da153e0c1fbbc23e4d75234cdaff4b"
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2.5 text-xs font-mono text-purple-400 focus:outline-none focus:border-purple-500"
+              className="w-full modal-input rounded-lg px-3.5 py-2.5 text-xs font-mono text-purple-400"
             />
           </div>
 
@@ -487,7 +487,7 @@ export default function HwidPage() {
               value={extendDays}
               onChange={(e) => setExtendDays(parseInt(e.target.value, 10) || 0)}
               required
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2.5 text-sm text-zinc-100 focus:outline-none focus:border-purple-500"
+              className="w-full modal-input rounded-lg px-3.5 py-2.5 text-sm text-zinc-100"
             />
           </div>
 

@@ -577,7 +577,7 @@ export default function LicensesPage() {
               value={extendDays}
               onChange={(e) => setExtendDays(parseInt(e.target.value, 10) || 0)}
               required
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2.5 text-sm text-zinc-100 focus:outline-none focus:border-red-500"
+              className="w-full modal-input rounded-lg px-3.5 py-2.5 text-sm text-zinc-100"
             />
           </div>
 
@@ -611,7 +611,7 @@ export default function LicensesPage() {
               value={manualHwid}
               onChange={(e) => setManualHwid(e.target.value)}
               placeholder="Leave empty to clear binding (allow re-activation)"
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2.5 text-xs font-mono text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-red-500"
+              className="w-full modal-input rounded-lg px-3.5 py-2.5 text-xs font-mono text-zinc-100 placeholder-zinc-500"
             />
             <p className="text-[11px] text-zinc-500 mt-1">
               If left blank, the license binding will be reset, allowing the user to bind a new machine on next activation.

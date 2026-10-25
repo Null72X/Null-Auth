@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 interface ModalProps {
@@ -10,28 +11,52 @@ interface ModalProps {
   children: React.ReactNode;
   maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | 'full';
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | 'full';
+  className?: string;
 }
 
-export function Modal({ isOpen, onClose, title, children, maxWidth = 'md', size }: ModalProps) {
+export function Modal({
+  isOpen,
+  onClose,
+  title,
+  children,
+  maxWidth = 'md',
+  size,
+  className = '',
+}: ModalProps) {
+  const [mounted, setMounted] = useState(false);
+
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-      const mainEl = document.querySelector('main');
-      if (mainEl) mainEl.style.overflow = 'hidden';
-      window.addEventListener('keydown', handleKeyDown);
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const prevOverflow = document.body.style.overflow;
+    const prevPaddingRight = document.body.style.paddingRight;
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
     }
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
     return () => {
-      document.body.style.overflow = '';
-      const mainEl = document.querySelector('main');
-      if (mainEl) mainEl.style.overflow = '';
+      document.body.style.overflow = prevOverflow;
+      document.body.style.paddingRight = prevPaddingRight;
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  if (!mounted || !isOpen) return null;
 
   const effectiveSize = size || maxWidth;
   let widthClass = 'max-w-md';
@@ -45,25 +70,45 @@ export function Modal({ isOpen, onClose, title, children, maxWidth = 'md', size 
   if (effectiveSize === '6xl') widthClass = 'max-w-6xl';
   if (effectiveSize === 'full') widthClass = 'max-w-[95vw]';
 
-  return (
+  const modalElement = (
     <div
-      onWheel={(e) => e.stopPropagation()}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-xl animate-fade-in"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      className="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-md animate-fade-in"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
     >
       <div
-        className={`w-full ${widthClass} bg-zinc-950/95 border border-zinc-800/90 rounded-[14px] shadow-2xl overflow-hidden flex flex-col max-h-[92vh] animate-scale-in border-red-500/20`}
+        className={`w-full ${widthClass} bg-[#0c0c12] border border-white/15 rounded-[16px] shadow-[0_25px_80px_rgba(0,0,0,0.95)] overflow-hidden flex flex-col max-h-[90vh] animate-scale-in relative ${className}`}
+        onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800/80 bg-zinc-900/60 shrink-0">
+        {/* Subtle accent line on top */}
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-red-500/50 to-transparent pointer-events-none" />
+
+        {/* Modal Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#12121a] shrink-0">
           <h3 className="text-base font-bold text-zinc-100 font-sans tracking-wide">{title}</h3>
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 rounded-[8px] text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/80 transition-colors border border-transparent hover:border-zinc-700"
+            className="p-1.5 rounded-[8px] text-zinc-400 hover:text-white hover:bg-white/10 transition-colors border border-transparent hover:border-white/15 cursor-pointer"
+            aria-label="Close dialog"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
-        <div className="p-6 flex-1 flex flex-col min-h-0 overflow-y-auto custom-scrollbar">{children}</div>
+
+        {/* Modal Content */}
+        <div className="p-6 flex-1 flex flex-col min-h-0 overflow-y-auto custom-scrollbar">
+          {children}
+        </div>
       </div>
     </div>
   );
+
+  return createPortal(modalElement, document.body);
 }
