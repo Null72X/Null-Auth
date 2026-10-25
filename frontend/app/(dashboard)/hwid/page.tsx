@@ -228,7 +228,7 @@ export default function HwidPage() {
               placeholder="Search by Hardware ID (HWID) or Client Name..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-zinc-900/80 border border-zinc-800 rounded-lg pl-10 pr-4 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-700"
+              className="w-full modal-input rounded-lg pl-10 pr-4 py-2 text-sm text-zinc-100 placeholder-zinc-500"
             />
           </div>
 
@@ -236,7 +236,7 @@ export default function HwidPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-zinc-900/80 border border-zinc-800 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-200 focus:outline-none focus:border-zinc-700"
+              className="modal-input rounded-lg px-3 py-2 text-xs font-semibold text-zinc-200"
             >
               <option value="">All Statuses</option>
               <option value="ACTIVE">Active</option>
@@ -248,7 +248,7 @@ export default function HwidPage() {
             <select
               value={appFilter}
               onChange={(e) => setAppFilter(e.target.value)}
-              className="bg-zinc-900/80 border border-zinc-800 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-200 focus:outline-none focus:border-zinc-700"
+              className="modal-input rounded-lg px-3 py-2 text-xs font-semibold text-zinc-200"
             >
               <option value="">All HWID Applications</option>
               {apps
@@ -349,7 +349,7 @@ export default function HwidPage() {
                         <button
                           onClick={() => setItemToEdit(item)}
                           title="Edit HWID Record"
-                          className="p-1.5 rounded-md bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white transition-colors border border-zinc-800 flex items-center gap-1 font-semibold text-xs active:scale-95"
+                          className="btn-action"
                         >
                           <Edit2 className="w-3.5 h-3.5 text-purple-400" />
                           <span className="hidden sm:inline text-[11px]">Edit</span>
@@ -361,7 +361,7 @@ export default function HwidPage() {
                             setNewHwidString(item.hwidHash);
                           }}
                           title="Change HWID String"
-                          className="p-1.5 rounded-md bg-zinc-900 hover:bg-zinc-800 text-purple-400 hover:text-purple-300 transition-colors border border-zinc-800 active:scale-95"
+                          className="btn-action btn-action-amber"
                         >
                           <RotateCcw className="w-3.5 h-3.5" />
                         </button>
@@ -369,7 +369,7 @@ export default function HwidPage() {
                         <button
                           onClick={() => setItemToExtend(item)}
                           title="Add / Remove Days"
-                          className="p-1.5 rounded-md bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors border border-zinc-800 active:scale-95"
+                          className="btn-action"
                         >
                           <Calendar className="w-3.5 h-3.5" />
                         </button>
@@ -382,7 +382,7 @@ export default function HwidPage() {
                             )
                           }
                           title={item.status === 'PAUSED' ? 'Resume' : 'Pause'}
-                          className="p-1.5 rounded-md bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors border border-zinc-800 active:scale-95"
+                          className="btn-action"
                         >
                           {item.status === 'PAUSED' ? (
                             <Play className="w-3.5 h-3.5 text-emerald-400" />
@@ -399,7 +399,7 @@ export default function HwidPage() {
                             )
                           }
                           title={item.status === 'BANNED' ? 'Unban' : 'Ban'}
-                          className="p-1.5 rounded-md bg-zinc-900 hover:bg-zinc-800 text-red-400 hover:text-red-300 transition-colors border border-zinc-800 active:scale-95"
+                          className="btn-action btn-action-danger"
                         >
                           <Ban className="w-3.5 h-3.5" />
                         </button>
@@ -407,7 +407,7 @@ export default function HwidPage() {
                         <button
                           onClick={() => setItemToDelete(item)}
                           title="Delete HWID Access"
-                          className="p-1.5 rounded-md bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors border border-red-500/20 active:scale-95"
+                          className="btn-action btn-action-danger"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>

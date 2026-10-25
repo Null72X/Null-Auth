@@ -1227,7 +1227,7 @@ if __name__ == "__main__":
         </div>
 
         {/* Tab Selection */}
-        <div className="flex items-center gap-1.5 p-1 bg-zinc-950 border border-zinc-800/80 rounded-[8px] overflow-x-auto">
+        <div className="flex items-center gap-1.5 p-1 bg-white/[0.04] border border-white/10 rounded-[8px] overflow-x-auto">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -1237,8 +1237,8 @@ if __name__ == "__main__":
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-[6px] text-xs font-semibold whitespace-nowrap transition-all ${
                   isActive
-                    ? 'bg-zinc-800 text-white shadow-sm border border-zinc-700'
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
+                    ? 'bg-white/[0.14] text-white shadow-sm border border-white/25'
+                    : 'text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.06]'
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" />
@@ -1257,27 +1257,27 @@ if __name__ == "__main__":
             </span>
             <div className="flex items-center gap-2">
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={handleSelectAll}
-                className="h-7 px-2.5 text-xs gap-1.5 bg-zinc-900 border-zinc-700 hover:bg-zinc-800 text-zinc-300"
+                className="h-7 px-2.5 text-xs gap-1.5 font-bold"
               >
                 Select All
               </Button>
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={handleDownload}
-                className="h-7 px-2.5 text-xs gap-1.5 bg-zinc-900 border-zinc-700 hover:bg-zinc-800 text-zinc-300"
+                className="h-7 px-2.5 text-xs gap-1.5 font-bold"
               >
                 <Download className="w-3.5 h-3.5" />
                 Download
               </Button>
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={handleCopy}
-                className="h-7 px-2.5 text-xs gap-1.5 bg-zinc-900 border-zinc-700 hover:bg-zinc-800 text-zinc-200"
+                className="h-7 px-2.5 text-xs gap-1.5 font-bold"
               >
                 {copied ? (
                   <>
@@ -1308,9 +1308,9 @@ if __name__ == "__main__":
         </div>
 
         {/* Modal Footer */}
-        <div className="flex justify-end pt-2">
-          <Button variant="outline" onClick={onClose}>
-            Done
+        <div className="flex justify-end pt-2 border-t border-white/10">
+          <Button variant="secondary" onClick={onClose}>
+            Done & Close
           </Button>
         </div>
       </div>

@@ -3,36 +3,18 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
-import { Badge } from '../ui/Badge';
 import { fetchApi } from '@/lib/api';
 import {
   Key,
+  Copy,
+  Check,
   Calendar,
-  User,
   Shield,
   RotateCcw,
-  Check,
   Sparkles,
   AlertCircle,
-  Copy,
+  Tag,
 } from 'lucide-react';
-
-export interface LicenseItem {
-  id: string;
-  key: string;
-  appId?: string;
-  status: 'ACTIVE' | 'PAUSED' | 'EXPIRED' | 'BANNED' | string;
-  effectiveStatus?: string;
-  boundHwid?: string | null;
-  expiresAt: string;
-  clientName?: string | null;
-  remainingDays?: number;
-  firstActivatedAt?: string | null;
-  lastLoginAt?: string | null;
-  createdAt?: string;
-  application?: any;
-  [key: string]: any;
-}
 
 interface EditLicenseModalProps {
   isOpen: boolean;
@@ -53,36 +35,39 @@ export function EditLicenseModal({
   const [expiresAt, setExpiresAt] = useState('');
   const [boundHwid, setBoundHwid] = useState('');
   const [isHwidReset, setIsHwidReset] = useState(false);
+
+  const [copiedKey, setCopiedKey] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [copiedKey, setCopiedKey] = useState(false);
 
   useEffect(() => {
     if (license && isOpen) {
-      setKey(license.key);
+      setKey(license.key || '');
       setClientName(license.clientName || '');
-      setStatus(license.status);
-      setIsHwidReset(false);
+      setStatus(license.status || 'ACTIVE');
       setBoundHwid(license.boundHwid || '');
+      setIsHwidReset(false);
       setError(null);
+      setCopiedKey(false);
 
-      // Convert ISO date to datetime-local input format: YYYY-MM-DDTHH:mm
-      try {
+      if (license.expiresAt) {
         const d = new Date(license.expiresAt);
-        const pad = (n: number) => n.toString().padStart(2, '0');
-        const formatted = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-        setExpiresAt(formatted);
-      } catch {
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const localIso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+          d.getHours()
+        )}:${pad(d.getMinutes())}`;
+        setExpiresAt(localIso);
+      } else {
         setExpiresAt('');
       }
     }
   }, [license, isOpen]);
 
-  const addDaysToExpiry = (days: number) => {
-    const base = expiresAt ? new Date(expiresAt) : new Date();
-    base.setDate(base.getDate() + days);
-    const pad = (n: number) => n.toString().padStart(2, '0');
-    setExpiresAt(`${base.getFullYear()}-${pad(base.getMonth() + 1)}-${pad(base.getDate())}T${pad(base.getHours())}:${pad(base.getMinutes())}`);
+  const handleCopyKey = () => {
+    if (!key) return;
+    navigator.clipboard.writeText(key);
+    setCopiedKey(true);
+    setTimeout(() => setCopiedKey(false), 2000);
   };
 
   const handleResetHwid = () => {
@@ -90,11 +75,16 @@ export function EditLicenseModal({
     setIsHwidReset(true);
   };
 
-  const handleCopyKey = () => {
-    if (!key) return;
-    navigator.clipboard.writeText(key);
-    setCopiedKey(true);
-    setTimeout(() => setCopiedKey(false), 2000);
+  const addDaysToExpiry = (daysToAdd: number) => {
+    const current = expiresAt ? new Date(expiresAt) : new Date();
+    const base = current < new Date() ? new Date() : current;
+    base.setDate(base.getDate() + daysToAdd);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    setExpiresAt(
+      `${base.getFullYear()}-${pad(base.getMonth() + 1)}-${pad(base.getDate())}T${pad(
+        base.getHours()
+      )}:${pad(base.getMinutes())}`
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -143,25 +133,24 @@ export function EditLicenseModal({
 
         {/* License Key & Copy */}
         <div>
-          <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-            <span>License Key</span>
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">License Key</span>
             <button
               type="button"
               onClick={handleCopyKey}
-              className="text-[11px] font-mono text-zinc-400 hover:text-white flex items-center gap-1 transition-colors"
+              className="btn-action text-[11px]"
             >
               {copiedKey ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-              {copiedKey ? 'Copied' : 'Copy Key'}
+              <span>{copiedKey ? 'Copied' : 'Copy Key'}</span>
             </button>
-          </label>
+          </div>
           <div className="relative">
             <input
               type="text"
               value={key}
               onChange={(e) => setKey(e.target.value)}
               required
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-[10px] px-3.5 py-2.5 text-sm font-mono text-red-400 font-bold focus:outline-none focus:border-red-500 transition-colors"
-              placeholder="NULL-XXXX-XXXX-XXXX"
+              className="w-full modal-input rounded-[10px] px-3.5 py-2.5 text-sm font-mono font-bold text-red-400"
             />
           </div>
         </div>
@@ -169,28 +158,28 @@ export function EditLicenseModal({
         {/* Client Name */}
         <div>
           <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-            <User className="w-3.5 h-3.5 text-zinc-400" /> Client Name / Customer
+            <Tag className="w-3.5 h-3.5 text-zinc-400" /> Client Name / Reference
           </label>
           <input
             type="text"
             value={clientName}
             onChange={(e) => setClientName(e.target.value)}
-            placeholder="e.g. Alex / DiscordUser#1234 / Customer Name"
-            className="w-full bg-zinc-950 border border-zinc-800 rounded-[10px] px-3.5 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-red-500 transition-colors"
+            placeholder="e.g. John Doe / discord_user / Order #104"
+            className="w-full modal-input rounded-[10px] px-3.5 py-2.5 text-sm text-zinc-100 placeholder-zinc-500"
           />
         </div>
 
-        {/* License Status Selector */}
+        {/* Status Selector */}
         <div>
           <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-            <Shield className="w-3.5 h-3.5 text-zinc-400" /> License Status
+            <Shield className="w-3.5 h-3.5 text-zinc-400" /> License State
           </label>
           <div className="grid grid-cols-4 gap-2">
             {[
-              { id: 'ACTIVE', label: 'Active', color: 'border-emerald-500/50 bg-emerald-950/30 text-emerald-400' },
-              { id: 'PAUSED', label: 'Paused', color: 'border-amber-500/50 bg-amber-950/30 text-amber-400' },
-              { id: 'EXPIRED', label: 'Expired', color: 'border-zinc-700 bg-zinc-900 text-zinc-400' },
-              { id: 'BANNED', label: 'Banned', color: 'border-red-500/50 bg-red-950/30 text-red-400' },
+              { id: 'ACTIVE', label: 'Active', activeClass: 'border-emerald-500/70 bg-emerald-950/50 text-emerald-300 ring-1 ring-emerald-500/40' },
+              { id: 'PAUSED', label: 'Paused', activeClass: 'border-amber-500/70 bg-amber-950/50 text-amber-300 ring-1 ring-amber-500/40' },
+              { id: 'EXPIRED', label: 'Expired', activeClass: 'border-white/20 bg-white/10 text-zinc-200 ring-1 ring-white/20' },
+              { id: 'BANNED', label: 'Banned', activeClass: 'border-red-500/70 bg-red-950/50 text-red-300 ring-1 ring-red-500/40' },
             ].map((s) => (
               <button
                 key={s.id}
@@ -198,8 +187,8 @@ export function EditLicenseModal({
                 onClick={() => setStatus(s.id as any)}
                 className={`py-2 px-2.5 rounded-[8px] text-xs font-bold border transition-all text-center ${
                   status === s.id
-                    ? `${s.color} ring-1 ring-white/20 font-extrabold shadow-sm`
-                    : 'border-zinc-800/80 bg-zinc-950/60 text-zinc-400 hover:border-zinc-700'
+                    ? `${s.activeClass} font-extrabold shadow-sm`
+                    : 'border-white/10 bg-white/[0.04] text-zinc-400 hover:border-white/25 hover:text-white'
                 }`}
               >
                 {s.label}
@@ -218,10 +207,10 @@ export function EditLicenseModal({
             value={expiresAt}
             onChange={(e) => setExpiresAt(e.target.value)}
             required
-            className="w-full bg-zinc-950 border border-zinc-800 rounded-[10px] px-3.5 py-2.5 text-sm font-mono text-zinc-200 focus:outline-none focus:border-red-500 transition-colors"
+            className="w-full modal-input rounded-[10px] px-3.5 py-2.5 text-sm font-mono text-zinc-200"
           />
           <div className="flex flex-wrap items-center gap-1.5 mt-2">
-            <span className="text-[11px] text-zinc-500 font-mono mr-1">Extend:</span>
+            <span className="text-[11px] text-zinc-400 font-mono mr-1">Extend:</span>
             {[
               { label: '+1 Day', days: 1 },
               { label: '+7 Days', days: 7 },
@@ -234,7 +223,7 @@ export function EditLicenseModal({
                 key={preset.label}
                 type="button"
                 onClick={() => addDaysToExpiry(preset.days)}
-                className="px-2.5 py-1 rounded-[6px] text-[11px] font-mono font-medium bg-zinc-900 border border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:text-white transition-all"
+                className="btn-preset text-[11px] py-1 px-2.5"
               >
                 {preset.label}
               </button>
@@ -243,7 +232,7 @@ export function EditLicenseModal({
         </div>
 
         {/* Bound Hardware Identifier (HWID) */}
-        <div className="p-3.5 rounded-[10px] bg-zinc-950/80 border border-zinc-800/80 space-y-2">
+        <div className="p-3.5 rounded-[10px] bg-zinc-950/80 border border-white/10 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
               Bound Hardware ID (HWID)
@@ -252,7 +241,7 @@ export function EditLicenseModal({
               <button
                 type="button"
                 onClick={handleResetHwid}
-                className="px-2.5 py-1 rounded-[6px] bg-amber-950/40 hover:bg-amber-900/60 text-amber-300 border border-amber-800/60 text-[11px] font-bold flex items-center gap-1 transition-all"
+                className="btn-action btn-action-amber text-[11px] font-bold"
               >
                 <RotateCcw className="w-3 h-3" /> Reset / Unbind HWID
               </button>
@@ -260,18 +249,18 @@ export function EditLicenseModal({
           </div>
 
           {boundHwid ? (
-            <div className="p-2 rounded-[8px] bg-zinc-900 border border-zinc-800 font-mono text-xs text-zinc-300 break-all select-all">
+            <div className="p-2 rounded-[8px] bg-white/[0.04] border border-white/10 font-mono text-xs text-zinc-300 break-all select-all">
               {boundHwid}
             </div>
           ) : (
-            <div className="flex items-center gap-2 text-xs text-zinc-500 italic py-1">
+            <div className="flex items-center gap-2 text-xs text-zinc-400 italic py-1">
               <span className="w-2 h-2 rounded-full bg-zinc-600" />
               <span>{isHwidReset ? 'HWID unbind staged — device lock will be cleared on save.' : 'Not bound to any hardware yet. Automatically locks to the client machine on first login.'}</span>
             </div>
           )}
         </div>
 
-        <div className="flex justify-end gap-3 pt-3 border-t border-zinc-800/80">
+        <div className="flex justify-end gap-3 pt-3 border-t border-white/10">
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancel
           </Button>

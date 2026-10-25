@@ -4,12 +4,24 @@ import React, { useState, useEffect } from 'react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { fetchApi } from '@/lib/api';
-import { Users, User, Lock, Clock, Tag, Eye, EyeOff, Sparkles, Copy, Check, CheckCircle2, Key } from 'lucide-react';
+import {
+  User,
+  Lock,
+  Clock,
+  Tag,
+  Copy,
+  Check,
+  Eye,
+  EyeOff,
+  Sparkles,
+  CheckCircle2,
+  Key,
+} from 'lucide-react';
 
 interface CreateUserModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (targetAppId: string) => void;
   apps: any[];
   defaultAppId?: string;
 }
@@ -25,70 +37,94 @@ export function CreateUserModal({
   const [appId, setAppId] = useState(defaultAppId || '');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [days, setDays] = useState(30);
   const [clientName, setClientName] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Success view state
   const [createdAccount, setCreatedAccount] = useState<{
+    id: string;
     username: string;
     password: string;
-    days: number;
-    clientName?: string;
-    appName?: string;
+    expiresAt: string;
+    appName: string;
   } | null>(null);
-  const [copiedField, setCopiedField] = useState<'user' | 'pass' | 'combo' | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
-  const copyToClipboard = (text: string, field: 'user' | 'pass' | 'combo') => {
+  useEffect(() => {
+    if (isOpen) {
+      setError(null);
+      setCreatedAccount(null);
+      setUsername('');
+      setPassword('');
+      setDays(30);
+      setClientName('');
+      setShowPassword(false);
+      setCopiedField(null);
+
+      if (defaultAppId && userApps.some((a) => a.id === defaultAppId)) {
+        setAppId(defaultAppId);
+      } else if (userApps.length > 0 && !appId) {
+        setAppId(userApps[0].id);
+      }
+    }
+  }, [isOpen, apps, defaultAppId]);
+
+  const generateRandomPassword = () => {
+    const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%&*';
+    let res = '';
+    for (let i = 0; i < 12; i++) {
+      res += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setPassword(res);
+    setShowPassword(true);
+  };
+
+  const copyToClipboard = (text: string, field: string) => {
     navigator.clipboard.writeText(text);
     setCopiedField(field);
     setTimeout(() => setCopiedField(null), 2000);
   };
 
-  const generateRandomPassword = () => {
-    const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%';
-    let result = '';
-    for (let i = 0; i < 12; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    setPassword(result);
-    setShowPassword(true);
+  const copyFullCredentials = () => {
+    if (!createdAccount) return;
+    const text = `Username: ${createdAccount.username}\nPassword: ${createdAccount.password}\nExpires: ${new Date(
+      createdAccount.expiresAt
+    ).toLocaleDateString()}\nApp: ${createdAccount.appName}`;
+    navigator.clipboard.writeText(text);
+    setCopiedField('all');
+    setTimeout(() => setCopiedField(null), 2000);
   };
-
-  useEffect(() => {
-    if (isOpen) {
-      setError(null);
-      setUsername('');
-      setPassword('');
-      setShowPassword(false);
-      setClientName('');
-      setDays(30);
-      setCreatedAccount(null);
-      setCopiedField(null);
-      if (defaultAppId && userApps.some((a) => a.id === defaultAppId)) {
-        setAppId(defaultAppId);
-      } else if (userApps.length > 0) {
-        setAppId(userApps[0].id);
-      }
-    }
-  }, [isOpen, defaultAppId, apps]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!appId) {
-      setError('Please select a target application');
+    setError(null);
+
+    const targetAppId = appId || (userApps.length > 0 ? userApps[0].id : '');
+    if (!targetAppId) {
+      setError('Please select a User-Auth application first.');
+      return;
+    }
+
+    if (!username.trim()) {
+      setError('Username is required.');
+      return;
+    }
+
+    if (!password.trim() || password.length < 4) {
+      setError('Password must be at least 4 characters long.');
       return;
     }
 
     setIsLoading(true);
-    setError(null);
 
     try {
       const res = await fetchApi('/admin/users', {
         method: 'POST',
         body: JSON.stringify({
-          appId,
+          appId: targetAppId,
           username: username.trim(),
           password: password.trim(),
           days: Number(days),
@@ -96,16 +132,16 @@ export function CreateUserModal({
         }),
       });
 
-      if (res.success) {
-        onSuccess();
-        const appObj = userApps.find((a) => a.id === appId);
+      if (res.success && res.data) {
+        const selectedAppObj = userApps.find((a) => a.id === targetAppId);
         setCreatedAccount({
+          id: res.data.id || Math.random().toString(),
           username: username.trim(),
           password: password.trim(),
-          days: Number(days),
-          clientName: clientName.trim() || undefined,
-          appName: appObj?.name || 'User-Auth Application',
+          expiresAt: res.data.expiresAt || new Date().toISOString(),
+          appName: selectedAppObj?.name || 'Application',
         });
+        onSuccess(targetAppId);
       } else {
         setError(res.message || 'Failed to create user account');
       }
@@ -128,9 +164,9 @@ export function CreateUserModal({
             </p>
           </div>
 
-          <div className="bg-zinc-950 p-4 rounded-xl border border-zinc-800 space-y-3 text-xs">
+          <div className="bg-zinc-950/80 p-4 rounded-xl border border-white/10 space-y-3 text-xs">
             {/* Username Row */}
-            <div className="flex items-center justify-between gap-3 p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800/80">
+            <div className="flex items-center justify-between gap-3 p-2.5 rounded-lg bg-white/[0.04] border border-white/10">
               <div className="flex items-center gap-2">
                 <User className="w-4 h-4 text-cyan-400 shrink-0" />
                 <span className="text-zinc-400 text-[11px] uppercase font-bold">Username:</span>
@@ -139,19 +175,20 @@ export function CreateUserModal({
               <button
                 type="button"
                 onClick={() => copyToClipboard(createdAccount.username, 'user')}
-                className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
+                className="btn-action"
                 title="Copy Username"
               >
                 {copiedField === 'user' ? (
-                  <Check className="w-4 h-4 text-emerald-400" />
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
                 ) : (
-                  <Copy className="w-4 h-4" />
+                  <Copy className="w-3.5 h-3.5" />
                 )}
+                <span>{copiedField === 'user' ? 'Copied' : 'Copy'}</span>
               </button>
             </div>
 
             {/* Password Row */}
-            <div className="flex items-center justify-between gap-3 p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800/80">
+            <div className="flex items-center justify-between gap-3 p-2.5 rounded-lg bg-white/[0.04] border border-white/10">
               <div className="flex items-center gap-2">
                 <Key className="w-4 h-4 text-amber-400 shrink-0" />
                 <span className="text-zinc-400 text-[11px] uppercase font-bold">Password:</span>
@@ -160,74 +197,60 @@ export function CreateUserModal({
               <button
                 type="button"
                 onClick={() => copyToClipboard(createdAccount.password, 'pass')}
-                className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
+                className="btn-action"
                 title="Copy Password"
               >
                 {copiedField === 'pass' ? (
-                  <Check className="w-4 h-4 text-emerald-400" />
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
                 ) : (
-                  <Copy className="w-4 h-4" />
+                  <Copy className="w-3.5 h-3.5" />
                 )}
+                <span>{copiedField === 'pass' ? 'Copied' : 'Copy'}</span>
               </button>
             </div>
 
-            {/* One-click user:pass combo */}
-            <div className="p-3 rounded-lg bg-cyan-950/20 border border-cyan-900/40 space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-cyan-400 uppercase tracking-wider">
-                  One-Click Combo (user:pass):
+            {/* Expiry Row */}
+            <div className="flex items-center justify-between gap-3 p-2.5 rounded-lg bg-white/[0.04] border border-white/10">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-purple-400 shrink-0" />
+                <span className="text-zinc-400 text-[11px] uppercase font-bold">Expires:</span>
+                <span className="font-mono text-zinc-300">
+                  {days >= 9999 ? 'Lifetime Access' : new Date(createdAccount.expiresAt).toLocaleDateString()}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => copyToClipboard(`${createdAccount.username}:${createdAccount.password}`, 'combo')}
-                  className="inline-flex items-center gap-1 text-[11px] font-bold text-cyan-300 hover:text-cyan-100 hover:underline"
-                >
-                  {copiedField === 'combo' ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-400" />
-                      <span className="text-emerald-400">Copied!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5" />
-                      <span>Copy Credentials</span>
-                    </>
-                  )}
-                </button>
               </div>
-              <code className="block p-2 rounded bg-black/60 border border-cyan-800/40 text-cyan-300 font-mono text-xs select-all break-all">
-                {createdAccount.username}:{createdAccount.password}
-              </code>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 text-[11px] text-zinc-400 pt-1">
-              <div>
-                <span className="font-bold text-zinc-500">Duration:</span> {createdAccount.days} Days
-              </div>
-              {createdAccount.clientName && (
-                <div>
-                  <span className="font-bold text-zinc-500">Client:</span> {createdAccount.clientName}
-                </div>
-              )}
+              <span className="text-[11px] font-bold text-emerald-400">
+                {days >= 9999 ? 'No Expiry' : `${days} Days`}
+              </span>
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-3 border-t border-zinc-800">
+          <div className="flex items-center justify-between pt-2">
             <Button
               type="button"
               variant="secondary"
-              onClick={() => {
-                setCreatedAccount(null);
-                setUsername('');
-                setPassword('');
-                setShowPassword(false);
-              }}
+              onClick={copyFullCredentials}
+              className="gap-1.5 text-xs"
             >
-              Create Another
+              {copiedField === 'all' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+              {copiedField === 'all' ? 'Copied Everything!' : 'Copy Credentials'}
             </Button>
-            <Button type="button" onClick={onClose}>
-              Done
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setCreatedAccount(null);
+                  setUsername('');
+                  setPassword('');
+                  setShowPassword(false);
+                }}
+              >
+                Create Another
+              </Button>
+              <Button type="button" onClick={onClose}>
+                Done
+              </Button>
+            </div>
           </div>
         </div>
       ) : (
@@ -246,11 +269,11 @@ export function CreateUserModal({
               value={appId}
               onChange={(e) => setAppId(e.target.value)}
               required
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2.5 text-sm text-zinc-100 focus:outline-none focus:border-red-500/80 transition-colors"
+              className="w-full modal-input rounded-lg px-3 py-2.5 text-sm text-zinc-100"
             >
-              <option value="" disabled>Select User-Auth Application</option>
+              <option value="" disabled className="bg-zinc-900 text-zinc-400">Select User-Auth Application</option>
               {userApps.map((app) => (
-                <option key={app.id} value={app.id}>
+                <option key={app.id} value={app.id} className="bg-zinc-900 text-zinc-100">
                   {app.name} ({app.appId})
                 </option>
               ))}
@@ -276,7 +299,7 @@ export function CreateUserModal({
                 onChange={(e) => setUsername(e.target.value)}
                 required
                 placeholder="e.g. john_doe"
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg pl-9 pr-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-red-500/80 transition-colors"
+                className="w-full modal-input rounded-lg pl-9 pr-3 py-2 text-sm text-zinc-100 placeholder-zinc-500"
               />
             </div>
           </div>
@@ -289,9 +312,9 @@ export function CreateUserModal({
               <button
                 type="button"
                 onClick={generateRandomPassword}
-                className="text-[11px] font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1 transition-colors"
+                className="btn-action btn-action-amber text-[11px]"
               >
-                <Sparkles className="w-3 h-3" /> Generate Password
+                <Sparkles className="w-3 h-3 text-amber-400" /> Generate Password
               </button>
             </div>
             <div className="relative">
@@ -304,7 +327,7 @@ export function CreateUserModal({
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 placeholder="••••••••••••"
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg pl-9 pr-10 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-red-500/80 transition-colors font-mono"
+                className="w-full modal-input rounded-lg pl-9 pr-10 py-2 text-sm text-zinc-100 placeholder-zinc-500 font-mono"
               />
               <button
                 type="button"
@@ -333,7 +356,7 @@ export function CreateUserModal({
                   value={days}
                   onChange={(e) => setDays(Number(e.target.value))}
                   required
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg pl-9 pr-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-red-500/80 transition-colors"
+                  className="w-full modal-input rounded-lg pl-9 pr-3 py-2 text-sm text-zinc-100 font-mono font-bold text-amber-400"
                 />
               </div>
             </div>
@@ -351,7 +374,7 @@ export function CreateUserModal({
                   value={clientName}
                   onChange={(e) => setClientName(e.target.value)}
                   placeholder="Optional customer name"
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg pl-9 pr-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-red-500/80 transition-colors"
+                  className="w-full modal-input rounded-lg pl-9 pr-3 py-2 text-sm text-zinc-100 placeholder-zinc-500"
                 />
               </div>
             </div>
@@ -362,7 +385,7 @@ export function CreateUserModal({
             <span className="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-2">
               Quick Duration Presets
             </span>
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-2">
               {[
                 { label: '1 Day', value: 1 },
                 { label: '7 Days', value: 7 },
@@ -375,11 +398,7 @@ export function CreateUserModal({
                   key={preset.label}
                   type="button"
                   onClick={() => setDays(preset.value)}
-                  className={`px-3 py-1 rounded-[8px] text-xs font-mono font-bold border transition-all ${
-                    days === preset.value
-                      ? 'bg-red-950 text-red-400 border-red-700 shadow-sm'
-                      : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:text-zinc-200 hover:border-zinc-700'
-                  }`}
+                  className={`btn-preset ${days === preset.value ? 'active' : ''}`}
                 >
                   {preset.label}
                 </button>
@@ -387,7 +406,7 @@ export function CreateUserModal({
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
+          <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
             <Button type="button" variant="secondary" onClick={onClose}>
               Cancel
             </Button>

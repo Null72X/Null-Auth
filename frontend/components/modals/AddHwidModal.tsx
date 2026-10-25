@@ -10,12 +10,20 @@ import {
   Copy,
   Check,
   Download,
-  Clock,
+  Sparkles,
   AlertCircle,
-  Plus,
+  HelpCircle,
+  Terminal,
 } from 'lucide-react';
 
-interface AuthorizedHwidItem {
+interface AppOption {
+  id: string;
+  appId: string;
+  name: string;
+  type: string;
+}
+
+interface AuthorizedHwid {
   id: string;
   hwid: string;
   hwidHash: string;
@@ -26,7 +34,7 @@ interface AuthorizedHwidItem {
 interface AddHwidModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (targetAppId?: string) => void;
+  onSuccess: (targetAppId: string) => void;
   apps: any[];
   defaultAppId?: string;
 }
@@ -46,8 +54,8 @@ export function AddHwidModal({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Success Results View State
-  const [authorizedItem, setAuthorizedItem] = useState<AuthorizedHwidItem | null>(null);
+  // Authorized Result State
+  const [authorizedItem, setAuthorizedItem] = useState<AuthorizedHwid | null>(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -55,8 +63,10 @@ export function AddHwidModal({
       setAuthorizedItem(null);
       setError(null);
       setCopied(false);
-      setClientName('');
       setHwid('');
+      setClientName('');
+      setDays(30);
+
       if (defaultAppId && hwidApps.some((a) => a.id === defaultAppId)) {
         setAppId(defaultAppId);
       } else if (hwidApps.length > 0 && !appId) {
@@ -138,9 +148,11 @@ export function AddHwidModal({
 
   const downloadTxtFile = () => {
     if (!authorizedItem) return;
-    const allText = `NullAuth HWID Whitelist Authorization\n===================================\nHWID: ${authorizedItem.hwid}\nHash: ${authorizedItem.hwidHash}\nExpires: ${authorizedItem.expiresAt}\nClient: ${authorizedItem.clientName || 'Unassigned'}\nGenerated: ${new Date().toISOString()}`;
+    const content = `NullAuth Machine HWID Authorization\n\nHWID: ${authorizedItem.hwid}\nExpires: ${new Date(
+      authorizedItem.expiresAt
+    ).toLocaleDateString()}\nClient: ${authorizedItem.clientName || 'N/A'}\nAuthorized At: ${new Date().toISOString()}`;
     const element = document.createElement('a');
-    const file = new Blob([allText], { type: 'text/plain' });
+    const file = new Blob([content], { type: 'text/plain' });
     element.href = URL.createObjectURL(file);
     element.download = `NullAuth_HWID_${Date.now()}.txt`;
     document.body.appendChild(element);
@@ -148,23 +160,15 @@ export function AddHwidModal({
     document.body.removeChild(element);
   };
 
-  const resetForm = () => {
-    setAuthorizedItem(null);
-    setHwid('');
-    setClientName('');
-    setDays(30);
-    setError(null);
-  };
-
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={authorizedItem ? 'HWID Authorized' : 'Authorize Hardware ID'}
-      maxWidth="md"
+      title={authorizedItem ? 'HWID Authorized' : 'Authorize Machine HWID'}
+      maxWidth={authorizedItem ? 'lg' : 'md'}
     >
       {!authorizedItem ? (
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
             <div className="p-3.5 rounded-[10px] bg-red-950/60 border border-red-800/50 text-red-300 text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
@@ -181,53 +185,54 @@ export function AddHwidModal({
               value={selectedAppId}
               onChange={(e) => setAppId(e.target.value)}
               required
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-[10px] px-3.5 py-2.5 text-sm font-semibold text-zinc-100 focus:outline-none focus:border-purple-500"
+              className="w-full modal-input rounded-[10px] px-3.5 py-2.5 text-sm font-semibold text-zinc-100"
             >
-              {hwidApps.length === 0 && <option value="">No HWID-access apps found</option>}
+              {hwidApps.length === 0 && <option value="">No HWID-based applications found</option>}
               {hwidApps.map((app) => (
-                <option key={app.id} value={app.id}>
+                <option key={app.id} value={app.id} className="bg-zinc-900 text-zinc-100">
                   {app.name} ({app.appId})
                 </option>
               ))}
             </select>
             {hwidApps.length === 0 && (
-              <p className="text-xs text-red-400 mt-1.5">
-                Please go to Applications and create an 'HWID Whitelist' type app first.
+              <p className="text-xs text-purple-400 mt-1.5">
+                Please create a 'Hardware ID' (HWID) application first in the Applications tab.
               </p>
             )}
           </div>
 
-          {/* Hardware ID (HWID) Hash Input */}
+          {/* HWID Input */}
           <div>
-            <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">
-              Hardware ID (HWID) Hash *
-            </label>
-            <div className="relative">
-              <input
-                type="text"
-                value={hwid}
-                onChange={(e) => setHwid(e.target.value)}
-                required
-                placeholder="e.g. 43f3ef9ce386ba5ca3a97714c92346a2a4da153e0c1fbbc23e4d75234cdaff4b"
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-[10px] pl-3.5 pr-10 py-2.5 text-sm font-mono text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-purple-500"
-              />
-              <Cpu className="w-4 h-4 text-zinc-600 absolute right-3.5 top-3 pointer-events-none" />
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Cpu className="w-3.5 h-3.5 text-purple-400" />
+                Hardware Identifier (HWID) *
+              </label>
+              <span className="text-[10px] font-mono text-zinc-400">SHA-256 Hash or Raw String</span>
             </div>
-            <p className="text-[11px] text-zinc-500 mt-1.5">
-              Enter the client machine SHA-256 HWID (MachineGuid + Volume Serial). Stored for instant authentication.
+            <textarea
+              rows={2}
+              value={hwid}
+              onChange={(e) => setHwid(e.target.value)}
+              required
+              placeholder="e.g. 43f3ef9ce386ba5ca3a97714c92346a2a4da153e0c1fbbc23e4d75234cdaff4b"
+              className="w-full modal-input rounded-[10px] px-3.5 py-2.5 text-xs font-mono text-purple-300 placeholder-zinc-500 resize-none"
+            />
+            <p className="text-[11px] text-zinc-400 mt-1 flex items-center gap-1">
+              <Terminal className="w-3 h-3 text-purple-400" />
+              Machine SHA-256 identifier generated by official C# / C++ / Python NullAuth SDK.
             </p>
           </div>
 
-          {/* Duration & Expiration Preview Row */}
+          {/* Duration (Days) */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">
                 Duration (Days) *
               </label>
-              <div className="flex items-center gap-1.5 text-[11px] font-mono text-emerald-400">
-                <Clock className="w-3.5 h-3.5 text-emerald-400" />
-                <span>{expirationPreview}</span>
-              </div>
+              <span className="text-xs font-mono font-bold text-purple-300">
+                {expirationPreview}
+              </span>
             </div>
             <input
               type="number"
@@ -235,7 +240,7 @@ export function AddHwidModal({
               value={days}
               onChange={(e) => setDays(parseInt(e.target.value, 10) || 1)}
               required
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-[10px] px-3.5 py-2.5 text-sm font-mono font-bold text-purple-400 focus:outline-none focus:border-purple-500"
+              className="w-full modal-input rounded-[10px] px-3.5 py-2.5 text-sm font-mono font-bold text-purple-300"
             />
           </div>
 
@@ -244,7 +249,7 @@ export function AddHwidModal({
             <span className="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-2">
               Quick Duration Presets
             </span>
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-2">
               {[
                 { label: '1 Day', value: 1 },
                 { label: '7 Days', value: 7 },
@@ -257,11 +262,7 @@ export function AddHwidModal({
                   key={preset.label}
                   type="button"
                   onClick={() => setDays(preset.value)}
-                  className={`px-3 py-1 rounded-[8px] text-xs font-mono font-bold border transition-all ${
-                    days === preset.value
-                      ? 'bg-purple-950 text-purple-300 border-purple-600 shadow-sm'
-                      : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:text-zinc-200 hover:border-zinc-700'
-                  }`}
+                  className={`btn-preset ${days === preset.value ? 'btn-preset-active-purple' : ''}`}
                 >
                   {preset.label}
                 </button>
@@ -279,11 +280,11 @@ export function AddHwidModal({
               value={clientName}
               onChange={(e) => setClientName(e.target.value)}
               placeholder="e.g. John Doe / Office Workstation #12"
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-[10px] px-3.5 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-purple-500 transition-colors"
+              className="w-full modal-input rounded-[10px] px-3.5 py-2.5 text-sm text-zinc-100 placeholder-zinc-500"
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
+          <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
             <Button type="button" variant="secondary" onClick={onClose}>
               Cancel
             </Button>
@@ -291,7 +292,7 @@ export function AddHwidModal({
               type="submit"
               isLoading={isLoading}
               disabled={!selectedAppId || !hwid.trim()}
-              className="gap-2 bg-gradient-to-r from-purple-950 via-purple-900 to-purple-800 hover:from-purple-900 hover:to-purple-700 text-white border border-purple-500/40 shadow-md shadow-purple-950/40"
+              className="gap-2 bg-gradient-to-r from-purple-700 via-purple-600 to-purple-500 hover:from-purple-600 hover:to-purple-400 text-white border border-purple-400/40 shadow-md shadow-purple-950/40"
             >
               <ShieldCheck className="w-4 h-4" />
               Authorize Machine HWID
@@ -320,59 +321,52 @@ export function AddHwidModal({
           </div>
 
           {/* Authorized HWID Detail Box */}
-          <div className="p-4 rounded-[12px] bg-zinc-950 border border-zinc-800 space-y-3">
+          <div className="p-4 rounded-[12px] bg-zinc-950/80 border border-white/10 space-y-3">
             <div>
               <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1.5">
                 Authorized Hardware ID
               </span>
-              <div className="flex items-center justify-between p-2.5 rounded-[8px] bg-zinc-900 border border-zinc-800/80 font-mono text-xs">
+              <div className="flex items-center justify-between p-2.5 rounded-[8px] bg-white/[0.04] border border-white/10 font-mono text-xs">
                 <div className="flex items-center gap-2 overflow-hidden">
                   <Cpu className="w-4 h-4 text-purple-400 shrink-0" />
-                  <span className="text-purple-300 font-bold truncate text-xs" title={authorizedItem.hwid}>
-                    {authorizedItem.hwid}
-                  </span>
+                  <span className="text-purple-300 font-bold truncate select-all">{authorizedItem.hwid}</span>
                 </div>
                 <button
                   onClick={copyHwid}
-                  className="p-1.5 rounded-[6px] bg-zinc-950 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors border border-zinc-800 shrink-0"
+                  className="btn-action ml-2 shrink-0"
                   title="Copy HWID"
                 >
                   {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copied ? 'Copied' : 'Copy'}</span>
                 </button>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 pt-2 border-t border-zinc-900 text-xs">
-              <div>
-                <span className="text-[10px] text-zinc-500 uppercase tracking-wider block">Access Duration</span>
-                <span className="font-semibold text-zinc-200">
-                  {days >= 9999 ? 'Lifetime Access' : `${days} Days`}
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="p-2.5 rounded-[8px] bg-white/[0.04] border border-white/10">
+                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-0.5">
+                  Expiration
+                </span>
+                <span className="text-zinc-200 font-mono font-bold">
+                  {days >= 9999 ? 'Lifetime Access' : new Date(authorizedItem.expiresAt).toLocaleDateString()}
                 </span>
               </div>
-              {authorizedItem.clientName && (
-                <div>
-                  <span className="text-[10px] text-zinc-500 uppercase tracking-wider block">Assigned Client</span>
-                  <span className="font-semibold text-zinc-200 truncate block">
-                    {authorizedItem.clientName}
-                  </span>
-                </div>
-              )}
+              <div className="p-2.5 rounded-[8px] bg-white/[0.04] border border-white/10">
+                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-0.5">
+                  Client Reference
+                </span>
+                <span className="text-zinc-200 font-medium truncate block">
+                  {authorizedItem.clientName || 'None assigned'}
+                </span>
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-2 border-t border-zinc-800">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={resetForm}
-              className="gap-1.5 text-xs"
-            >
-              <Plus className="w-3.5 h-3.5" /> Authorize Another
-            </Button>
+          <div className="flex justify-end pt-2 border-t border-white/10">
             <Button
               variant="secondary"
               onClick={() => {
-                resetForm();
+                setAuthorizedItem(null);
                 onClose();
               }}
             >

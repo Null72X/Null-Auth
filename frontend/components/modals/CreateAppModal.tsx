@@ -62,7 +62,7 @@ export function CreateAppModal({ isOpen, onClose, onSuccess }: CreateAppModalPro
             onChange={(e) => setName(e.target.value)}
             required
             placeholder="e.g. My Custom Tool"
-            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-red-500"
+            className="w-full modal-input rounded-lg px-3.5 py-2.5 text-sm text-zinc-100 placeholder-zinc-500"
           />
         </div>
 
@@ -73,13 +73,13 @@ export function CreateAppModal({ isOpen, onClose, onSuccess }: CreateAppModalPro
           <select
             value={type}
             onChange={(e) => setType(e.target.value as any)}
-            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2.5 text-sm text-zinc-100 focus:outline-none focus:border-red-500"
+            className="w-full modal-input rounded-lg px-3.5 py-2.5 text-sm text-zinc-100"
           >
-            <option value="LICENSE">License Key Authentication (Key + Bound HWID)</option>
-            <option value="HWID">HWID / Identifier Access (Direct Whitelist)</option>
-            <option value="USER_AUTH">Username & Password Mode (Credentials + Bound HWID)</option>
+            <option value="LICENSE" className="bg-zinc-900 text-zinc-100">License Key Authentication (Key + Bound HWID)</option>
+            <option value="HWID" className="bg-zinc-900 text-zinc-100">HWID / Identifier Access (Direct Whitelist)</option>
+            <option value="USER_AUTH" className="bg-zinc-900 text-zinc-100">Username & Password Mode (Credentials + Bound HWID)</option>
           </select>
-          <p className="text-xs text-zinc-400 mt-1.5">
+          <p className="text-xs text-zinc-400 mt-1.5 leading-relaxed">
             {type === 'LICENSE'
               ? 'Users authenticate using generated license keys bound to their machine Hardware ID (HWID) on first activation.'
               : type === 'USER_AUTH'
@@ -88,7 +88,7 @@ export function CreateAppModal({ isOpen, onClose, onSuccess }: CreateAppModalPro
           </p>
         </div>
 
-        <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
+        <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancel
           </Button>

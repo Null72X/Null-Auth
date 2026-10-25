@@ -220,18 +220,18 @@ export function EditAppModal({
 
         {/* Application Name & Mode Badge */}
         <div>
-          <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-            <span>Application Name</span>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Application Name</span>
+            <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-white/[0.08] border border-white/15 text-zinc-300">
               Mode: {app?.type}
             </span>
-          </label>
+          </div>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
-            className="w-full bg-zinc-950 border border-zinc-800 rounded-[10px] px-3.5 py-2.5 text-sm text-zinc-100 focus:outline-none focus:border-red-500 transition-colors"
+            className="w-full modal-input rounded-[10px] px-3.5 py-2.5 text-sm text-zinc-100"
           />
         </div>
 
@@ -246,7 +246,7 @@ export function EditAppModal({
               value={version}
               onChange={(e) => setVersion(e.target.value)}
               required
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-[10px] px-3.5 py-2.5 text-sm font-mono text-zinc-200 focus:outline-none focus:border-red-500 transition-colors"
+              className="w-full modal-input rounded-[10px] px-3.5 py-2.5 text-sm font-mono text-zinc-200"
               placeholder="1.0.0"
             />
           </div>
@@ -259,7 +259,7 @@ export function EditAppModal({
               type="url"
               value={downloadUrl}
               onChange={(e) => setDownloadUrl(e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-[10px] px-3.5 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-red-500 transition-colors"
+              className="w-full modal-input rounded-[10px] px-3.5 py-2.5 text-sm text-zinc-200"
               placeholder="https://example.com/download/update.exe"
             />
           </div>
@@ -276,8 +276,8 @@ export function EditAppModal({
               onClick={() => setStatus('ACTIVE')}
               className={`py-2 px-3 rounded-[8px] text-xs font-bold border transition-all text-center ${
                 status === 'ACTIVE'
-                  ? 'border-emerald-500/50 bg-emerald-950/40 text-emerald-400 ring-1 ring-emerald-500/30'
-                  : 'border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-zinc-700'
+                  ? 'border-emerald-500/70 bg-emerald-950/50 text-emerald-300 ring-1 ring-emerald-500/40 shadow-sm'
+                  : 'border-white/10 bg-white/[0.04] text-zinc-400 hover:border-white/25 hover:text-white'
               }`}
             >
               🟢 Active (Accepting Auth)
@@ -287,8 +287,8 @@ export function EditAppModal({
               onClick={() => setStatus('PAUSED')}
               className={`py-2 px-3 rounded-[8px] text-xs font-bold border transition-all text-center ${
                 status === 'PAUSED'
-                  ? 'border-amber-500/50 bg-amber-950/40 text-amber-400 ring-1 ring-amber-500/30'
-                  : 'border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-zinc-700'
+                  ? 'border-amber-500/70 bg-amber-950/50 text-amber-300 ring-1 ring-amber-500/40 shadow-sm'
+                  : 'border-white/10 bg-white/[0.04] text-zinc-400 hover:border-white/25 hover:text-white'
               }`}
             >
               ⏸️ Paused (Maintenance Mode)
@@ -297,11 +297,11 @@ export function EditAppModal({
         </div>
 
         {/* Free Trial Settings */}
-        <div className="p-3.5 rounded-[10px] bg-zinc-950/80 border border-zinc-800 space-y-3">
+        <div className="p-3.5 rounded-[10px] bg-white/[0.04] border border-white/10 space-y-3">
           <div className="flex items-center justify-between">
             <div>
               <span className="text-xs font-bold text-zinc-200 block">Free Trial Mode</span>
-              <span className="text-[11px] text-zinc-500">
+              <span className="text-[11px] text-zinc-400">
                 {app?.type === 'LICENSE'
                   ? 'Allows instant login via shared master trial key'
                   : app?.type === 'USER_AUTH'
@@ -330,7 +330,7 @@ export function EditAppModal({
                 }
               }}
               className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
-                freeTrialEnabled ? 'bg-red-600' : 'bg-zinc-800'
+                freeTrialEnabled ? 'bg-red-600' : 'bg-zinc-700'
               }`}
             >
               <span
@@ -343,12 +343,12 @@ export function EditAppModal({
 
           {/* Mode-specific Free Trial Configuration */}
           {freeTrialEnabled && app?.type === 'LICENSE' && (
-            <div className="space-y-1.5 pt-1 border-t border-zinc-900">
+            <div className="space-y-1.5 pt-1 border-t border-white/10">
               <label className="block text-[11px] font-semibold text-zinc-300">
                 Master Free Trial License Suffix
               </label>
-              <div className="flex rounded-[8px] overflow-hidden border border-zinc-800 focus-within:border-amber-500">
-                <span className="bg-zinc-800 text-amber-400 font-mono text-xs px-3 py-2 flex items-center select-none font-bold border-r border-zinc-700">
+              <div className="flex rounded-[8px] overflow-hidden border border-white/15 focus-within:border-amber-500">
+                <span className="bg-white/[0.08] text-amber-400 font-mono text-xs px-3 py-2 flex items-center select-none font-bold border-r border-white/15">
                   TRIAL-
                 </span>
                 <input
@@ -357,10 +357,10 @@ export function EditAppModal({
                   onChange={(e) => setTrialSuffix(e.target.value.toUpperCase())}
                   placeholder="e.g. VIP-ACCESS"
                   maxLength={40}
-                  className="flex-1 bg-zinc-900 px-3 py-2 text-xs font-mono text-zinc-100 placeholder-zinc-600 focus:outline-none uppercase"
+                  className="flex-1 bg-zinc-900/95 px-3 py-2 text-xs font-mono text-zinc-100 placeholder-zinc-500 focus:outline-none uppercase"
                 />
               </div>
-              <p className="text-[11px] text-zinc-500">
+              <p className="text-[11px] text-zinc-400">
                 Only the suffix is editable. Full resulting key:{' '}
                 <span className="font-mono text-amber-400 font-semibold">
                   TRIAL-{trialSuffix || '...'}
@@ -370,7 +370,7 @@ export function EditAppModal({
           )}
 
           {freeTrialEnabled && app?.type === 'USER_AUTH' && (
-            <div className="space-y-3 pt-1 border-t border-zinc-900">
+            <div className="space-y-3 pt-1 border-t border-white/10">
               <div>
                 <label className="block text-[11px] font-semibold text-zinc-300 mb-1 flex items-center gap-1.5">
                   <User className="w-3.5 h-3.5 text-cyan-400" /> Free Trial Username
@@ -381,11 +381,8 @@ export function EditAppModal({
                   onChange={(e) => setTrialUsername(e.target.value)}
                   placeholder="e.g. trial_guest"
                   maxLength={32}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-[8px] px-3 py-2 text-xs font-mono text-cyan-300 placeholder-zinc-600 focus:outline-none focus:border-cyan-500"
+                  className="w-full modal-input rounded-[8px] px-3 py-2 text-xs font-mono text-cyan-300 placeholder-zinc-500"
                 />
-                <p className="text-[11px] text-zinc-500 mt-1">
-                  The dedicated username used for free-trial client logins.
-                </p>
               </div>
 
               <div>
@@ -402,19 +399,16 @@ export function EditAppModal({
                         ? 'Leave blank to keep existing password, or enter new password'
                         : 'Enter trial password (min 4 chars)'
                     }
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-[8px] px-3 py-2 text-xs font-mono text-zinc-200 placeholder-zinc-600 pr-10 focus:outline-none focus:border-cyan-500"
+                    className="w-full modal-input rounded-[8px] px-3 py-2 text-xs font-mono text-zinc-200 placeholder-zinc-500 pr-10"
                   />
                   <button
                     type="button"
                     onClick={() => setShowTrialPassword(!showTrialPassword)}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-200"
                   >
                     {showTrialPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                   </button>
                 </div>
-                <p className="text-[11px] text-zinc-500 mt-1">
-                  Secures the free trial account. Verified against the database upon login.
-                </p>
               </div>
             </div>
           )}
@@ -427,7 +421,7 @@ export function EditAppModal({
         </div>
 
         {/* Secret API Key Management */}
-        <div className="p-3.5 rounded-[10px] bg-zinc-950/80 border border-zinc-800 space-y-2">
+        <div className="p-3.5 rounded-[10px] bg-white/[0.04] border border-white/10 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
               <Key className="w-3.5 h-3.5 text-zinc-400" /> Secret API Key
@@ -436,19 +430,19 @@ export function EditAppModal({
               <button
                 type="button"
                 onClick={handleCopySecret}
-                className="px-2 py-1 rounded-[6px] bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white text-[11px] font-mono flex items-center gap-1 border border-zinc-800 transition-all"
+                className="btn-action text-[11px]"
               >
                 {copiedSecret ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                {copiedSecret ? 'Copied' : 'Copy'}
+                <span>{copiedSecret ? 'Copied' : 'Copy'}</span>
               </button>
               <button
                 type="button"
                 onClick={handleRegenerateSecret}
                 disabled={isRegenerating}
-                className="px-2 py-1 rounded-[6px] bg-red-950/40 hover:bg-red-900/60 text-red-400 border border-red-800/60 text-[11px] font-mono flex items-center gap-1 transition-all"
+                className="btn-action btn-action-danger text-[11px]"
               >
                 <RefreshCw className={`w-3 h-3 ${isRegenerating ? 'animate-spin' : ''}`} />
-                Regen
+                <span>Regen</span>
               </button>
             </div>
           </div>
@@ -457,19 +451,19 @@ export function EditAppModal({
               type={showSecret ? 'text' : 'password'}
               value={secret}
               readOnly
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-[8px] px-3 py-2 text-xs font-mono text-zinc-300 pr-10 focus:outline-none"
+              className="w-full modal-input rounded-[8px] px-3 py-2 text-xs font-mono text-zinc-300 pr-10"
             />
             <button
               type="button"
               onClick={() => setShowSecret(!showSecret)}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-200"
             >
               {showSecret ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
             </button>
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 pt-3 border-t border-zinc-800/80">
+        <div className="flex justify-end gap-3 pt-3 border-t border-white/10">
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancel
           </Button>

@@ -13,8 +13,6 @@ import {
   Eye,
   EyeOff,
   RefreshCw,
-  Check,
-  Copy,
   PowerOff,
 } from 'lucide-react';
 
@@ -206,19 +204,19 @@ export function ConfigureTrialModal({
             </p>
 
             <div>
-              <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-                <span>Trial License Suffix</span>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Trial License Suffix</span>
                 <button
                   type="button"
                   onClick={() => setSuffix(generateRandomSuffix())}
-                  className="text-[11px] font-mono text-amber-400 hover:text-amber-300 flex items-center gap-1 transition-colors"
+                  className="btn-action btn-action-amber text-[11px]"
                 >
                   <RefreshCw className="w-3 h-3" /> Randomize
                 </button>
-              </label>
+              </div>
 
-              <div className="flex rounded-[8px] overflow-hidden border border-zinc-800 focus-within:border-amber-500">
-                <span className="bg-zinc-800 text-amber-400 font-mono text-xs px-3 py-2 flex items-center select-none font-bold border-r border-zinc-700">
+              <div className="flex rounded-[8px] overflow-hidden border border-white/15 focus-within:border-amber-500">
+                <span className="bg-white/[0.08] text-amber-400 font-mono text-xs px-3 py-2 flex items-center select-none font-bold border-r border-white/15">
                   TRIAL-
                 </span>
                 <input
@@ -228,7 +226,7 @@ export function ConfigureTrialModal({
                   placeholder="e.g. VIP-ACCESS"
                   maxLength={40}
                   required
-                  className="flex-1 bg-zinc-900 px-3 py-2 text-xs font-mono text-zinc-100 placeholder-zinc-600 focus:outline-none uppercase"
+                  className="flex-1 bg-zinc-900/95 px-3 py-2 text-xs font-mono text-zinc-100 placeholder-zinc-500 focus:outline-none uppercase"
                 />
               </div>
             </div>
@@ -238,7 +236,7 @@ export function ConfigureTrialModal({
               <span className="font-mono text-amber-400 font-bold text-sm tracking-wide">
                 TRIAL-{suffix || '...'}
               </span>
-              <span className="text-[11px] text-zinc-500 block mt-1">
+              <span className="text-[11px] text-zinc-400 block mt-1">
                 Clients using this key bypass single-machine HWID hardware locking.
               </span>
             </div>
@@ -253,18 +251,18 @@ export function ConfigureTrialModal({
             </p>
 
             <div>
-              <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
                   <User className="w-3.5 h-3.5 text-cyan-400" /> Trial Username
                 </span>
                 <button
                   type="button"
                   onClick={() => setUsername(generateRandomUsername())}
-                  className="text-[11px] font-mono text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors"
+                  className="btn-action text-[11px]"
                 >
                   <RefreshCw className="w-3 h-3" /> Randomize
                 </button>
-              </label>
+              </div>
               <input
                 type="text"
                 value={username}
@@ -272,13 +270,13 @@ export function ConfigureTrialModal({
                 placeholder="e.g. trial_guest"
                 maxLength={32}
                 required
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-[8px] px-3 py-2 text-xs font-mono text-cyan-300 placeholder-zinc-600 focus:outline-none focus:border-cyan-500"
+                className="w-full modal-input rounded-[8px] px-3 py-2 text-xs font-mono text-cyan-300 placeholder-zinc-500"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
                   <Key className="w-3.5 h-3.5 text-cyan-400" /> Trial Password
                 </span>
                 <button
@@ -287,11 +285,11 @@ export function ConfigureTrialModal({
                     setPassword(generateRandomPassword());
                     setShowPassword(true);
                   }}
-                  className="text-[11px] font-mono text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors"
+                  className="btn-action text-[11px]"
                 >
                   <RefreshCw className="w-3 h-3" /> Randomize
                 </button>
-              </label>
+              </div>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -299,12 +297,12 @@ export function ConfigureTrialModal({
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter trial password (min 4 chars)"
                   required
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-[8px] px-3 py-2 text-xs font-mono text-zinc-200 placeholder-zinc-600 pr-10 focus:outline-none focus:border-cyan-500"
+                  className="w-full modal-input rounded-[8px] px-3 py-2 text-xs font-mono text-zinc-200 placeholder-zinc-500 pr-10"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-200"
                   title={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -318,19 +316,19 @@ export function ConfigureTrialModal({
               </span>
               <div className="flex items-center gap-3 font-mono text-xs">
                 <div>
-                  <span className="text-zinc-500 text-[10px] block">Username</span>
+                  <span className="text-zinc-400 text-[10px] block">Username</span>
                   <span className="text-white font-bold">{username || '...'}</span>
                 </div>
                 <div>
-                  <span className="text-zinc-500 text-[10px] block">Password</span>
+                  <span className="text-zinc-400 text-[10px] block">Password</span>
                   <span className="text-amber-400 font-bold">{showPassword ? password : '••••••••'}</span>
                 </div>
               </div>
-              <div className="flex items-center justify-between pt-1 border-t border-zinc-800/60">
-                <code className="text-cyan-300 font-mono text-[11px] bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800 select-all">
+              <div className="flex items-center justify-between pt-1 border-t border-white/10">
+                <code className="text-cyan-300 font-mono text-[11px] bg-zinc-950 px-2 py-0.5 rounded border border-white/10 select-all">
                   {username || 'trial_user'}:{password || 'trial123'}
                 </code>
-                <span className="text-[10px] text-zinc-500 italic">Universal multi-device trial</span>
+                <span className="text-[10px] text-zinc-400 italic">Universal multi-device trial</span>
               </div>
             </div>
           </div>
@@ -351,7 +349,7 @@ export function ConfigureTrialModal({
         )}
 
         {/* Trial Duration (Days & Lifetime Presets) */}
-        <div className="p-3.5 rounded-[8px] bg-zinc-900/80 border border-zinc-800 space-y-2.5">
+        <div className="p-3.5 rounded-[8px] bg-white/[0.04] border border-white/10 space-y-2.5">
           <div className="flex items-center justify-between">
             <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider">
               Trial Duration
@@ -367,14 +365,14 @@ export function ConfigureTrialModal({
             value={days}
             onChange={(e) => setDays(Math.max(1, parseInt(e.target.value, 10) || 1))}
             required
-            className="w-full bg-zinc-950 border border-zinc-800 rounded-[8px] px-3 py-2 text-xs font-mono font-bold text-amber-400 focus:outline-none focus:border-amber-500"
+            className="w-full modal-input rounded-[8px] px-3 py-2 text-xs font-mono font-bold text-amber-400"
           />
 
           <div>
             <span className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
               Quick Duration Presets
             </span>
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-2">
               {[
                 { label: '1 Day', value: 1 },
                 { label: '7 Days', value: 7 },
@@ -387,11 +385,7 @@ export function ConfigureTrialModal({
                   key={preset.label}
                   type="button"
                   onClick={() => setDays(preset.value)}
-                  className={`px-2.5 py-1 rounded-[6px] text-xs font-mono font-bold border transition-all ${
-                    days === preset.value
-                      ? 'bg-amber-950 text-amber-400 border-amber-600 shadow-sm'
-                      : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:text-zinc-200 hover:border-zinc-700'
-                  }`}
+                  className={`btn-preset ${days === preset.value ? 'btn-preset-active-amber' : ''}`}
                 >
                   {preset.label}
                 </button>
@@ -401,7 +395,7 @@ export function ConfigureTrialModal({
         </div>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-between pt-3 border-t border-zinc-800/80">
+        <div className="flex items-center justify-between pt-3 border-t border-white/10">
           <div>
             {app.freeTrialEnabled && (
               <Button

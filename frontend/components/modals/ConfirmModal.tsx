@@ -32,7 +32,7 @@ export function ConfirmModal({
           <div>{message}</div>
         </div>
 
-        <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
+        <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
           <Button type="button" variant="secondary" onClick={onClose} disabled={isLoading}>
             Cancel
           </Button>

@@ -101,12 +101,11 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
       method: 'PATCH',
       body: JSON.stringify({ status: newStatus }),
     });
-
     loadRecords();
     onRefreshApps();
   };
 
-  // Ban / Unban record
+  // Ban record
   const handleBanRecord = async (recordId: string, currentStatus: string) => {
     if (!app) return;
     const newStatus = currentStatus === 'BANNED' ? 'ACTIVE' : 'BANNED';
@@ -116,96 +115,72 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
       method: 'PATCH',
       body: JSON.stringify({ status: newStatus }),
     });
-
     loadRecords();
     onRefreshApps();
-  };
-
-  // Extend record days
-  const handleExtendDays = async (recordId: string) => {
-    if (!app) return;
-    const baseEndpoint = app.type === 'LICENSE' ? '/admin/licenses' : app.type === 'USER_AUTH' ? '/admin/users' : '/admin/hwid';
-
-    await fetchApi(`${baseEndpoint}/${recordId}/extend`, {
-      method: 'PATCH',
-      body: JSON.stringify({ days: Number(extendDays) }),
-    });
-
-    setExtendingId(null);
-    loadRecords();
-    onRefreshApps();
-  };
-
-  // Reset bound HWID (License apps only)
-  const handleResetHwid = async (licenseId: string) => {
-    await fetchApi(`/admin/licenses/${licenseId}/reset-hwid`, {
-      method: 'PATCH',
-      body: JSON.stringify({ boundHwid: null }),
-    });
-    loadRecords();
   };
 
   // Delete record
   const handleDeleteRecord = async (recordId: string) => {
-    if (!app) return;
+    if (!confirm('Are you sure you want to permanently delete this authorization record?')) return;
     const baseEndpoint = app.type === 'LICENSE' ? '/admin/licenses' : app.type === 'USER_AUTH' ? '/admin/users' : '/admin/hwid';
 
     await fetchApi(`${baseEndpoint}/${recordId}`, {
       method: 'DELETE',
     });
-
     loadRecords();
     onRefreshApps();
   };
 
-  // Record metrics
-  const metrics = useMemo(() => {
-    const total = records.length;
-    const active = records.filter((r) => (r.effectiveStatus || r.status) === 'ACTIVE').length;
-    const paused = records.filter((r) => (r.effectiveStatus || r.status) === 'PAUSED').length;
-    const expired = records.filter((r) => (r.effectiveStatus || r.status) === 'EXPIRED').length;
-    const banned = records.filter((r) => (r.effectiveStatus || r.status) === 'BANNED').length;
-    return { total, active, paused, expired, banned };
-  }, [records]);
+  // Reset HWID binding
+  const handleResetHwid = async (recordId: string) => {
+    if (!app) return;
+    const baseEndpoint = app.type === 'LICENSE' ? '/admin/licenses' : '/admin/users';
 
-  // Filtered records
+    await fetchApi(`${baseEndpoint}/${recordId}/reset-hwid`, {
+      method: 'POST',
+    });
+    loadRecords();
+  };
+
+  // Extend duration
+  const handleExtendDays = async (recordId: string) => {
+    if (!app) return;
+    const baseEndpoint = app.type === 'LICENSE' ? '/admin/licenses' : app.type === 'USER_AUTH' ? '/admin/users' : '/admin/hwid';
+
+    await fetchApi(`${baseEndpoint}/${recordId}/extend`, {
+      method: 'POST',
+      body: JSON.stringify({ days: extendDays }),
+    });
+    setExtendingId(null);
+    loadRecords();
+    onRefreshApps();
+  };
+
+  // Filtered list
   const filteredRecords = useMemo(() => {
     return records.filter((r) => {
-      const isTrial =
-        r.key?.startsWith('TRIAL-') ||
-        r.key?.startsWith('FREE-TRIAL-') ||
-        r.username?.toLowerCase().startsWith('trial_') ||
-        r.hwidHash === 'FREE-TRIAL-MASTER' ||
-        (r.clientName || r.notes)?.toLowerCase().includes('free trial');
-      if (isTrial) return false;
+      const matchSearch =
+        search === '' ||
+        (r.key && r.key.toLowerCase().includes(search.toLowerCase())) ||
+        (r.username && r.username.toLowerCase().includes(search.toLowerCase())) ||
+        (r.hwid && r.hwid.toLowerCase().includes(search.toLowerCase())) ||
+        (r.hwidHash && r.hwidHash.toLowerCase().includes(search.toLowerCase())) ||
+        (r.clientName && r.clientName.toLowerCase().includes(search.toLowerCase())) ||
+        (r.boundHwid && r.boundHwid.toLowerCase().includes(search.toLowerCase()));
 
-      const query = search.toLowerCase().trim();
-      const effStatus = r.effectiveStatus || r.status;
-      const matchesStatus = statusFilter === 'ALL' || effStatus === statusFilter;
-      if (!matchesStatus) return false;
-
-      if (!query) return true;
-
-      if (app?.type === 'LICENSE') {
-        return (
-          r.key?.toLowerCase().includes(query) ||
-          (r.clientName || r.notes)?.toLowerCase().includes(query) ||
-          r.boundHwid?.toLowerCase().includes(query)
-        );
-      } else if (app?.type === 'USER_AUTH') {
-        return (
-          r.username?.toLowerCase().includes(query) ||
-          (r.clientName || r.notes)?.toLowerCase().includes(query) ||
-          r.boundHwid?.toLowerCase().includes(query)
-        );
-      } else {
-        return (
-          r.hwidHash?.toLowerCase().includes(query) ||
-          (r.clientName || r.notes)?.toLowerCase().includes(query)
-        );
+      let matchStatus = true;
+      if (statusFilter !== 'ALL') {
+        const isExp = r.remainingDays != null && r.remainingDays <= 0;
+        if (statusFilter === 'EXPIRED') {
+          matchStatus = isExp || r.status === 'EXPIRED';
+        } else {
+          matchStatus = r.status === statusFilter && !isExp;
+        }
       }
+
+      return matchSearch && matchStatus;
     });
-  }, [records, search, statusFilter, app]);
+  }, [records, search, statusFilter]);
 
   if (!app) return null;
 
@@ -213,94 +188,62 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`${app.type === 'LICENSE' ? 'License Keys' : 'HWID Whitelists'} — ${app.name}`}
-      maxWidth="6xl"
+      title={`${app.name} — Authorization Records`}
+      maxWidth="3xl"
     >
-      <div className="space-y-5">
-        {/* Metric Summary Header */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-          <div className="p-3 rounded-lg bg-zinc-900/90 border border-zinc-800/80 flex items-center justify-between">
-            <span className="text-zinc-400 font-bold uppercase text-[10px]">Total Records</span>
-            <span className="font-mono font-bold text-white text-sm">{metrics.total}</span>
-          </div>
-
-          <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between">
-            <span className="text-emerald-400 font-bold uppercase text-[10px]">Active</span>
-            <span className="font-mono font-bold text-emerald-400 text-sm">{metrics.active}</span>
-          </div>
-
-          <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-between">
-            <span className="text-amber-400 font-bold uppercase text-[10px]">Expired / Paused</span>
-            <span className="font-mono font-bold text-amber-400 text-sm">{metrics.expired + metrics.paused}</span>
-          </div>
-
-          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-between">
-            <span className="text-red-400 font-bold uppercase text-[10px]">Banned</span>
-            <span className="font-mono font-bold text-red-400 text-sm">{metrics.banned}</span>
-          </div>
-        </div>
-
-        {/* Search & Status Filter Controls */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-zinc-950/80 p-3 rounded-lg border border-zinc-800/80">
-          <div className="relative flex-1 w-full">
-            <Search className="w-4 h-4 text-zinc-500 absolute left-3.5 top-2.5" />
+      <div className="space-y-4">
+        {/* Top Control Bar: Search & Status Filters */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
             <input
               type="text"
-              placeholder={
-                app.type === 'LICENSE'
-                  ? 'Search by license key, bound HWID, or Client Name...'
-                  : 'Search by authorized HWID or Client Name...'
-              }
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-zinc-900/80 border border-zinc-800 rounded-lg pl-10 pr-4 py-2 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-700"
+              placeholder={`Search ${app.type === 'LICENSE' ? 'license keys' : app.type === 'USER_AUTH' ? 'usernames' : 'HWIDs'} or client tags...`}
+              className="w-full modal-input rounded-lg pl-9 pr-3.5 py-2 text-xs text-zinc-100 placeholder-zinc-500"
             />
           </div>
 
-          {/* Status Filter Tabs */}
-          <div className="flex items-center p-1 bg-zinc-900/80 border border-zinc-800 rounded-lg text-[11px] font-semibold shrink-0">
-            {(['ALL', 'ACTIVE', 'PAUSED', 'EXPIRED', 'BANNED'] as const).map((st) => (
+          <div className="flex items-center gap-1 bg-white/[0.04] border border-white/10 p-1 rounded-lg text-xs overflow-x-auto shrink-0">
+            {(['ALL', 'ACTIVE', 'PAUSED', 'EXPIRED', 'BANNED'] as const).map((filter) => (
               <button
-                key={st}
-                onClick={() => setStatusFilter(st)}
-                className={`px-2.5 py-1 rounded-md transition-all ${
-                  statusFilter === st
-                    ? 'bg-zinc-800 text-white shadow-sm font-bold'
-                    : 'text-zinc-400 hover:text-zinc-200'
+                key={filter}
+                onClick={() => setStatusFilter(filter)}
+                className={`px-2.5 py-1 rounded-[6px] text-[11px] font-bold transition-all ${
+                  statusFilter === filter
+                    ? 'bg-red-950/70 text-red-300 border border-red-500/50 shadow-sm'
+                    : 'text-zinc-400 hover:text-white hover:bg-white/[0.06]'
                 }`}
               >
-                {st}
+                {filter}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Advanced Records List Cards Container */}
+        {/* Records Listing */}
         {isLoading ? (
-          <div className="py-14 text-center text-xs text-zinc-500 animate-pulse">
-            Loading records for {app.name}...
+          <div className="p-8 text-center text-xs text-zinc-400 flex items-center justify-center gap-2">
+            <span className="w-4 h-4 rounded-full border-2 border-red-500 border-t-transparent animate-spin" />
+            <span>Loading application records...</span>
           </div>
         ) : filteredRecords.length === 0 ? (
-          <div className="py-14 text-center text-xs text-zinc-500 space-y-2">
-            <p className="font-bold text-zinc-300">No records found matching criteria.</p>
-            <p className="text-[11px] text-zinc-600">
-              {search || statusFilter !== 'ALL'
-                ? 'Try adjusting your search query or status filter.'
-                : 'Generate license keys or authorize HWID users to populate records.'}
-            </p>
+          <div className="p-8 text-center text-xs text-zinc-400 rounded-lg bg-white/[0.02] border border-white/10">
+            No records matched your search or filter.
           </div>
         ) : (
-          <div className="max-h-[460px] overflow-y-auto space-y-2.5 pr-1 custom-scrollbar">
+          <div className="space-y-2.5 max-h-[500px] overflow-y-auto custom-scrollbar pr-1">
             {filteredRecords.map((r) => {
-              const displayVal = app.type === 'LICENSE' ? r.key : app.type === 'USER_AUTH' ? r.username : r.hwidHash;
+              const displayVal = r.key || r.username || r.hwid || r.hwidHash || 'Unknown';
               const isExtending = extendingId === r.id;
-              const effStatus = r.effectiveStatus || r.status;
-              const daysRatio = Math.min(100, Math.max(0, (r.remainingDays / 365) * 100));
+              const isExpired = r.remainingDays != null && r.remainingDays <= 0;
+              const effStatus = isExpired ? 'EXPIRED' : r.status;
 
               return (
                 <div
                   key={r.id}
-                  className="p-3.5 rounded-[10px] bg-zinc-950 border border-zinc-800/90 hover:border-red-500/40 transition-all space-y-3 text-xs shadow-md"
+                  className="p-3.5 rounded-[10px] bg-white/[0.04] border border-white/10 hover:border-red-500/40 transition-all space-y-3 text-xs shadow-md"
                 >
                   {/* Top Bar: Key & Actions */}
                   <div className="flex items-center justify-between gap-3">
@@ -317,7 +260,7 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
                       </span>
                       <button
                         onClick={() => copyToClipboard(displayVal, r.id)}
-                        className="p-1 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors shrink-0 border border-zinc-800"
+                        className="btn-action shrink-0"
                         title="Copy Key / Username / HWID"
                       >
                         {copiedId === r.id ? (
@@ -325,6 +268,7 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
                         ) : (
                           <Copy className="w-3.5 h-3.5" />
                         )}
+                        <span>{copiedId === r.id ? 'Copied' : 'Copy'}</span>
                       </button>
                     </div>
 
@@ -332,20 +276,18 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
                       <Badge status={effStatus} />
 
                       {/* Extend Duration Button */}
-                      <Button
-                        size="sm"
-                        variant="secondary"
+                      <button
                         onClick={() => setExtendingId(isExtending ? null : r.id)}
                         title="Extend License Duration (+Days)"
-                        className="py-1 h-auto text-[11px] font-bold gap-1"
+                        className="btn-action text-[11px]"
                       >
                         <Clock className="w-3 h-3 text-amber-400" /> +Days
-                      </Button>
+                      </button>
 
                       {/* Pause / Resume Button */}
                       <button
                         onClick={() => handleToggleStatus(r.id, r.status)}
-                        className="p-1.5 rounded-[6px] bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors border border-zinc-800"
+                        className="btn-action"
                         title={r.status === 'ACTIVE' ? 'Pause Record' : 'Resume Record'}
                       >
                         {r.status === 'ACTIVE' ? (
@@ -358,7 +300,7 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
                       {/* Ban / Unban Button */}
                       <button
                         onClick={() => handleBanRecord(r.id, r.status)}
-                        className="p-1.5 rounded-[6px] bg-zinc-900 hover:bg-zinc-800 text-red-400 hover:text-red-300 transition-colors border border-zinc-800"
+                        className="btn-action btn-action-danger"
                         title={r.status === 'BANNED' ? 'Unban Record' : 'Ban Record'}
                       >
                         <Ban className="w-3.5 h-3.5" />
@@ -367,7 +309,7 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
                       {/* Delete Button */}
                       <button
                         onClick={() => handleDeleteRecord(r.id)}
-                        className="p-1.5 rounded-[6px] bg-zinc-900 hover:bg-red-950/60 text-zinc-500 hover:text-red-400 transition-colors border border-zinc-800"
+                        className="btn-action btn-action-danger"
                         title="Delete Record"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -377,17 +319,17 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
 
                   {/* Bound HWID Sub-Row (License & User Auth apps) */}
                   {(app.type === 'LICENSE' || app.type === 'USER_AUTH') && (
-                    <div className="flex items-center justify-between text-[11px] text-zinc-400 bg-zinc-900/80 p-2 rounded-[6px] border border-zinc-800/80 font-mono">
+                    <div className="flex items-center justify-between text-[11px] text-zinc-400 bg-white/[0.03] p-2 rounded-[6px] border border-white/10 font-mono">
                       <div className="flex items-center gap-2 truncate">
                         <span className="text-zinc-500 font-bold uppercase text-[9px]">Bound HWID:</span>
-                        <span className={r.boundHwid ? 'text-zinc-200 font-bold truncate' : 'text-zinc-600 italic'}>
+                        <span className={r.boundHwid ? 'text-zinc-200 font-bold truncate' : 'text-zinc-500 italic'}>
                           {r.boundHwid || 'Not yet bound to machine'}
                         </span>
                       </div>
                       {r.boundHwid && (
                         <button
                           onClick={() => handleResetHwid(r.id)}
-                          className="text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1 text-[10px] font-bold shrink-0 ml-2 bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800"
+                          className="btn-action btn-action-amber text-[10px] ml-2 shrink-0"
                           title="Reset Bound HWID"
                         >
                           <RotateCcw className="w-3 h-3" /> Reset HWID
@@ -398,14 +340,14 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
 
                   {/* Extend Days Drawer */}
                   {isExtending && (
-                    <div className="p-3 rounded-[8px] bg-zinc-900 border border-amber-900/50 flex items-center justify-between gap-3 animate-slide-up">
+                    <div className="p-3 rounded-[8px] bg-zinc-900 border border-amber-500/40 flex items-center justify-between gap-3 animate-slide-up">
                       <div className="flex items-center gap-2 text-xs">
                         <span className="text-amber-400 font-bold">Add Days to Duration:</span>
                         <input
                           type="number"
                           value={extendDays}
                           onChange={(e) => setExtendDays(parseInt(e.target.value, 10) || 0)}
-                          className="w-20 bg-zinc-950 border border-zinc-800 rounded px-2 py-1 text-white font-mono text-xs focus:outline-none focus:border-amber-500"
+                          className="w-20 modal-input rounded px-2 py-1 text-white font-mono text-xs"
                         />
                       </div>
                       <div className="flex items-center gap-2">
@@ -429,7 +371,7 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
                   )}
 
                   {/* Footer Meta Row */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[10px] text-zinc-400 border-t border-zinc-900 pt-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[10px] text-zinc-400 border-t border-white/10 pt-2">
                     <div className="flex items-center gap-3">
                       <span>
                         Expires: <strong className="text-zinc-200">{r.remainingDays != null && r.remainingDays >= 9999 ? 'No Expiry' : new Date(r.expiresAt).toLocaleDateString()}</strong>
@@ -442,7 +384,7 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
 
                     <div className="flex items-center gap-2">
                       {(r.clientName || r.notes) && (
-                        <span className="text-zinc-300 font-medium truncate max-w-[180px] bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800 text-[11px]">
+                        <span className="text-zinc-300 font-medium truncate max-w-[180px] bg-white/[0.06] px-2 py-0.5 rounded border border-white/10 text-[11px]">
                           Client: {r.clientName || r.notes}
                         </span>
                       )}
@@ -459,7 +401,7 @@ export function AppRecordsModal({ isOpen, onClose, app, onRefreshApps }: AppReco
           </div>
         )}
 
-        <div className="flex justify-end pt-2 border-t border-zinc-800">
+        <div className="flex justify-end pt-2 border-t border-white/10">
           <Button variant="secondary" onClick={onClose}>
             Close
           </Button>

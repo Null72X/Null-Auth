@@ -254,21 +254,21 @@ export default function DashboardOverviewPage() {
             <Button
               variant="secondary"
               onClick={() => setIsGenerateLicenseOpen(true)}
-              className="gap-1.5 text-xs font-bold border-zinc-800 text-blue-400 hover:text-blue-300 h-8 px-3"
+              className="gap-1.5 text-xs font-bold text-blue-300 hover:text-blue-200 h-8 px-3"
             >
               <Key className="w-3.5 h-3.5" /> License
             </Button>
             <Button
               variant="secondary"
               onClick={() => setIsAddHwidOpen(true)}
-              className="gap-1.5 text-xs font-bold border-zinc-800 text-purple-400 hover:text-purple-300 h-8 px-3"
+              className="gap-1.5 text-xs font-bold text-purple-300 hover:text-purple-200 h-8 px-3"
             >
               <ShieldCheck className="w-3.5 h-3.5" /> HWID
             </Button>
             <Button
               variant="secondary"
               onClick={() => setIsCreateUserOpen(true)}
-              className="gap-1.5 text-xs font-bold border-zinc-800 text-cyan-400 hover:text-cyan-300 h-8 px-3"
+              className="gap-1.5 text-xs font-bold text-cyan-300 hover:text-cyan-200 h-8 px-3"
             >
               <Users className="w-3.5 h-3.5" /> User
             </Button>
@@ -385,11 +385,7 @@ export default function DashboardOverviewPage() {
               <button
                 type="button"
                 onClick={() => setAutoRefresh(!autoRefresh)}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all flex items-center gap-1.5 ${
-                  autoRefresh
-                    ? 'bg-zinc-800 text-zinc-200 border-zinc-700'
-                    : 'bg-zinc-950 text-zinc-500 border-zinc-800'
-                }`}
+                className={autoRefresh ? 'btn-action text-xs text-white' : 'btn-action text-xs text-zinc-400'}
                 title="Toggle 10-second automatic polling"
               >
                 <Clock className="w-3.5 h-3.5" />
@@ -414,7 +410,7 @@ export default function DashboardOverviewPage() {
           {/* Telemetry Summary Stats Strip & Filter Tabs */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-950/60 p-2.5 rounded-lg border border-zinc-800/80">
             {/* Filter Tabs */}
-            <div className="flex items-center p-1 bg-zinc-950 border border-zinc-800 rounded-lg text-xs">
+            <div className="flex items-center p-1 bg-white/[0.04] border border-white/10 rounded-lg text-xs">
               {[
                 { id: 'ALL', label: `All (${logsList.length})` },
                 { id: 'CLIENT', label: 'Client Traffic' },

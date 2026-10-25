@@ -103,7 +103,9 @@ body::before {
 .btn-red-gradient {
   background: var(--accent-gradient);
   box-shadow: 0 4px 14px rgba(220, 38, 38, 0.35);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  user-select: none;
 }
 
 .btn-red-gradient:hover {
@@ -116,6 +118,127 @@ body::before {
   transform: translateY(1px);
 }
 
+/* Standardized High-Contrast Preset Buttons (Modals & Drawers) */
+.btn-preset {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11.5px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #e4e4e7;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  user-select: none;
+}
+
+.btn-preset:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.35);
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.btn-preset:active {
+  transform: translateY(1px);
+}
+
+.btn-preset.active,
+.btn-preset-active {
+  background: rgba(220, 38, 38, 0.28) !important;
+  border-color: rgba(239, 68, 68, 0.75) !important;
+  color: #fca5a5 !important;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.35) !important;
+}
+
+.btn-preset-active-purple {
+  background: rgba(147, 51, 234, 0.28) !important;
+  border-color: rgba(168, 85, 247, 0.75) !important;
+  color: #d8b4fe !important;
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.35) !important;
+}
+
+.btn-preset-active-amber {
+  background: rgba(217, 119, 6, 0.28) !important;
+  border-color: rgba(245, 158, 11, 0.75) !important;
+  color: #fcd34d !important;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.35) !important;
+}
+
+/* Standardized Table & Card Action Buttons */
+.btn-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 5px 8px;
+  min-height: 28px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #e4e4e7;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  user-select: none;
+}
+
+.btn-action:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.35);
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.btn-action:active {
+  transform: translateY(1px);
+}
+
+.btn-action-danger {
+  background: rgba(220, 38, 38, 0.18);
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  color: #fca5a5;
+}
+
+.btn-action-danger:hover {
+  background: rgba(220, 38, 38, 0.32);
+  border-color: rgba(239, 68, 68, 0.7);
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.btn-action-amber {
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #fcd34d;
+}
+
+.btn-action-amber:hover {
+  background: rgba(245, 158, 11, 0.25);
+  border-color: rgba(245, 158, 11, 0.65);
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+/* High-contrast Modal Input & Select fields */
+.modal-input {
+  background: rgba(18, 18, 24, 0.95) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  color: #f8fafc !important;
+  transition: all 0.15s ease-in-out;
+}
+
+.modal-input:focus {
+  border-color: rgba(239, 68, 68, 0.75) !important;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15) !important;
+  outline: none;
+}
+
 /* Logo Badge Dot Glow */
 .logo-badge-dot {
   width: 6px;
@@ -124,7 +247,6 @@ body::before {
   background: var(--accent-red);
   box-shadow: 0 0 8px var(--accent-red);
 }
-
 
 /* Atmospheric Floating Particles & Keyframes */
 @keyframes orbPulse {
@@ -158,7 +280,6 @@ body::before {
 .animate-pulse-glow {
   animation: pulseGlow 3s ease-in-out infinite;
 }
-
 
 /* Ambient Glow Orbs (Exact Null-Gym & Null-Tools Matching) */
 .particles-container {

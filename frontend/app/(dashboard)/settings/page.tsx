@@ -1235,13 +1235,13 @@ export default function SettingsPage() {
       />
 
       {/* Tab Selectors */}
-      <div className="flex items-center gap-1.5 border-b border-zinc-800 pb-3 text-xs flex-wrap">
+      <div className="flex items-center gap-2 border-b border-white/10 pb-3 text-xs flex-wrap">
         <button
           onClick={() => setActiveTab('hwid')}
           className={`flex items-center gap-2 px-3.5 py-2 rounded-lg font-semibold transition-all ${
             activeTab === 'hwid'
-              ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm'
-              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60'
+              ? 'bg-white/[0.14] text-white border border-white/30 shadow-sm'
+              : 'bg-white/[0.04] text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.08] border border-white/10'
           }`}
         >
           <Terminal className="w-4 h-4 text-emerald-400" /> Machine HWID Tool
@@ -1250,8 +1250,8 @@ export default function SettingsPage() {
           onClick={() => setActiveTab('webhook')}
           className={`flex items-center gap-2 px-3.5 py-2 rounded-lg font-semibold transition-all ${
             activeTab === 'webhook'
-              ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm'
-              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60'
+              ? 'bg-white/[0.14] text-white border border-white/30 shadow-sm'
+              : 'bg-white/[0.04] text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.08] border border-white/10'
           }`}
         >
           <Bell className="w-4 h-4 text-indigo-400" /> Discord Webhook
@@ -1260,8 +1260,8 @@ export default function SettingsPage() {
           onClick={() => setActiveTab('sdk')}
           className={`flex items-center gap-2 px-3.5 py-2 rounded-lg font-semibold transition-all ${
             activeTab === 'sdk'
-              ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm'
-              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60'
+              ? 'bg-white/[0.14] text-white border border-white/30 shadow-sm'
+              : 'bg-white/[0.04] text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.08] border border-white/10'
           }`}
         >
           <Code className="w-4 h-4" /> Official Client SDKs
@@ -1270,8 +1270,8 @@ export default function SettingsPage() {
           onClick={() => setActiveTab('api')}
           className={`flex items-center gap-2 px-3.5 py-2 rounded-lg font-semibold transition-all ${
             activeTab === 'api'
-              ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm'
-              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60'
+              ? 'bg-white/[0.14] text-white border border-white/30 shadow-sm'
+              : 'bg-white/[0.04] text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.08] border border-white/10'
           }`}
         >
           <Server className="w-4 h-4" /> Live Endpoints
@@ -1280,8 +1280,8 @@ export default function SettingsPage() {
           onClick={() => setActiveTab('security')}
           className={`flex items-center gap-2 px-3.5 py-2 rounded-lg font-semibold transition-all ${
             activeTab === 'security'
-              ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm'
-              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60'
+              ? 'bg-white/[0.14] text-white border border-white/30 shadow-sm'
+              : 'bg-white/[0.04] text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.08] border border-white/10'
           }`}
         >
           <Lock className="w-4 h-4" /> Admin Security

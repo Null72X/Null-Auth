@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { fetchApi } from '@/lib/api';
-import { Key, Copy, Check, Download, Sparkles, Plus, Clock, Tag } from 'lucide-react';
+import { Key, Copy, Check, Download, Sparkles } from 'lucide-react';
 
 interface AppOption {
   id: string;
@@ -163,11 +163,11 @@ export function CreateLicenseModal({
               value={selectedAppId}
               onChange={(e) => setAppId(e.target.value)}
               required
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-[10px] px-3.5 py-2.5 text-sm font-semibold text-zinc-100 focus:outline-none focus:border-red-500"
+              className="w-full modal-input rounded-[10px] px-3.5 py-2.5 text-sm font-semibold text-zinc-100"
             >
               {licenseApps.length === 0 && <option value="">No License-based apps found</option>}
               {licenseApps.map((app) => (
-                <option key={app.id} value={app.id}>
+                <option key={app.id} value={app.id} className="bg-zinc-900 text-zinc-100">
                   {app.name} ({app.appId})
                 </option>
               ))}
@@ -190,7 +190,7 @@ export function CreateLicenseModal({
               value={days}
               onChange={(e) => setDays(parseInt(e.target.value, 10) || 1)}
               required
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-[10px] px-3.5 py-2.5 text-sm font-mono font-bold text-amber-400 focus:outline-none focus:border-red-500"
+              className="w-full modal-input rounded-[10px] px-3.5 py-2.5 text-sm font-mono font-bold text-amber-400"
             />
           </div>
 
@@ -199,7 +199,7 @@ export function CreateLicenseModal({
             <span className="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-2">
               Quick Duration Presets
             </span>
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-2">
               {[
                 { label: '1 Day', value: 1 },
                 { label: '7 Days', value: 7 },
@@ -212,11 +212,7 @@ export function CreateLicenseModal({
                   key={preset.label}
                   type="button"
                   onClick={() => setDays(preset.value)}
-                  className={`px-3 py-1 rounded-[8px] text-xs font-mono font-bold border transition-all ${
-                    days === preset.value
-                      ? 'bg-red-950 text-red-400 border-red-700 shadow-sm'
-                      : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:text-zinc-200 hover:border-zinc-700'
-                  }`}
+                  className={`btn-preset ${days === preset.value ? 'active' : ''}`}
                 >
                   {preset.label}
                 </button>
@@ -234,11 +230,11 @@ export function CreateLicenseModal({
               value={clientName}
               onChange={(e) => setClientName(e.target.value)}
               placeholder="e.g. John Doe / discord_user / Order #104"
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-[10px] px-3.5 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-red-500 transition-colors"
+              className="w-full modal-input rounded-[10px] px-3.5 py-2.5 text-sm text-zinc-100 placeholder-zinc-500"
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
+          <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
             <Button type="button" variant="secondary" onClick={onClose}>
               Cancel
             </Button>
@@ -274,25 +270,26 @@ export function CreateLicenseModal({
           </div>
 
           {/* Keys Batch List Box */}
-          <div className="p-4 rounded-[12px] bg-zinc-950 border border-zinc-800 space-y-2 max-h-[320px] overflow-y-auto custom-scrollbar">
+          <div className="p-4 rounded-[12px] bg-zinc-950/80 border border-white/10 space-y-2 max-h-[320px] overflow-y-auto custom-scrollbar">
             {generatedBatch.map((l) => (
               <div
                 key={l.id}
-                className="flex items-center justify-between p-2.5 rounded-[8px] bg-zinc-900 border border-zinc-800/80 font-mono text-xs hover:border-red-500/40 transition-all"
+                className="flex items-center justify-between p-2.5 rounded-[8px] bg-white/[0.04] border border-white/10 font-mono text-xs hover:border-red-500/40 transition-all"
               >
                 <span className="text-red-400 font-bold text-sm tracking-wide">{l.key}</span>
                 <button
                   onClick={() => copyIndividualKey(l.key)}
-                  className="p-1.5 rounded-[6px] bg-zinc-950 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors border border-zinc-800"
+                  className="btn-action"
                   title="Copy Key"
                 >
                   {copiedKey === l.key ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedKey === l.key ? 'Copied' : 'Copy'}</span>
                 </button>
               </div>
             ))}
           </div>
 
-          <div className="flex justify-end pt-2 border-t border-zinc-800">
+          <div className="flex justify-end pt-2 border-t border-white/10">
             <Button
               variant="secondary"
               onClick={() => {

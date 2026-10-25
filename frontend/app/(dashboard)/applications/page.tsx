@@ -459,12 +459,12 @@ export default function ApplicationsPage() {
 
           {/* Filter Pills */}
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center p-1 bg-zinc-950 border border-zinc-800 rounded-[7px] text-xs">
+            <div className="flex items-center p-1 bg-white/[0.04] border border-white/10 rounded-[8px] text-xs">
               <button
                 onClick={() => setStatusFilter('ALL')}
                 className={`px-3 py-1 rounded-[5px] font-semibold transition-all ${
                   statusFilter === 'ALL'
-                    ? 'bg-zinc-800 text-white shadow-sm'
+                    ? 'bg-white/[0.14] text-white shadow-sm border border-white/20'
                     : 'text-zinc-400 hover:text-zinc-200'
                 }`}
               >
@@ -492,12 +492,12 @@ export default function ApplicationsPage() {
               </button>
             </div>
 
-            <div className="flex items-center p-1 bg-zinc-950 border border-zinc-800 rounded-[7px] text-xs">
+            <div className="flex items-center p-1 bg-white/[0.04] border border-white/10 rounded-[8px] text-xs">
               <button
                 onClick={() => setTypeFilter('ALL')}
                 className={`px-3 py-1 rounded-[5px] font-semibold transition-all ${
                   typeFilter === 'ALL'
-                    ? 'bg-zinc-800 text-white shadow-sm'
+                    ? 'bg-white/[0.14] text-white shadow-sm border border-white/20'
                     : 'text-zinc-400 hover:text-zinc-200'
                 }`}
               >
@@ -536,13 +536,13 @@ export default function ApplicationsPage() {
             </div>
 
             {/* View Mode: Grid vs Table */}
-            <div className="flex items-center p-1 bg-zinc-950 border border-zinc-800 rounded-[7px] text-xs">
+            <div className="flex items-center p-1 bg-white/[0.04] border border-white/10 rounded-[8px] text-xs">
               <button
                 type="button"
                 onClick={() => switchViewMode('grid')}
                 className={`flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] font-semibold transition-all ${
                   viewMode === 'grid'
-                    ? 'bg-zinc-800 text-white shadow-sm'
+                    ? 'bg-white/[0.14] text-white shadow-sm border border-white/20'
                     : 'text-zinc-400 hover:text-zinc-200'
                 }`}
                 title="Card Grid View"
@@ -555,7 +555,7 @@ export default function ApplicationsPage() {
                 onClick={() => switchViewMode('table')}
                 className={`flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] font-semibold transition-all ${
                   viewMode === 'table'
-                    ? 'bg-zinc-800 text-white shadow-sm'
+                    ? 'bg-white/[0.14] text-white shadow-sm border border-white/20'
                     : 'text-zinc-400 hover:text-zinc-200'
                 }`}
                 title="Compact Table View"
@@ -665,7 +665,7 @@ export default function ApplicationsPage() {
                           <span className="text-red-400 font-bold truncate">{app.appId}</span>
                           <button
                             onClick={() => copyAppId(app.appId)}
-                            className="p-1 rounded bg-zinc-950 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors border border-zinc-800 shrink-0"
+                            className="btn-action shrink-0"
                             title="Copy App ID"
                           >
                             {copiedAppId === app.appId ? (
@@ -689,7 +689,7 @@ export default function ApplicationsPage() {
                           <button
                             type="button"
                             onClick={() => toggleRevealSecret(app.id)}
-                            className="p-1 rounded bg-zinc-950 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors border border-zinc-800 shrink-0"
+                            className="btn-action shrink-0"
                             title={isSecretRevealed ? 'Hide Secret' : 'Reveal Secret'}
                           >
                             {isSecretRevealed ? (
@@ -701,7 +701,7 @@ export default function ApplicationsPage() {
                           <button
                             type="button"
                             onClick={() => copySecret(app.secret)}
-                            className="p-1 rounded bg-zinc-950 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors border border-zinc-800 shrink-0"
+                            className="btn-action shrink-0"
                             title="Copy Secret Key"
                           >
                             {copiedSecret === app.secret ? (
@@ -844,56 +844,47 @@ export default function ApplicationsPage() {
                       )}
 
                       {/* View Records Button */}
-                      <Button
-                        variant="secondary"
-                        size="sm"
+                      <button
                         onClick={() => setRecordsApp(app)}
-                        className="h-8 gap-1.5 text-xs font-bold justify-center text-amber-400 border-zinc-800 hover:border-amber-500/40"
+                        className="btn-action btn-action-amber h-8 px-3 text-xs font-bold justify-center"
                         title="View All Records"
                       >
                         <ListFilter className="w-3.5 h-3.5 shrink-0" />
                         <span className="truncate">Records ({app.totalUsers})</span>
-                      </Button>
+                      </button>
                     </div>
 
                     {/* Secondary Action Row */}
                     <div className="flex items-center justify-between gap-1 pt-1 text-xs">
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="secondary"
-                          size="sm"
+                      <div className="flex items-center gap-1.5">
+                        <button
                           onClick={() => setSnippetApp(app)}
-                          className="h-7 px-2 text-xs border-zinc-800 hover:border-red-500/40 text-zinc-300 hover:text-white"
+                          className="btn-action text-xs"
                           title="Developer SDK Integration Snippets"
                         >
-                          <Code className="w-3 h-3 mr-1 text-red-400" /> SDK
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
+                          <Code className="w-3 h-3 text-red-400" />
+                          <span>SDK</span>
+                        </button>
+                        <button
                           onClick={() => setSelectedAppSecret(app)}
-                          className="h-7 px-2 text-xs border-zinc-800"
+                          className="btn-action text-xs"
                           title="View Full Credentials & Keys"
                         >
                           <Key className="w-3 h-3" />
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
+                        </button>
+                        <button
                           onClick={() => setAppToEdit(app)}
-                          className="h-7 px-2 text-xs border-zinc-800"
+                          className="btn-action text-xs"
                           title="Application Settings"
                         >
                           <Settings2 className="w-3 h-3" />
-                        </Button>
+                        </button>
                       </div>
 
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant={app.status === 'ACTIVE' ? 'secondary' : 'primary'}
-                          size="sm"
+                      <div className="flex items-center gap-1.5">
+                        <button
                           onClick={() => handleToggleStatus(app)}
-                          className="h-7 px-2"
+                          className={app.status === 'ACTIVE' ? 'btn-action text-xs' : 'btn-action btn-action-amber text-xs'}
                           title={app.status === 'ACTIVE' ? 'Pause Application' : 'Activate Application'}
                         >
                           {app.status === 'ACTIVE' ? (
@@ -901,16 +892,14 @@ export default function ApplicationsPage() {
                           ) : (
                             <Play className="w-3 h-3 text-emerald-400" />
                           )}
-                        </Button>
-                        <Button
-                          variant="danger"
-                          size="sm"
+                        </button>
+                        <button
                           onClick={() => setAppToDelete(app)}
-                          className="h-7 px-2"
+                          className="btn-action btn-action-danger text-xs"
                           title="Delete Application"
                         >
                           <Trash2 className="w-3 h-3" />
-                        </Button>
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -1067,48 +1056,42 @@ export default function ApplicationsPage() {
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           {/* SDK Code Snippet */}
-                          <Button
-                            variant="secondary"
-                            size="sm"
+                          <button
                             onClick={() => setSnippetApp(app)}
-                            className="h-7 px-2 text-xs border-zinc-800 hover:border-red-500/40 text-zinc-200 hover:text-white"
+                            className="btn-action text-xs"
                             title="Developer SDK Integration Snippets"
                           >
-                            <Code className="w-3 h-3 text-red-400 mr-1" /> SDK
-                          </Button>
+                            <Code className="w-3 h-3 text-red-400" />
+                            <span>SDK</span>
+                          </button>
 
                           {/* Records */}
-                          <Button
-                            variant="secondary"
-                            size="sm"
+                          <button
                             onClick={() => setRecordsApp(app)}
-                            className="h-7 px-2 text-xs border-zinc-800 hover:border-amber-500/40 text-amber-400 font-mono"
+                            className="btn-action btn-action-amber text-xs font-mono font-bold"
                             title={app.type === 'LICENSE' ? 'Show All Licenses' : 'Show All HWID Whitelists'}
                           >
-                            <ListFilter className="w-3 h-3 mr-1" /> {app.totalUsers}
-                          </Button>
+                            <ListFilter className="w-3 h-3" />
+                            <span>{app.totalUsers}</span>
+                          </button>
 
                           {/* Edit Modal */}
-                          <Button
-                            variant="secondary"
-                            size="sm"
+                          <button
                             onClick={() => setAppToEdit(app)}
-                            className="h-7 px-2 text-xs"
+                            className="btn-action text-xs"
                             title="Edit Application Settings"
                           >
                             <Settings2 className="w-3 h-3" />
-                          </Button>
+                          </button>
 
                           {/* Delete */}
-                          <Button
-                            variant="danger"
-                            size="sm"
+                          <button
                             onClick={() => setAppToDelete(app)}
-                            className="h-7 px-2 text-xs"
+                            className="btn-action btn-action-danger text-xs"
                             title="Delete Application"
                           >
                             <Trash2 className="w-3 h-3" />
-                          </Button>
+                          </button>
                         </div>
                       </td>
                     </tr>

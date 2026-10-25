@@ -78,7 +78,7 @@ export default function LoginPage() {
                 onChange={(e) => setUsername(e.target.value)}
                 required
                 placeholder="Enter username (e.g. NULL)"
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-[7px] pl-10 pr-4 py-3 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-red-500/80 focus:ring-1 focus:ring-red-500/80 transition-all"
+                className="w-full modal-input rounded-[7px] pl-10 pr-4 py-3 text-sm text-zinc-100 placeholder-zinc-500"
               />
             </div>
           </div>
@@ -97,7 +97,7 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 placeholder="••••••••••••"
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-[7px] pl-10 pr-4 py-3 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-red-500/80 focus:ring-1 focus:ring-red-500/80 transition-all"
+                className="w-full modal-input rounded-[7px] pl-10 pr-4 py-3 text-sm text-zinc-100 placeholder-zinc-500"
               />
             </div>
           </div>
